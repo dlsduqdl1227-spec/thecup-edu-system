@@ -1,0 +1,1 @@
+ALTER TABLE `staff` ADD `deleted_at` text;

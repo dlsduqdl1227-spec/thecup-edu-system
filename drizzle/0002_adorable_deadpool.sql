@@ -1,0 +1,1 @@
+ALTER TABLE `inventory_movements` ADD `receipt_deleted_at` text;

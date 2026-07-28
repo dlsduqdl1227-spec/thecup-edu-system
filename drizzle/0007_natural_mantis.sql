@@ -1,0 +1,1 @@
+ALTER TABLE `roasting_profiles` ADD `turning_point_seconds` integer;
