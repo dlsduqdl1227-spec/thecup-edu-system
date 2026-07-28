@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX `movements_receipt_key_idx` ON `inventory_movements` (`receipt_key`);
