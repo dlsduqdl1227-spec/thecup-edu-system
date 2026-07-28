@@ -1700,6 +1700,7 @@ function RoastFollowGuide({ profile }: { profile: RoastProfile }) {
   const turning = roastPointAt(profile.points, profile.turningPointSeconds, { beanTemp: 0, gasPressure: 0 });
   const firstCrack = roastPointAt(profile.points, profile.firstCrackSeconds, { beanTemp: 0, gasPressure: 0 });
   const finish = roastPointAt(profile.points, profile.totalSeconds, { beanTemp: profile.dropTemp, gasPressure: 0 });
+  const gasAdjustments = getGasAdjustments(profile.points, profile.totalSeconds);
   const steps = [
     { label: "투입", description: "예열한 로스터에 원두를 넣는 시작 시점", seconds: 0, point: charge },
     { label: "터닝포인트", description: "온도가 가장 낮아졌다가 다시 오르기 시작하는 시점", seconds: profile.turningPointSeconds, point: turning },
@@ -1711,7 +1712,7 @@ function RoastFollowGuide({ profile }: { profile: RoastProfile }) {
     <section className="roast-follow-guide" aria-labelledby="roast-follow-title">
       <div className="roast-follow-heading">
         <div><span className="eyebrow">한눈에 따라하기</span><h3 id="roast-follow-title">이 순서대로 확인하세요</h3></div>
-        <p>시간이 되면 온도와 가스 압력을 맞추고 다음 단계로 진행합니다.</p>
+        <p>주요 시점과 실제 화력 변경 기록을 함께 보면서 진행하세요.</p>
       </div>
       <div className="roast-step-list">
         {steps.map((step, index) => (
@@ -1725,6 +1726,39 @@ function RoastFollowGuide({ profile }: { profile: RoastProfile }) {
             </dl>
           </article>
         ))}
+      </div>
+      <div className="roast-gas-guide">
+        <div className="roast-gas-heading">
+          <div>
+            <span>실제 화력 조절 기록</span>
+            <h4>가스를 바꾼 순간만 시간순으로 표시합니다</h4>
+          </div>
+          <strong>{gasAdjustments.length}개 기록</strong>
+        </div>
+        {gasAdjustments.length ? (
+          <ol className="roast-gas-list">
+            {gasAdjustments.map((adjustment) => {
+              const isStart = adjustment.previousGasPressure === null;
+              const increased = !isStart && adjustment.gasPressure > adjustment.previousGasPressure!;
+              const action = isStart ? "시작 화력" : increased ? "화력 높임" : "화력 낮춤";
+              return (
+                <li key={`${adjustment.seconds}-${adjustment.gasPressure}`}>
+                  <time>{formatTime(adjustment.seconds)}</time>
+                  <div className="roast-gas-action">
+                    <strong>{action}</strong>
+                    <span>원두 온도 {number.format(adjustment.beanTemp)}℃</span>
+                  </div>
+                  <div className="roast-gas-pressure">
+                    {!isStart && <small>{formatGasPressure(adjustment.previousGasPressure!)} →</small>}
+                    <strong>{formatGasPressure(adjustment.gasPressure)}</strong>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className="roast-gas-empty">저장된 화력 조절 기록이 없습니다.</p>
+        )}
       </div>
     </section>
   );
@@ -2783,6 +2817,31 @@ function roastPointAt(
   if (exact) return { beanTemp: exact.beanTemp, gasPressure: exact.gasPressure };
   if (points.length < 2) return fallback;
   return interpolateRoastPoint(points, seconds);
+}
+
+type GasAdjustment = RoastPoint & { previousGasPressure: number | null };
+
+function getGasAdjustments(points: RoastPoint[], totalSeconds: number): GasAdjustment[] {
+  const pointsBySecond = new Map<number, RoastPoint>();
+  [...points]
+    .filter((point) => (
+      [point.seconds, point.beanTemp, point.gasPressure].every(Number.isFinite)
+      && point.seconds >= 0
+      && point.seconds <= totalSeconds
+    ))
+    .sort((left, right) => left.seconds - right.seconds)
+    .forEach((point) => pointsBySecond.set(point.seconds, point));
+
+  const ordered = [...pointsBySecond.values()];
+  return ordered.reduce<GasAdjustment[]>((adjustments, point, index) => {
+    const previous = ordered[index - 1];
+    if (previous && Math.abs(point.gasPressure - previous.gasPressure) < 0.001) return adjustments;
+    adjustments.push({
+      ...point,
+      previousGasPressure: previous?.gasPressure ?? null,
+    });
+    return adjustments;
+  }, []);
 }
 
 function interpolateRoastPoint(

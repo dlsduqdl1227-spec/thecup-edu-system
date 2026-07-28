@@ -1935,6 +1935,108 @@ td.expense {
   font-weight: 800;
 }
 
+.roast-gas-guide {
+  border-top: 1px solid var(--line);
+  background: #f5f5f5;
+  padding: 20px;
+}
+
+.roast-gas-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 13px;
+}
+
+.roast-gas-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.roast-gas-heading h4 {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+
+.roast-gas-heading > strong {
+  flex: none;
+  border: 1px solid var(--line);
+  background: var(--white);
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.roast-gas-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.roast-gas-list li {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  background: var(--white);
+  padding: 13px 15px;
+}
+
+.roast-gas-list time {
+  font-size: 15px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.roast-gas-action {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roast-gas-action strong {
+  font-size: 14px;
+}
+
+.roast-gas-action span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.roast-gas-pressure {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 7px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.roast-gas-pressure small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.roast-gas-pressure strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.roast-gas-empty {
+  margin: 0;
+  border: 1px solid var(--line);
+  background: var(--white);
+  padding: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .curve-wrap {
   position: relative;
   border: 1px solid var(--line);
@@ -3472,6 +3574,7 @@ td,
 
   .roast-follow-heading p {
     max-width: none;
+    font-size: 14px;
   }
 
   .roast-step-list {
@@ -3490,6 +3593,85 @@ td,
 
   .roast-step-copy p {
     min-height: 0;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+
+  .roast-follow-heading {
+    padding: 19px 17px;
+  }
+
+  .roast-follow-heading h3 {
+    font-size: 22px;
+    line-height: 1.3;
+  }
+
+  .roast-step-card {
+    padding: 18px 17px;
+  }
+
+  .roast-step-number,
+  .roast-step-card dt {
+    font-size: 13px;
+  }
+
+  .roast-step-copy h4 {
+    font-size: 18px;
+  }
+
+  .roast-step-card dd {
+    font-size: 16px;
+  }
+
+  .roast-gas-guide {
+    padding: 18px 12px;
+  }
+
+  .roast-gas-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 5px;
+  }
+
+  .roast-gas-heading span,
+  .roast-gas-heading > strong {
+    font-size: 13px;
+  }
+
+  .roast-gas-heading h4 {
+    font-size: 18px;
+    line-height: 1.45;
+  }
+
+  .roast-gas-list li {
+    grid-template-columns: 76px minmax(0, 1fr) auto;
+    gap: 10px;
+    min-height: 74px;
+    padding: 13px 12px;
+  }
+
+  .roast-gas-list time {
+    font-size: 15px;
+  }
+
+  .roast-gas-action strong {
+    font-size: 15px;
+  }
+
+  .roast-gas-action span,
+  .roast-gas-pressure small {
+    font-size: 12px;
+  }
+
+  .roast-gas-pressure {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .roast-gas-pressure strong {
+    font-size: 18px;
   }
 
   .curve-legend {
@@ -3588,6 +3770,33 @@ td,
   }
 
   .chart-point-list strong {
+    font-size: 14px;
+  }
+
+  .profile-hero h2 {
+    font-size: 30px;
+  }
+
+  .profile-hero p {
+    font-size: 14px;
+  }
+
+  .curve-heading strong {
+    font-size: 16px;
+  }
+
+  .curve-heading > div:first-child span,
+  .curve-legend {
+    font-size: 13px;
+  }
+
+  .metric strong,
+  .ror-grid strong {
+    font-size: 20px;
+  }
+
+  .ror-grid small,
+  .profile-notes p {
     font-size: 14px;
   }
 

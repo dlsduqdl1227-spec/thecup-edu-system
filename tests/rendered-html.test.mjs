@@ -41,6 +41,10 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /자동 계산 디벨롭/);
   assert.match(app, /터닝포인트/);
   assert.match(app, /한눈에 따라하기/);
+  assert.match(app, /실제 화력 조절 기록/);
+  assert.match(app, /getGasAdjustments/);
+  assert.match(app, /화력 높임/);
+  assert.match(app, /화력 낮춤/);
   assert.match(app, /RoastFlowCard/);
   assert.match(app, /StableNumberInput/);
   assert.match(app, /실제 로스팅 순서대로/);
@@ -124,6 +128,9 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.roast-flow-card/);
   assert.match(styles, /\.roast-follow-guide/);
   assert.match(styles, /\.roast-step-card/);
+  assert.match(styles, /\.roast-gas-guide/);
+  assert.match(styles, /\.roast-gas-list/);
+  assert.match(styles, /\.roast-gas-pressure/);
   assert.match(styles, /\.copy-profile-notice/);
   assert.match(styles, /\.live-development/);
   assert.match(styles, /body \{[\s\S]*?font-size: 16px/);
