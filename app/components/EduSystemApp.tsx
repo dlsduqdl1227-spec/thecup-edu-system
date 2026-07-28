@@ -32,6 +32,10 @@ type User = {
 type FinanceMonth = {
   year: number;
   month: number;
+  baseRevenue: number;
+  baseExpense: number;
+  additionalIncome: number;
+  additionalExpense: number;
   revenue: number;
   expense: number;
   profit: number;
@@ -569,7 +573,14 @@ function AuthScreen({
 function DashboardView({ data }: { data: DashboardData }) {
   const availableYears = [...new Set(data.finance.map((row) => row.year))].sort((a, b) => b - a);
   const latestYear = availableYears[0] ?? new Date().getFullYear();
+  const defaultMonthForYear = (selectedYear: number) => {
+    const recordedMonths = data.finance
+      .filter((row) => row.year === selectedYear && (row.revenue !== 0 || row.expense !== 0))
+      .map((row) => row.month);
+    return Math.max(1, ...recordedMonths);
+  };
   const [year, setYear] = useState(latestYear);
+  const [month, setMonth] = useState(defaultMonthForYear(latestYear));
   const rows = data.finance.filter((row) => row.year === year);
   const includedRows = year === latestYear
     ? rows.filter((row) => row.revenue !== 0 || row.expense !== 0)
@@ -586,6 +597,27 @@ function DashboardView({ data }: { data: DashboardData }) {
     null,
   );
   const lowStock = data.inventory.filter((item) => item.lowStock);
+  const selectedMonth = rows.find((row) => row.month === month) ?? {
+    year,
+    month,
+    baseRevenue: 0,
+    baseExpense: 0,
+    additionalIncome: 0,
+    additionalExpense: 0,
+    revenue: 0,
+    expense: 0,
+    profit: 0,
+    note: "",
+    source: "",
+  };
+  const selectedMonthMargin = selectedMonth.revenue
+    ? (selectedMonth.profit / selectedMonth.revenue) * 100
+    : 0;
+  const selectedMonthTransactions = data.transactions.filter((entry) => {
+    const [entryYear, entryMonth] = entry.transactionDate.split("-").map(Number);
+    return entryYear === year && entryMonth === month;
+  });
+  const selectedMonthHasData = selectedMonth.revenue !== 0 || selectedMonth.expense !== 0;
 
   return (
     <section className="page-section">
@@ -595,7 +627,15 @@ function DashboardView({ data }: { data: DashboardData }) {
         description="2022년부터 현재까지의 월별 매출, 비용과 순익을 확인합니다."
         action={
           <div className="page-action-group">
-            <select value={year} onChange={(event) => setYear(Number(event.target.value))} aria-label="분석 연도">
+            <select
+              value={year}
+              onChange={(event) => {
+                const nextYear = Number(event.target.value);
+                setYear(nextYear);
+                setMonth(defaultMonthForYear(nextYear));
+              }}
+              aria-label="분석 연도"
+            >
               {availableYears.map((value) => <option key={value} value={value}>{value}년</option>)}
             </select>
             <a className="export-button" href="/api/exports/finance">전체 매출 Excel</a>
@@ -614,6 +654,95 @@ function DashboardView({ data }: { data: DashboardData }) {
         />
         <KpiCard label="최고 매출 월" value={best ? `${best.month}월` : "—"} meta={best ? won.format(best.revenue) : "데이터 없음"} />
       </div>
+
+      <article className="panel monthly-detail-panel">
+        <div className="monthly-detail-heading">
+          <div>
+            <span className="eyebrow">월별 상세</span>
+            <h3>{year}년 {month}월 매출 내역</h3>
+          </div>
+          <strong className={selectedMonthHasData ? "month-status complete" : "month-status"}>
+            {selectedMonthHasData ? "집계 완료" : "집계 전"}
+          </strong>
+        </div>
+
+        <div className="month-tabs" role="tablist" aria-label={`${year}년 월 선택`}>
+          {rows.map((row) => {
+            const active = row.month === month;
+            const hasData = row.revenue !== 0 || row.expense !== 0;
+            return (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls="monthly-detail-content"
+                className={`${active ? "active" : ""}${hasData ? "" : " empty"}`}
+                key={row.month}
+                onClick={() => setMonth(row.month)}
+              >
+                {row.month}월
+              </button>
+            );
+          })}
+        </div>
+
+        <div id="monthly-detail-content" className="monthly-detail-content" role="tabpanel">
+          <div className="monthly-summary-grid">
+            <div><span>매출</span><strong>{won.format(selectedMonth.revenue)}</strong></div>
+            <div><span>지출</span><strong>{won.format(selectedMonth.expense)}</strong></div>
+            <div><span>순익</span><strong>{won.format(selectedMonth.profit)}</strong></div>
+            <div><span>순익률</span><strong>{selectedMonth.revenue ? `${selectedMonthMargin.toFixed(1)}%` : "—"}</strong></div>
+          </div>
+
+          <div className="monthly-breakdown-grid">
+            <section className="monthly-breakdown" aria-labelledby="monthly-breakdown-title">
+              <div className="monthly-subheading">
+                <h4 id="monthly-breakdown-title">월 집계 구성</h4>
+                <span>CSV 기준 + 추가 등록</span>
+              </div>
+              <dl>
+                <div><dt>CSV 기준 매출</dt><dd>{won.format(selectedMonth.baseRevenue)}</dd></div>
+                <div><dt>추가 등록 매출</dt><dd>{won.format(selectedMonth.additionalIncome)}</dd></div>
+                <div><dt>CSV 기준 지출</dt><dd>{won.format(selectedMonth.baseExpense)}</dd></div>
+                <div><dt>추가 등록 지출</dt><dd>{won.format(selectedMonth.additionalExpense)}</dd></div>
+              </dl>
+              {(selectedMonth.note || selectedMonth.source) && (
+                <div className="monthly-source-note">
+                  {selectedMonth.note && <strong>{selectedMonth.note}</strong>}
+                  {selectedMonth.source && <span>{selectedMonth.source}</span>}
+                </div>
+              )}
+            </section>
+
+            <section className="monthly-transactions" aria-labelledby="monthly-transactions-title">
+              <div className="monthly-subheading">
+                <h4 id="monthly-transactions-title">추가 등록 내역</h4>
+                <span>{selectedMonthTransactions.length}건</span>
+              </div>
+              {selectedMonthTransactions.length ? (
+                <div className="monthly-transaction-list">
+                  {selectedMonthTransactions.map((entry) => (
+                    <article key={entry.id}>
+                      <time>{entry.transactionDate}</time>
+                      <div>
+                        <strong>{entry.category}</strong>
+                        <span>{entry.description || `${entry.createdByName} 등록`}</span>
+                      </div>
+                      <em className={entry.kind}>
+                        {entry.kind === "income" ? "+" : "−"}{won.format(entry.amount)}
+                      </em>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="monthly-empty">
+                  이 달에 별도로 등록한 매출·지출이 없습니다. CSV 월 합계만 반영되어 있습니다.
+                </p>
+              )}
+            </section>
+          </div>
+        </div>
+      </article>
 
       <div className="dashboard-grid">
         <article className="panel revenue-panel">

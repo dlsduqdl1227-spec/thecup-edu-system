@@ -82,6 +82,11 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /title="매출 내역"/);
   assert.match(app, /2022년부터 현재까지/);
   assert.match(app, /CSV 2022–2026 이관 완료/);
+  assert.match(app, /월별 상세/);
+  assert.match(app, /role="tablist"/);
+  assert.match(app, /monthly-detail-content/);
+  assert.match(app, /CSV 기준 매출/);
+  assert.match(app, /추가 등록 내역/);
   assert.match(app, /해당 연도의 12개월을 기준으로 계산했습니다/);
   assert.match(app, /\{quarter\}분기/);
   assert.doesNotMatch(app, /숫자가 말해주는 오늘의 운영|Q\{quarter\}/);
@@ -111,6 +116,9 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.brand-logo-coffee img/);
   assert.match(styles, /Pretendard Variable/);
   assert.match(styles, /\.inventory-tabs/);
+  assert.match(styles, /\.month-tabs/);
+  assert.match(styles, /\.monthly-summary-grid/);
+  assert.match(styles, /\.monthly-transaction-list/);
   assert.match(styles, /\.inventory-sections/);
   assert.match(styles, /\.inventory-section-heading/);
   assert.match(styles, /\.inventory-entry-switch/);
@@ -307,6 +315,10 @@ test("guards critical identity, date and persistence edge cases", async () => {
   assert.match(dashboard, /legacyInventoryCount/);
   assert.match(dashboard, /ownMovementScope = user\.role === "instructor"/);
   assert.doesNotMatch(dashboard, /LIMIT 30|LIMIT 60/);
+  assert.match(dashboard, /m\.revenue AS baseRevenue/);
+  assert.match(dashboard, /AS additionalIncome/);
+  assert.match(dashboard, /ORDER BY t\.transaction_date DESC, t\.id DESC/);
+  assert.doesNotMatch(dashboard, /ORDER BY t\.id DESC LIMIT 40/);
   assert.match(dashboard, /turningPointSeconds/);
   assert.match(dashboard, /기존 재고 기록/);
   assert.match(dashboard, /소비기한/);

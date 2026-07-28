@@ -22,6 +22,10 @@ export async function GET(request: Request) {
         ? await db
             .prepare(
               `SELECT m.year, m.month,
+                      m.revenue AS baseRevenue,
+                      m.baseline_expense AS baseExpense,
+                      COALESCE(SUM(CASE WHEN t.kind = 'income' THEN t.amount ELSE 0 END), 0) AS additionalIncome,
+                      COALESCE(SUM(CASE WHEN t.kind = 'expense' THEN t.amount ELSE 0 END), 0) AS additionalExpense,
                       m.revenue + COALESCE(SUM(CASE WHEN t.kind = 'income' THEN t.amount ELSE 0 END), 0) AS revenue,
                       m.baseline_expense + COALESCE(SUM(CASE WHEN t.kind = 'expense' THEN t.amount ELSE 0 END), 0) AS expense,
                       m.revenue + COALESCE(SUM(CASE WHEN t.kind = 'income' THEN t.amount ELSE 0 END), 0)
@@ -159,7 +163,7 @@ export async function GET(request: Request) {
                       s.name AS createdByName, t.created_at AS createdAt
                FROM finance_transactions t
                JOIN staff s ON s.id = t.created_by
-               ORDER BY t.id DESC LIMIT 40`,
+               ORDER BY t.transaction_date DESC, t.id DESC`,
             )
             .all()
         : { results: [] };
