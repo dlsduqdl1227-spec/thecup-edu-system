@@ -2197,6 +2197,160 @@ td.expense {
   font-size: 17px;
 }
 
+.roast-bean-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr 0.8fr;
+  gap: 12px;
+}
+
+.roast-flow-section-heading {
+  align-items: flex-start;
+}
+
+.roast-flow-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: -2px 0 18px;
+  border: 1px solid var(--line);
+  background: #f2f2f2;
+  padding: 13px 15px;
+}
+
+.roast-flow-toolbar p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.roast-flow-toolbar .ghost-button {
+  flex: none;
+}
+
+.roast-flow-error {
+  margin-bottom: 15px;
+  border-left: 4px solid var(--ink);
+  background: #e7e7e7;
+  color: var(--ink);
+  padding: 13px 15px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.roast-flow-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.roast-flow-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.roast-flow-marker {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 18px;
+}
+
+.roast-flow-marker::after {
+  content: "";
+  position: absolute;
+  top: 45px;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: #bdbdbd;
+}
+
+.roast-flow-card:last-child .roast-flow-marker::after {
+  display: none;
+}
+
+.roast-flow-marker span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.roast-flow-content {
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  padding: 16px 17px 0;
+}
+
+.roast-flow-card.extra .roast-flow-content {
+  border-style: dashed;
+  background: #f7f7f7;
+}
+
+.roast-flow-card.turning .roast-flow-content,
+.roast-flow-card.firstCrack .roast-flow-content,
+.roast-flow-card.finish .roast-flow-content {
+  border-left: 3px solid var(--ink);
+}
+
+.roast-flow-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.roast-flow-heading strong {
+  font-size: 17px;
+}
+
+.roast-flow-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.remove-flow-point {
+  flex: none;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink-soft);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.remove-flow-point:hover {
+  border-color: var(--ink);
+}
+
+.roast-flow-fields {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 12px;
+}
+
+.roast-flow-fields .field {
+  margin-bottom: 16px;
+}
+
+.roast-flow-card.charge .duration-input input:disabled {
+  color: var(--ink-soft);
+  opacity: 1;
+}
+
 .roast-form-section {
   border-bottom: 1px solid var(--line);
   padding-bottom: 11px;
@@ -2223,165 +2377,6 @@ td.expense {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.55;
-}
-
-.milestone-heading {
-  align-items: flex-start;
-}
-
-.milestone-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.milestone-card {
-  min-width: 0;
-  border: 1px solid var(--line);
-  background: #f7f7f7;
-  padding: 16px;
-}
-
-.milestone-card legend {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 7px;
-}
-
-.milestone-card legend span {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.milestone-card legend strong {
-  font-size: 14px;
-}
-
-.milestone-card > p {
-  min-height: 34px;
-  margin: 0 0 14px;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.55;
-}
-
-.milestone-card .field {
-  margin-bottom: 12px;
-}
-
-.milestone-card .milestone-values .field {
-  margin-bottom: 0;
-}
-
-.auto-points-heading {
-  align-items: flex-end;
-}
-
-.point-table {
-  border: 1px solid var(--line);
-}
-
-.point-row {
-  display: grid;
-  grid-template-columns: 1.1fr 1.2fr 1fr 1fr 70px;
-  gap: 1px;
-  background: var(--line);
-  border-top: 1px solid var(--line);
-}
-
-.point-kind {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  background: var(--white);
-  padding: 9px 11px;
-}
-
-.point-kind strong {
-  font-size: 11px;
-}
-
-.point-kind small {
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.point-kind.automatic {
-  border-left: 3px solid var(--ink);
-  background: #f0f0f0;
-}
-
-.point-row:first-child {
-  border-top: 0;
-}
-
-.point-row.header span {
-  background: #e9e9e9;
-  color: var(--muted);
-  padding: 10px;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.point-row input {
-  width: 100%;
-  border: 0;
-  background: var(--white);
-  padding: 11px;
-}
-
-.point-value,
-.bar-input {
-  position: relative;
-  display: block;
-  background: var(--white);
-}
-
-.bar-input input {
-  padding-right: 38px;
-}
-
-.bar-unit {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  color: var(--muted);
-  font-size: 10px;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.duration-input.compact {
-  gap: 1px;
-  background: var(--line);
-}
-
-.duration-input.compact .duration-part {
-  background: var(--white);
-}
-
-.duration-input.compact input {
-  height: 100%;
-  min-height: 42px;
-}
-
-.point-cell-label {
-  display: none;
-}
-
-.point-row input:disabled {
-  background: #eeeeee;
-  color: var(--muted);
-}
-
-.remove-point {
-  border: 0;
-  background: var(--paper);
-  color: var(--error);
-  font-size: 9px;
 }
 
 .form-actions {
@@ -2780,9 +2775,7 @@ td,
 .category-tag,
 .csv-badge,
 .count-badge,
-.profile-card span,
-.point-row.header span,
-.remove-point {
+.profile-card span {
   font-size: 11px;
 }
 
@@ -2792,7 +2785,6 @@ td,
 .section-heading > div > p,
 .roast-follow-heading p,
 .roast-step-copy p,
-.milestone-card > p,
 .empty-state p,
 .linked-record-note,
 .locked-field-note,
@@ -2812,16 +2804,12 @@ td,
 .metric span,
 .ror-grid span,
 .profile-notes span,
-.chart-point-list span,
-.point-kind small,
-.bar-unit,
-.point-cell-label {
+.chart-point-list span {
   font-size: 12px;
 }
 
 .roast-step-number,
 .roast-step-card dt,
-.point-kind strong,
 .curve-heading > div:first-child span {
   font-size: 12px;
 }
@@ -3472,14 +3460,12 @@ td,
 
   .two-columns,
   .three-columns,
-  .profile-notes,
-  .milestone-grid {
+  .profile-notes {
     grid-template-columns: 1fr;
   }
 
   .roast-follow-heading,
-  .curve-heading,
-  .auto-points-heading {
+  .curve-heading {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -3558,63 +3544,43 @@ td,
     width: 100%;
   }
 
-  .point-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    border-top: 1px solid var(--line);
-    background: #eeeeee;
-    padding: 12px;
+  .roast-bean-grid,
+  .roast-flow-fields {
+    grid-template-columns: 1fr;
   }
 
-  .point-row.header {
-    display: none;
+  .roast-flow-section-heading,
+  .roast-flow-toolbar,
+  .roast-flow-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .point-row .point-cell-label {
-    display: block;
-    padding: 9px 9px 0;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 750;
+  .roast-flow-toolbar .ghost-button,
+  .remove-flow-point {
+    width: 100%;
   }
 
-  .point-row .point-kind {
-    grid-column: 1 / -1;
-    min-height: 58px;
-    border: 1px solid var(--line);
+  .roast-flow-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 7px;
   }
 
-  .point-row .duration-input.compact,
-  .point-row .point-value {
-    border: 1px solid var(--line);
+  .roast-flow-content {
+    padding: 15px 14px 0;
   }
 
-  .point-row .duration-input.compact {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto 1fr;
+  .roast-flow-marker {
+    padding-top: 16px;
   }
 
-  .duration-input.compact .point-cell-label {
-    grid-column: 1 / -1;
-    background: var(--white);
+  .roast-flow-marker span {
+    width: 28px;
+    height: 28px;
   }
 
-  .point-row .bar-unit {
-    top: auto;
-    bottom: 14px;
-    transform: none;
-  }
-
-  .point-row .remove-point {
-    grid-column: 1 / -1;
-    min-height: 40px;
-    border: 1px solid var(--line);
-  }
-
-  .point-row input {
-    min-height: 50px;
-    padding: 11px 9px;
-    font-size: 16px;
+  .roast-flow-marker::after {
+    top: 42px;
   }
 
   .chart-point-list span {

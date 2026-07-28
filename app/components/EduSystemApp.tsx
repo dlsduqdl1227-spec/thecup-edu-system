@@ -1736,14 +1736,12 @@ function DurationInput({
   ariaLabel,
   name,
   disabled = false,
-  compact = false,
 }: {
   value: number;
   onChange: (value: number) => void;
   ariaLabel: string;
   name?: string;
   disabled?: boolean;
-  compact?: boolean;
 }) {
   const safeValue = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
   const minutes = Math.floor(safeValue / 60);
@@ -1755,32 +1753,29 @@ function DurationInput({
   };
 
   return (
-    <div className={compact ? "duration-input compact" : "duration-input"}>
+    <div className="duration-input">
       {name && <input type="hidden" name={name} value={safeValue} readOnly />}
-      {compact && <span className="point-cell-label">시간</span>}
       <div className="duration-part">
-        <input
-          type="number"
-          min="0"
-          step="1"
+        <StableNumberInput
           value={minutes}
+          onChange={(nextMinutes) => update(nextMinutes, seconds)}
+          min="0"
+          integer
           disabled={disabled}
-          onChange={(event) => update(Number(event.target.value), seconds)}
-          aria-label={`${ariaLabel} 분`}
+          ariaLabel={`${ariaLabel} 분`}
           required={!disabled}
         />
         <span>분</span>
       </div>
       <div className="duration-part">
-        <input
-          type="number"
+        <StableNumberInput
+          value={seconds}
+          onChange={(nextSeconds) => update(minutes, nextSeconds)}
           min="0"
           max="59"
-          step="1"
-          value={seconds}
+          integer
           disabled={disabled}
-          onChange={(event) => update(minutes, Number(event.target.value))}
-          aria-label={`${ariaLabel} 초`}
+          ariaLabel={`${ariaLabel} 초`}
           required={!disabled}
         />
         <span>초</span>
@@ -1789,31 +1784,105 @@ function DurationInput({
   );
 }
 
-function MilestoneEditor({
-  index,
-  title,
-  description,
-  point,
+function StableNumberInput({
+  value,
   onChange,
+  ariaLabel,
+  min,
+  max,
+  integer = false,
+  disabled = false,
+  required = true,
 }: {
-  index: string;
+  value: number;
+  onChange: (value: number) => void;
+  ariaLabel: string;
+  min?: string;
+  max?: string;
+  integer?: boolean;
+  disabled?: boolean;
+  required?: boolean;
+}) {
+  const [draft, setDraft] = useState(() => formatEditableNumber(value));
+
+  function apply(raw: string) {
+    const pattern = integer ? /^\d*$/ : /^\d*(?:\.\d*)?$/;
+    if (!pattern.test(raw)) return;
+    setDraft(raw);
+    if (raw === "" || raw === ".") return;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) onChange(clampNumber(parsed, min, max, integer));
+  }
+
+  function commit() {
+    const parsed = draft === "" || draft === "." ? value : Number(draft);
+    const normalized = clampNumber(Number.isFinite(parsed) ? parsed : value, min, max, integer);
+    setDraft(formatEditableNumber(normalized));
+    onChange(normalized);
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode={integer ? "numeric" : "decimal"}
+      value={draft}
+      disabled={disabled}
+      required={required}
+      aria-label={ariaLabel}
+      onChange={(event) => apply(event.target.value)}
+      onBlur={commit}
+    />
+  );
+}
+
+type RoastFlowPoint = RoastPoint & {
+  stableId: string;
+  kind: "charge" | "turning" | "extra" | "firstCrack" | "finish";
   title: string;
   description: string;
-  point: RoastPoint;
+};
+
+type EditableRoastPoint = RoastPoint & { stableId: string };
+
+function RoastFlowCard({
+  index,
+  point,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  point: RoastFlowPoint;
   onChange: (field: keyof RoastPoint, value: number) => void;
+  onRemove?: () => void;
 }) {
+  const charge = point.kind === "charge";
   return (
-    <fieldset className="milestone-card">
-      <legend><span>{index}</span><strong>{title}</strong></legend>
-      <p>{description}</p>
-      <Field label="시간">
-        <DurationInput value={point.seconds} onChange={(value) => onChange("seconds", value)} ariaLabel={`${title} 시간`} />
-      </Field>
-      <div className="two-columns milestone-values">
-        <Field label="원두 온도"><div className="input-suffix"><input type="number" min="1" step="0.1" value={point.beanTemp} onChange={(event) => onChange("beanTemp", Number(event.target.value))} required /><span>℃</span></div></Field>
-        <Field label="가스 압력"><div className="input-suffix"><input type="number" min="0" max="5" step="0.1" value={point.gasPressure} onChange={(event) => onChange("gasPressure", Number(event.target.value))} required /><span>bar</span></div></Field>
+    <article className={`roast-flow-card ${point.kind}`}>
+      <div className="roast-flow-marker"><span>{String(index + 1).padStart(2, "0")}</span></div>
+      <div className="roast-flow-content">
+        <div className="roast-flow-heading">
+          <div><strong>{point.title}</strong><p>{point.description}</p></div>
+          {onRemove && <button type="button" className="remove-flow-point" onClick={onRemove}>이 포인트 삭제</button>}
+        </div>
+        <div className="roast-flow-fields">
+          <Field label="시간">
+            <DurationInput value={point.seconds} disabled={charge} onChange={(value) => onChange("seconds", value)} ariaLabel={`${point.title} 시간`} />
+          </Field>
+          <Field label="원두 온도">
+            <div className="input-suffix">
+              <StableNumberInput value={point.beanTemp} onChange={(value) => onChange("beanTemp", value)} min="0" ariaLabel={`${point.title} 원두 온도`} />
+              <span>℃</span>
+            </div>
+          </Field>
+          <Field label="가스 압력">
+            <div className="input-suffix">
+              <StableNumberInput value={point.gasPressure} onChange={(value) => onChange("gasPressure", value)} min="0" max="5" ariaLabel={`${point.title} 가스 압력`} />
+              <span>bar</span>
+            </div>
+          </Field>
+        </div>
       </div>
-    </fieldset>
+    </article>
   );
 }
 
@@ -1844,24 +1913,80 @@ function RoastProfileForm({
   const [turningPoint, setTurningPoint] = useState<RoastPoint>({ seconds: initialTurningSeconds, ...initialTurning });
   const [firstCrackPoint, setFirstCrackPoint] = useState<RoastPoint>({ seconds: initialFirstCrackSeconds, ...initialFirstCrack });
   const [finishPoint, setFinishPoint] = useState<RoastPoint>({ seconds: initialTotalSeconds, ...initialFinish });
-  const [extraPoints, setExtraPoints] = useState<RoastPoint[]>(
-    sourcePoints.filter((point) => ![0, initialTurningSeconds, initialFirstCrackSeconds, initialTotalSeconds].includes(point.seconds)),
+  const extraPointSequence = useRef(0);
+  const [extraPoints, setExtraPoints] = useState<EditableRoastPoint[]>(
+    sourcePoints
+      .filter((point) => ![0, initialTurningSeconds, initialFirstCrackSeconds, initialTotalSeconds].includes(point.seconds))
+      .map((point, index) => ({ ...point, stableId: `saved-extra-${index}` })),
   );
-  const milestoneSeconds = new Set([0, turningPoint.seconds, firstCrackPoint.seconds, finishPoint.seconds]);
-  const points = [
-    { seconds: 0, beanTemp: chargeTemp, gasPressure: chargeGasPressure },
-    turningPoint,
-    firstCrackPoint,
-    finishPoint,
-    ...extraPoints.filter((point) => point.seconds > 0 && point.seconds < finishPoint.seconds && !milestoneSeconds.has(point.seconds)),
-  ].sort((left, right) => left.seconds - right.seconds);
+  const flowPoints: RoastFlowPoint[] = [
+    {
+      stableId: "charge",
+      kind: "charge" as const,
+      title: "투입",
+      description: "예열한 로스터에 생두를 넣는 시작점",
+      seconds: 0,
+      beanTemp: chargeTemp,
+      gasPressure: chargeGasPressure,
+    },
+    {
+      stableId: "turning",
+      kind: "turning" as const,
+      title: "터닝포인트",
+      description: "온도가 가장 낮아졌다가 다시 오르기 시작하는 시점",
+      ...turningPoint,
+    },
+    ...extraPoints.map((point) => ({
+      ...point,
+      kind: "extra" as const,
+      title: "세부 포인트",
+      description: "온도나 가스가 바뀌는 지점을 필요할 때만 기록",
+    })),
+    {
+      stableId: "first-crack",
+      kind: "firstCrack" as const,
+      title: "1차 크랙 시작",
+      description: "원두에서 첫 크랙 소리가 들리기 시작하는 시점",
+      ...firstCrackPoint,
+    },
+    {
+      stableId: "finish",
+      kind: "finish" as const,
+      title: "종료 · 배출",
+      description: "로스팅을 마치고 원두를 배출하는 시점",
+      ...finishPoint,
+    },
+  ].sort((left, right) => left.seconds - right.seconds || flowKindOrder(left.kind) - flowKindOrder(right.kind));
+  const points: RoastPoint[] = flowPoints.map(({ seconds, beanTemp, gasPressure }) => ({ seconds, beanTemp, gasPressure }));
   const developmentSeconds = Math.max(0, finishPoint.seconds - firstCrackPoint.seconds);
   const developmentRatio = finishPoint.seconds > 0
     ? Math.round((developmentSeconds / finishPoint.seconds) * 1000) / 10
     : 0;
+  const flowError = validateRoastFlow(points, turningPoint.seconds, firstCrackPoint.seconds, finishPoint.seconds);
 
-  function updateExtraPoint(index: number, field: keyof RoastPoint, value: number) {
-    setExtraPoints((current) => current.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: value } : point));
+  function updateExtraPoint(stableId: string, field: keyof RoastPoint, value: number) {
+    setExtraPoints((current) => current.map((point) => point.stableId === stableId ? { ...point, [field]: value } : point));
+  }
+
+  function updateFlowPoint(point: RoastFlowPoint, field: keyof RoastPoint, value: number) {
+    if (point.kind === "charge") {
+      if (field === "beanTemp") setChargeTemp(value);
+      if (field === "gasPressure") setChargeGasPressure(value);
+      return;
+    }
+    if (point.kind === "turning") {
+      setTurningPoint((current) => ({ ...current, [field]: value }));
+      return;
+    }
+    if (point.kind === "firstCrack") {
+      setFirstCrackPoint((current) => ({ ...current, [field]: value }));
+      return;
+    }
+    if (point.kind === "finish") {
+      setFinishPoint((current) => ({ ...current, [field]: value }));
+      return;
+    }
+    updateExtraPoint(point.stableId, field, value);
   }
 
   function addPoint() {
@@ -1873,11 +1998,19 @@ function RoastProfileForm({
     if (!largestGap || largestGap.end - largestGap.start < 2) return;
     const seconds = Math.round((largestGap.start + largestGap.end) / 2);
     const estimate = interpolateRoastPoint(points, seconds);
-    setExtraPoints((current) => [...current, { seconds, ...estimate }].sort((left, right) => left.seconds - right.seconds));
+    extraPointSequence.current += 1;
+    setExtraPoints((current) => [
+      ...current,
+      { stableId: `new-extra-${extraPointSequence.current}`, seconds, ...estimate },
+    ]);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (flowError) {
+      notify({ kind: "error", message: flowError });
+      return;
+    }
     setBusy(true);
     try {
       const values = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -1922,98 +2055,43 @@ function RoastProfileForm({
           </div>
         )}
         <div className="roast-form-section">
-          <span className="section-index">01 / 원두와 투입 조건</span>
-          <div className="three-columns">
+          <span className="section-index">01 / 원두 정보</span>
+          <div className="roast-bean-grid">
             <Field label="원두명"><input name="beanName" defaultValue={mode === "copy" && initial ? `${initial.beanName} 복사본` : initial?.beanName} autoFocus={mode === "copy"} required /></Field>
             <Field label="산지"><input name="origin" defaultValue={initial?.origin} placeholder="Ethiopia Guji" /></Field>
             <Field label="프로세스"><input name="process" defaultValue={initial?.process} placeholder="Washed" /></Field>
-          </div>
-          <div className="three-columns">
             <Field label="배치 중량 (kg)"><input name="batchWeight" type="number" min="0.01" step="0.01" defaultValue={initial?.batchWeight ?? 1} required /></Field>
-            <Field label="투입 온도"><div className="input-suffix"><input name="chargeTemp" type="number" min="1" step="0.1" value={chargeTemp} onChange={(event) => setChargeTemp(Number(event.target.value))} required /><span>℃</span></div></Field>
-            <Field label="투입 가스 압력"><div className="input-suffix"><input type="number" min="0" max="5" step="0.1" value={chargeGasPressure} onChange={(event) => setChargeGasPressure(Number(event.target.value))} required /><span>bar</span></div></Field>
           </div>
         </div>
         <div className="roast-form-section">
-          <div className="section-heading milestone-heading">
-            <div><span className="section-index">02 / 주요 시점</span><p>시간·온도·가스를 이곳에 한 번만 입력하세요. 아래 포인트에 자동 반영됩니다.</p></div>
+          <div className="section-heading roast-flow-section-heading">
+            <div><span className="section-index">02 / 로스팅 흐름</span><p>실제 로스팅 순서대로 시간·온도·가스를 한 번씩만 입력하세요.</p></div>
             <div className="live-development">
               <span>자동 계산 디벨롭</span>
               <strong>{formatTime(developmentSeconds)} · {developmentRatio}%</strong>
             </div>
           </div>
-          <div className="milestone-grid">
-            <MilestoneEditor
-              index="01"
-              title="터닝포인트"
-              description="온도가 가장 낮아졌다가 다시 오르는 시점"
-              point={turningPoint}
-              onChange={(field, value) => setTurningPoint((current) => ({ ...current, [field]: value }))}
-            />
-            <MilestoneEditor
-              index="02"
-              title="1차 크랙 시작"
-              description="원두에서 첫 크랙 소리가 들리는 시점"
-              point={firstCrackPoint}
-              onChange={(field, value) => setFirstCrackPoint((current) => ({ ...current, [field]: value }))}
-            />
-            <MilestoneEditor
-              index="03"
-              title="종료"
-              description="로스팅을 마치고 원두를 배출하는 시점"
-              point={finishPoint}
-              onChange={(field, value) => setFinishPoint((current) => ({ ...current, [field]: value }))}
-            />
+          <div className="roast-flow-toolbar">
+            <p>기본 흐름은 투입·터닝포인트·1차 크랙·종료입니다. 가스나 온도가 바뀌는 순간만 세부 포인트를 추가하세요.</p>
+            <button type="button" className="ghost-button" onClick={addPoint}>중간 포인트 추가</button>
           </div>
-        </div>
-        <div className="roast-form-section">
-          <div className="section-heading auto-points-heading">
-            <div><span className="section-index">03 / 자동 완성된 로스팅 흐름</span><p>주요 시점은 자동으로 들어갑니다. 더 자세한 기록이 필요할 때만 세부 포인트를 추가하세요.</p></div>
-            <button type="button" className="ghost-button" onClick={addPoint}>세부 포인트 추가</button>
-          </div>
-          <div className="point-table">
-            <div className="point-row header"><span>구간</span><span>시간</span><span>원두 온도(℃)</span><span>가스 압력(bar)</span><span /></div>
-            {points.map((point, index) => (
-              <div className="point-row" key={`${index}-${point.seconds}`}>
-                {(() => {
-                  const automaticLabel = point.seconds === 0
-                    ? "투입"
-                    : point.seconds === turningPoint.seconds
-                      ? "터닝포인트"
-                      : point.seconds === firstCrackPoint.seconds
-                        ? "1차 크랙"
-                        : point.seconds === finishPoint.seconds
-                          ? "종료"
-                          : null;
-                  const extraIndex = extraPoints.indexOf(point);
-                  const automatic = automaticLabel !== null;
-                  return <>
-                <div className={automatic ? "point-kind automatic" : "point-kind"}><strong>{automaticLabel ?? "세부 포인트"}</strong><small>{automatic ? "주요 시점에서 자동 반영" : "선택 입력"}</small></div>
-                <DurationInput
-                  value={point.seconds}
-                  disabled={automatic}
-                  onChange={(value) => updateExtraPoint(extraIndex, "seconds", value)}
-                  ariaLabel={`${index + 1}번째 포인트 시간`}
-                  compact
-                />
-                <label className="point-value">
-                  <span className="point-cell-label">원두 온도(℃)</span>
-                  <input type="number" min="0" step="0.1" value={point.beanTemp} disabled={automatic} onChange={(event) => updateExtraPoint(extraIndex, "beanTemp", Number(event.target.value))} aria-label={`${index + 1}번째 포인트 온도`} />
-                </label>
-                <label className="point-value bar-input">
-                  <span className="point-cell-label">가스 압력(bar)</span>
-                  <input type="number" min="0" max="5" step="0.1" value={point.gasPressure} disabled={automatic} onChange={(event) => updateExtraPoint(extraIndex, "gasPressure", Number(event.target.value))} aria-label={`${index + 1}번째 포인트 가스 압력`} />
-                  <span className="bar-unit">bar</span>
-                </label>
-                <button type="button" className="remove-point" disabled={automatic} onClick={() => setExtraPoints((current) => current.filter((_, pointIndex) => pointIndex !== extraIndex))}>{automatic ? "자동" : "삭제"}</button>
-                  </>;
-                })()}
-              </div>
+          {flowError && <div className="roast-flow-error" role="alert">{flowError}</div>}
+          <div className="roast-flow-list">
+            {flowPoints.map((point, index) => (
+              <RoastFlowCard
+                key={point.stableId}
+                index={index}
+                point={point}
+                onChange={(field, value) => updateFlowPoint(point, field, value)}
+                onRemove={point.kind === "extra"
+                  ? () => setExtraPoints((current) => current.filter((item) => item.stableId !== point.stableId))
+                  : undefined}
+              />
             ))}
           </div>
         </div>
         <div className="roast-form-section">
-          <span className="section-index">04 / 따라 하기 노트</span>
+          <span className="section-index">03 / 따라 하기 노트</span>
           <div className="two-columns">
             <Field label="가스 운용 메모"><textarea name="gasNotes" rows={5} defaultValue={initial?.gasNotes} placeholder="예: 터닝 후 1.2bar 유지, 1차 크랙 30초 전 1.0bar" /></Field>
             <Field label="컵 노트 · 주의사항"><textarea name="notes" rows={5} defaultValue={initial?.notes} placeholder="배출 기준, 향미, 다음 배치 보정 사항" /></Field>
@@ -2021,7 +2099,7 @@ function RoastProfileForm({
         </div>
         <div className="form-actions">
           <button type="button" className="ghost-button" onClick={onCancel}>취소</button>
-          <button className="primary-button" disabled={busy}>{busy ? "계산·저장 중…" : mode === "copy" ? "새 프로파일로 저장" : "프로파일 저장"}</button>
+          <button className="primary-button" disabled={busy || Boolean(flowError)}>{busy ? "계산·저장 중…" : mode === "copy" ? "새 프로파일로 저장" : "프로파일 저장"}</button>
         </div>
       </form>
     </>
@@ -2721,6 +2799,45 @@ function interpolateRoastPoint(
     beanTemp: Number((before.beanTemp + ((after.beanTemp - before.beanTemp) * ratio)).toFixed(1)),
     gasPressure: Number((before.gasPressure + ((after.gasPressure - before.gasPressure) * ratio)).toFixed(1)),
   };
+}
+
+function formatEditableNumber(value: number): string {
+  return Number.isFinite(value) ? String(Number(value.toFixed(4))) : "";
+}
+
+function clampNumber(value: number, min?: string, max?: string, integer = false): number {
+  const minimum = min === undefined ? Number.NEGATIVE_INFINITY : Number(min);
+  const maximum = max === undefined ? Number.POSITIVE_INFINITY : Number(max);
+  const normalized = integer ? Math.round(value) : value;
+  return Math.min(maximum, Math.max(minimum, normalized));
+}
+
+function flowKindOrder(kind: RoastFlowPoint["kind"]): number {
+  return { charge: 0, turning: 1, extra: 2, firstCrack: 3, finish: 4 }[kind];
+}
+
+function validateRoastFlow(
+  points: RoastPoint[],
+  turningSeconds: number,
+  firstCrackSeconds: number,
+  finishSeconds: number,
+): string | null {
+  if (!(turningSeconds > 0 && turningSeconds < firstCrackSeconds && firstCrackSeconds < finishSeconds)) {
+    return "시간 순서를 확인해 주세요. 투입 → 터닝포인트 → 1차 크랙 → 종료 순서여야 합니다.";
+  }
+  if (points.some((point) => ![point.seconds, point.beanTemp, point.gasPressure].every(Number.isFinite))) {
+    return "시간·온도·가스 값을 모두 숫자로 입력해 주세요.";
+  }
+  if (points.some((point) => point.seconds < 0 || point.seconds > finishSeconds)) {
+    return "모든 중간 포인트는 투입 이후, 종료 이전 시간으로 입력해 주세요.";
+  }
+  if (new Set(points.map((point) => point.seconds)).size !== points.length) {
+    return "같은 시간에 두 포인트가 있습니다. 각 포인트 시간을 다르게 입력해 주세요.";
+  }
+  if (points.some((point) => point.beanTemp < 0 || point.gasPressure < 0 || point.gasPressure > 5)) {
+    return "온도는 0℃ 이상, 가스 압력은 0~5bar 범위로 입력해 주세요.";
+  }
+  return null;
 }
 
 function formatTime(seconds: number): string {
