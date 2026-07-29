@@ -2153,7 +2153,11 @@ function RoastingManual({
                     : item.key === "health_certificate"
                       ? "보건증은 매년 발급일과 증빙 자료를 확인합니다."
                       : "위생교육은 매년 이수 여부와 수료 자료를 확인합니다."}</p>
-                  {item.updatedByName && <small>최근 갱신 {item.updatedByName} · {formatDateTime(item.updatedAt)}</small>}
+                  <small className="compliance-update-meta">
+                    {item.updatedByName
+                      ? `최근 갱신 ${item.updatedByName} · ${formatDateTime(item.updatedAt)}`
+                      : "시스템 등록 기준"}
+                  </small>
                   <div className="compliance-evidence">
                     <div className="compliance-evidence-heading">
                       <strong>증빙 자료</strong>

@@ -2110,10 +2110,15 @@ td.expense {
 .compliance-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
   gap: 12px;
 }
 
 .compliance-card {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
   border: 1px solid var(--line);
   border-top: 4px solid #a5a5a5;
   background: var(--white);
@@ -2143,7 +2148,7 @@ td.expense {
 
 .compliance-card-heading span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -2177,7 +2182,7 @@ td.expense {
 
 .compliance-card dt {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .compliance-card dd {
@@ -2190,22 +2195,25 @@ td.expense {
 .compliance-card > p {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
-.compliance-card > small {
+.compliance-card > small,
+.compliance-update-meta {
   display: block;
+  min-height: 16px;
   margin-top: 8px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .compliance-update {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-  margin-top: 15px;
+  margin-top: auto;
   border-top: 1px solid var(--line);
   padding-top: 15px;
 }
@@ -2358,6 +2366,14 @@ td.expense {
 
 .compliance-evidence .manual-document-card {
   margin-top: 0;
+}
+
+.compliance-evidence .manual-document-card > div {
+  min-height: 112px;
+}
+
+.compliance-evidence .manual-document-card h3 {
+  min-height: 40px;
 }
 
 .picker-workflow {
@@ -2593,7 +2609,7 @@ td.expense {
 .manual-document-card span,
 .manual-document-card p {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .manual-document-card h3 {

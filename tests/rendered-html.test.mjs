@@ -111,6 +111,7 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /encodeURIComponent\(document\.createdAt\)/);
   assert.match(app, /선택한 자료 이미지 미리보기/);
   assert.match(app, /날짜·증빙 함께 저장/);
+  assert.match(app, /시스템 등록 기준/);
   assert.match(app, /이전 증빙 \{previousDocuments\.length\}건 보기/);
   assert.match(app, /검사·교육·보건증은 위 D-day 카드에서 함께 관리/);
   assert.match(app, /로스팅·포장 자료/);
@@ -165,6 +166,8 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.compliance-grid/);
   assert.match(styles, /\.compliance-evidence/);
   assert.match(styles, /\.compliance-file-option/);
+  assert.match(styles, /\.compliance-card \{[\s\S]*?display: flex;[\s\S]*?height: 100%/);
+  assert.match(styles, /\.compliance-update \{[\s\S]*?margin-top: auto/);
   assert.match(styles, /\.manual-document-grid/);
   assert.match(styles, /\.manual-file-options/);
   assert.match(styles, /\.manual-upload-preview/);
