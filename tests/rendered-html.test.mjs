@@ -105,9 +105,9 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /Asia\/Seoul/);
   assert.match(app, /capture="environment"/);
   assert.match(app, /선택한 영수증 미리보기/);
-  assert.match(app, /사진 촬영/);
-  assert.match(app, /앨범에서 선택/);
-  assert.match(app, /aria-label="앨범에서 자료 이미지 선택"/);
+  assert.match(app, /사진 촬영 또는 앨범 선택/);
+  assert.match(app, /aria-label="자료 사진 촬영 또는 앨범 선택"/);
+  assert.equal((app.match(/className="manual-file-option"/g) ?? []).length, 1);
   assert.match(app, /선택한 자료 이미지 미리보기/);
   assert.match(app, /이미지 크게 보기/);
   assert.match(app, /내가 등록한 기록만 표시됩니다/);
@@ -200,6 +200,7 @@ test("roasting handover manual is permission-protected and durably stored", asyn
   assert.match(manualRoute, /MAX_DOCUMENT_STORAGE_BYTES = 20_000_000/);
   assert.match(documentRoute, /requirePermission\(request, "roasting"\)/);
   assert.match(documentRoute, /requireUser\(request, \["admin"\]\)/);
+  assert.match(documentRoute, /blobResponseBody/);
   assert.match(documentRoute, /content-length/);
   assert.match(documentRoute, /x-content-type-options/);
   assert.match(compliance, /initialCompletedDate: "2026-05-27"/);
@@ -252,6 +253,7 @@ test("admin record routes preserve linked inventory, finance and receipt data", 
   assert.match(adminRecords, /UPDATE inventory_items SET quantity/);
   assert.match(milkPurchase, /hasValidImageSignature/);
   assert.match(receiptRoute, /content-length/);
+  assert.match(receiptRoute, /blobResponseBody/);
   assert.match(receiptRoute, /user\.canFinance/);
   assert.match(receiptRoute, /user\.role !== "instructor"/);
   assert.match(imageSignature, /image\/jpeg/);

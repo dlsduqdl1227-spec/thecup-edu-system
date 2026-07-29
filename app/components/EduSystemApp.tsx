@@ -2166,25 +2166,13 @@ function RoastingManual({
               <span>자료 이미지</span>
               <div className="manual-file-options">
                 <label className="manual-file-option">
-                  <strong>사진 촬영</strong>
-                  <small>카메라로 바로 찍기</small>
+                  <strong>사진 촬영 또는 앨범 선택</strong>
+                  <small>촬영하거나 저장된 사진 가져오기</small>
                   <input
-                    key={`camera-${uploadInputKey}`}
+                    key={`document-${uploadInputKey}`}
                     type="file"
                     accept="image/*"
-                    capture="environment"
-                    aria-label="카메라로 자료 이미지 촬영"
-                    onChange={(event) => chooseDocument(event.currentTarget.files?.[0] ?? null)}
-                  />
-                </label>
-                <label className="manual-file-option">
-                  <strong>앨범에서 선택</strong>
-                  <small>저장된 사진 가져오기</small>
-                  <input
-                    key={`album-${uploadInputKey}`}
-                    type="file"
-                    accept="image/*"
-                    aria-label="앨범에서 자료 이미지 선택"
+                    aria-label="자료 사진 촬영 또는 앨범 선택"
                     onChange={(event) => chooseDocument(event.currentTarget.files?.[0] ?? null)}
                   />
                 </label>
@@ -2204,7 +2192,7 @@ function RoastingManual({
               </div>
             )}
             <div className="manual-upload-action">
-              <p>사진 촬영과 앨범 선택을 모두 지원합니다. 이미지는 약 350KB 이하로 자동 최적화해 보관합니다.</p>
+              <p>선택창에서 바로 촬영하거나 앨범 사진을 가져올 수 있습니다. 이미지는 자동 최적화해 보관합니다.</p>
               <button className="primary-button" disabled={busy === "upload" || !selectedDocument}>{busy === "upload" ? "최적화·저장 중…" : "자료 저장"}</button>
             </div>
           </form>

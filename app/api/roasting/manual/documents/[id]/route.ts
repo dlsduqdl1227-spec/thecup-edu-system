@@ -1,5 +1,6 @@
 import { requirePermission, requireUser } from "../../../../../../lib/auth";
 import { audit, ensureDatabase, getD1 } from "../../../../../../lib/db";
+import { blobResponseBody } from "../../../../../../lib/blob-response";
 import { assertSameOrigin, jsonError } from "../../../../../../lib/http";
 
 function documentId(value: string): number {
@@ -20,17 +21,18 @@ export async function GET(
     const document = await getD1()
       .prepare("SELECT content_type AS contentType, size_bytes AS sizeBytes, data FROM manual_documents WHERE id = ?")
       .bind(id)
-      .first<{ contentType: string; sizeBytes: number; data: ArrayBuffer }>();
+      .first<{ contentType: string; data: unknown }>();
     if (!document) {
       return Response.json({ error: "자료 이미지를 찾을 수 없습니다." }, { status: 404 });
     }
-    return new Response(document.data, {
+    const body = blobResponseBody(document.data);
+    return new Response(body, {
       headers: {
         "content-type": document.contentType,
         "content-disposition": `inline; filename="manual-document-${id}"`,
         "cache-control": "private, max-age=300",
         "x-content-type-options": "nosniff",
-        "content-length": String(document.sizeBytes),
+        "content-length": String(body.byteLength),
       },
     });
   } catch (error) {

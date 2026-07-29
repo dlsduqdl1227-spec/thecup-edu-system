@@ -1,5 +1,6 @@
 import { requireUser } from "../../../../lib/auth";
 import { ensureDatabase, getD1 } from "../../../../lib/db";
+import { blobResponseBody } from "../../../../lib/blob-response";
 import { jsonError } from "../../../../lib/http";
 
 export async function GET(
@@ -45,19 +46,20 @@ export async function GET(
          FROM receipt_files WHERE movement_id = ?`,
       )
       .bind(movementId)
-      .first<{ contentType: string; data: ArrayBuffer }>();
+      .first<{ contentType: string; data: unknown }>();
     if (!receipt) {
       return Response.json({ error: "영수증 파일을 찾을 수 없습니다." }, { status: 404 });
     }
 
+    const body = blobResponseBody(receipt.data);
     const headers = new Headers({
       "content-type": receipt.contentType,
       "content-disposition": `inline; filename="receipt-${movementId}"`,
       "cache-control": "private, max-age=300",
       "x-content-type-options": "nosniff",
-      "content-length": String(receipt.data.byteLength),
+      "content-length": String(body.byteLength),
     });
-    return new Response(receipt.data, { headers });
+    return new Response(body, { headers });
   } catch (error) {
     return jsonError(error);
   }
