@@ -64,6 +64,13 @@
       "when": 1785289657655,
       "tag": "0008_rare_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785290654187,
+      "tag": "0009_fixed_spitfire",
+      "breakpoints": true
     }
   ]
 }

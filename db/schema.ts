@@ -106,10 +106,10 @@ export const receiptFiles = sqliteTable("receipt_files", {
 });
 
 export const manualCompliance = sqliteTable("manual_compliance", {
-  key: text("key", { enum: ["self_quality", "hygiene_education"] }).primaryKey(),
+  key: text("key", { enum: ["self_quality", "hygiene_education", "health_certificate"] }).primaryKey(),
   title: text("title").notNull(),
   frequencyMonths: integer("frequency_months").notNull(),
-  completedDate: text("completed_date").notNull(),
+  completedDate: text("completed_date"),
   updatedBy: integer("updated_by").references(() => staff.id),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -119,7 +119,7 @@ export const manualDocuments = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     category: text("category", {
-      enum: ["self_quality", "hygiene_education", "roasting", "packing"],
+      enum: ["self_quality", "hygiene_education", "health_certificate", "roasting", "packing"],
     }).notNull(),
     title: text("title").notNull(),
     documentDate: text("document_date").notNull(),

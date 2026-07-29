@@ -30,7 +30,12 @@ export async function GET(request: Request) {
                   s.name AS updatedByName
            FROM manual_compliance c
            LEFT JOIN staff s ON s.id = c.updated_by
-           ORDER BY CASE c.key WHEN 'self_quality' THEN 1 ELSE 2 END`,
+           ORDER BY CASE c.key
+             WHEN 'self_quality' THEN 1
+             WHEN 'hygiene_education' THEN 2
+             WHEN 'health_certificate' THEN 3
+             ELSE 4
+           END`,
         )
         .all<Record<string, unknown>>(),
       db

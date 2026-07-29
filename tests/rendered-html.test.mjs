@@ -35,6 +35,9 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /수업 사용 기록/);
   assert.match(app, /로스팅 프로파일/);
   assert.match(app, /피커 매뉴얼\(로스팅 및 포장\)/);
+  assert.match(app, /검사·교육·보건증 D-day/);
+  assert.match(app, /보건증은 매년 발급일과 증빙 자료를 확인합니다/);
+  assert.match(app, /날짜 입력 후 계산/);
   assert.match(app, /네이버 스마트스토어 관리자센터/);
   assert.match(app, /14:00 전에 로스팅 완료/);
   assert.match(app, /택배 상자에는 피커 도장을 반드시 찍습니다/);
@@ -201,11 +204,16 @@ test("roasting handover manual is permission-protected and durably stored", asyn
   assert.match(documentRoute, /x-content-type-options/);
   assert.match(compliance, /initialCompletedDate: "2026-05-27"/);
   assert.match(compliance, /initialCompletedDate: "2026-05-20"/);
+  assert.match(compliance, /key: "health_certificate"/);
+  assert.match(compliance, /initialCompletedDate: null/);
   assert.match(compliance, /frequencyMonths: 9/);
   assert.match(compliance, /frequencyMonths: 12/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS manual_compliance/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS manual_documents/);
   assert.match(database, /ON CONFLICT\(key\) DO UPDATE/);
+  assert.match(database, /ensureManualTableSchemas/);
+  assert.match(database, /manual_compliance_next/);
+  assert.match(database, /manual_documents_next/);
   assert.match(schema, /sqliteTable\("manual_compliance"/);
   assert.match(schema, /"manual_documents"/);
 });
@@ -252,10 +260,11 @@ test("admin record routes preserve linked inventory, finance and receipt data", 
 });
 
 test("migration covers identity, finance, inventory, receipts, roasting and the handover manual", async () => {
-  const [migration, turningPointMigration, manualMigration] = await Promise.all([
+  const [migration, turningPointMigration, manualMigration, healthCertificateMigration] = await Promise.all([
     readFile(new URL("drizzle/0000_mixed_night_nurse.sql", root), "utf8"),
     readFile(new URL("drizzle/0007_natural_mantis.sql", root), "utf8"),
     readFile(new URL("drizzle/0008_rare_the_hunter.sql", root), "utf8"),
+    readFile(new URL("drizzle/0009_fixed_spitfire.sql", root), "utf8"),
   ]);
   for (const table of [
     "staff",
@@ -277,6 +286,8 @@ test("migration covers identity, finance, inventory, receipts, roasting and the 
   assert.match(manualMigration, /CREATE TABLE `manual_compliance`/);
   assert.match(manualMigration, /CREATE TABLE `manual_documents`/);
   assert.match(manualMigration, /manual_documents_category_date_idx/);
+  assert.match(healthCertificateMigration, /`completed_date` text,/);
+  assert.match(healthCertificateMigration, /INSERT INTO `__new_manual_compliance`/);
 });
 
 test("guards critical identity, date and persistence edge cases", async () => {

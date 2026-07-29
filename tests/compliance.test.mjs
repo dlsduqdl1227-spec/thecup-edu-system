@@ -23,6 +23,18 @@ test("calculates the requested self-quality and hygiene due dates", () => {
   assert.equal(compliance.daysUntilDate("2027-02-27", "2026-07-29"), 213);
 });
 
+test("registers the annual health certificate without inventing a completed date", () => {
+  const healthCertificate = compliance.COMPLIANCE_DEFINITIONS.find(
+    (item) => item.key === "health_certificate",
+  );
+
+  assert.ok(healthCertificate);
+  assert.equal(healthCertificate.frequencyMonths, 12);
+  assert.equal(healthCertificate.initialCompletedDate, null);
+  assert.equal(compliance.isComplianceKey("health_certificate"), true);
+  assert.equal(compliance.isManualDocumentCategory("health_certificate"), true);
+});
+
 test("clamps month-end dates and formats upcoming, today and overdue D-days", () => {
   assert.equal(compliance.nextComplianceDueDate("2026-05-31", 9), "2027-02-28");
   assert.equal(compliance.formatDday(30), "D-30");

@@ -137,7 +137,7 @@ type ComplianceRecord = {
   key: ComplianceKey;
   title: string;
   frequencyMonths: number;
-  completedDate: string;
+  completedDate: string | null;
   updatedAt: string;
   updatedByName: string | null;
 };
@@ -218,6 +218,7 @@ const movementLabel: Record<string, string> = {
 const manualDocumentCategoryLabel: Record<ManualDocumentCategory, string> = {
   self_quality: "자가품질검사",
   hygiene_education: "위생교육",
+  health_certificate: "보건증",
   roasting: "로스팅 자료",
   packing: "포장 자료",
 };
@@ -2081,15 +2082,19 @@ function RoastingManual({
 
       <section className="manual-section" aria-labelledby="compliance-title">
         <div className="manual-section-heading">
-          <div><span className="eyebrow">정기 의무 일정</span><h2 id="compliance-title">검사·교육 D-day</h2></div>
+          <div><span className="eyebrow">정기 의무 일정</span><h2 id="compliance-title">검사·교육·보건증 D-day</h2></div>
           <p>완료일을 기준으로 다음 예정일을 자동 계산합니다. 날짜 변경은 관리자만 할 수 있습니다.</p>
         </div>
         {loading ? <div className="panel empty-state">정기 의무 일정을 불러오는 중입니다.</div> : (
           <div className="compliance-grid">
             {manualData.compliance.map((item) => {
-              const dueDate = nextComplianceDueDate(item.completedDate, item.frequencyMonths);
-              const remainingDays = daysUntilDate(dueDate, today);
-              const status = remainingDays < 0 ? "overdue" : remainingDays <= 30 ? "soon" : "safe";
+              const dueDate = item.completedDate
+                ? nextComplianceDueDate(item.completedDate, item.frequencyMonths)
+                : null;
+              const remainingDays = dueDate ? daysUntilDate(dueDate, today) : null;
+              const status = remainingDays === null
+                ? "unregistered"
+                : remainingDays < 0 ? "overdue" : remainingDays <= 30 ? "soon" : "safe";
               return (
                 <article className={`compliance-card ${status}`} key={item.key}>
                   <div className="compliance-card-heading">
@@ -2097,19 +2102,21 @@ function RoastingManual({
                       <span>{item.frequencyMonths === 12 ? "매년 1회" : `${item.frequencyMonths}개월마다`}</span>
                       <h3>{item.title}</h3>
                     </div>
-                    <strong>{formatDday(remainingDays)}</strong>
+                    <strong>{remainingDays === null ? "미등록" : formatDday(remainingDays)}</strong>
                   </div>
                   <dl>
-                    <div><dt>최근 완료일</dt><dd>{formatDisplayDate(item.completedDate)}</dd></div>
-                    <div><dt>다음 예정일</dt><dd>{formatDisplayDate(dueDate)}</dd></div>
+                    <div><dt>최근 완료일</dt><dd>{item.completedDate ? formatDisplayDate(item.completedDate) : "등록 필요"}</dd></div>
+                    <div><dt>다음 예정일</dt><dd>{dueDate ? formatDisplayDate(dueDate) : "날짜 입력 후 계산"}</dd></div>
                   </dl>
                   <p>{item.key === "self_quality"
                     ? "자가품질검사는 9개월마다 결과와 증빙 자료를 확인합니다."
-                    : "위생교육은 매년 이수 여부와 수료 자료를 확인합니다."}</p>
+                    : item.key === "health_certificate"
+                      ? "보건증은 매년 발급일과 증빙 자료를 확인합니다."
+                      : "위생교육은 매년 이수 여부와 수료 자료를 확인합니다."}</p>
                   {item.updatedByName && <small>최근 갱신 {item.updatedByName} · {formatDateTime(item.updatedAt)}</small>}
                   {user.role === "admin" && (
-                    <form key={item.completedDate} className="compliance-update" onSubmit={(event) => void updateCompliance(event, item.key)}>
-                      <Field label="최근 완료일"><input name="completedDate" type="date" defaultValue={item.completedDate} required /></Field>
+                    <form key={`${item.key}:${item.completedDate ?? "unregistered"}`} className="compliance-update" onSubmit={(event) => void updateCompliance(event, item.key)}>
+                      <Field label={item.key === "health_certificate" ? "최근 발급일" : "최근 완료일"}><input name="completedDate" type="date" defaultValue={item.completedDate ?? ""} required /></Field>
                       <button className="secondary-button" disabled={busy === `compliance:${item.key}`}>{busy === `compliance:${item.key}` ? "저장 중…" : "날짜 갱신"}</button>
                     </form>
                   )}
@@ -2143,7 +2150,7 @@ function RoastingManual({
 
       <section className="manual-section" aria-labelledby="manual-documents-title">
         <div className="manual-section-heading">
-          <div><span className="eyebrow">자료 보관함</span><h2 id="manual-documents-title">검사·교육·로스팅·포장 자료</h2></div>
+          <div><span className="eyebrow">자료 보관함</span><h2 id="manual-documents-title">검사·교육·보건증·로스팅·포장 자료</h2></div>
           <p>촬영한 자료는 이미지로 최적화해 보관하며, 로스팅 권한이 있는 직원은 언제든 열람할 수 있습니다.</p>
         </div>
         {user.role === "admin" && (
@@ -2222,7 +2229,7 @@ function RoastingManual({
             ))}
           </div>
         ) : (
-          <div className="panel empty-state"><strong>아직 저장된 자료 이미지가 없습니다.</strong><p>자가품질검사 결과서, 위생교육 수료증, 포장 예시 등을 촬영해 등록하세요.</p></div>
+          <div className="panel empty-state"><strong>아직 저장된 자료 이미지가 없습니다.</strong><p>자가품질검사 결과서, 위생교육 수료증, 보건증, 포장 예시 등을 촬영하거나 앨범에서 등록하세요.</p></div>
         )}
       </section>
     </div>

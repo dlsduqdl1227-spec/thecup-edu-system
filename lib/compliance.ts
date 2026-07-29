@@ -13,6 +13,13 @@ export const COMPLIANCE_DEFINITIONS = [
     initialCompletedDate: "2026-05-20",
     description: "매년 교육 이수 여부와 수료 자료를 확인합니다.",
   },
+  {
+    key: "health_certificate",
+    title: "보건증",
+    frequencyMonths: 12,
+    initialCompletedDate: null,
+    description: "매년 발급일과 보건증 자료를 확인합니다.",
+  },
 ] as const;
 
 export type ComplianceKey = (typeof COMPLIANCE_DEFINITIONS)[number]["key"];
@@ -20,6 +27,7 @@ export type ComplianceKey = (typeof COMPLIANCE_DEFINITIONS)[number]["key"];
 export const MANUAL_DOCUMENT_CATEGORIES = [
   "self_quality",
   "hygiene_education",
+  "health_certificate",
   "roasting",
   "packing",
 ] as const;

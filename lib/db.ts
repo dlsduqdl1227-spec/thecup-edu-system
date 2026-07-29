@@ -168,16 +168,16 @@ const schemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS manual_compliance (
-    key TEXT PRIMARY KEY CHECK(key IN ('self_quality','hygiene_education')),
+    key TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     frequency_months INTEGER NOT NULL,
-    completed_date TEXT NOT NULL,
+    completed_date TEXT,
     updated_by INTEGER REFERENCES staff(id),
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS manual_documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT NOT NULL CHECK(category IN ('self_quality','hygiene_education','roasting','packing')),
+    category TEXT NOT NULL,
     title TEXT NOT NULL,
     document_date TEXT NOT NULL,
     file_name TEXT NOT NULL,
@@ -267,6 +267,7 @@ async function initializeDatabase(): Promise<void> {
   await ensureInventoryItemColumns(db);
   await ensureInventoryMovementColumns(db);
   await ensureRoastingProfileColumns(db);
+  await ensureManualTableSchemas(db);
 
   const complianceSeedStatements = COMPLIANCE_DEFINITIONS.map((item) =>
     db
@@ -350,6 +351,78 @@ async function ensureStaffPermissionColumns(db: D1Database): Promise<void> {
          WHERE role IN ('admin', 'employee')`,
       )
       .run();
+  }
+}
+
+async function ensureManualTableSchemas(db: D1Database): Promise<void> {
+  const complianceColumns = await db
+    .prepare("PRAGMA table_info(manual_compliance)")
+    .all<{ name: string; notnull: number }>();
+  const complianceDefinition = await db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_compliance'")
+    .first<{ sql: string }>();
+  const completedDateColumn = complianceColumns.results.find((column) => column.name === "completed_date");
+  const complianceNeedsUpgrade = completedDateColumn?.notnull === 1
+    || /CHECK\s*\(\s*key/i.test(complianceDefinition?.sql ?? "");
+
+  if (complianceNeedsUpgrade) {
+    await db.batch([
+      db.prepare("DROP TABLE IF EXISTS manual_compliance_next"),
+      db.prepare(
+        `CREATE TABLE manual_compliance_next (
+          key TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          frequency_months INTEGER NOT NULL,
+          completed_date TEXT,
+          updated_by INTEGER REFERENCES staff(id),
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+      ),
+      db.prepare(
+        `INSERT INTO manual_compliance_next
+          (key, title, frequency_months, completed_date, updated_by, updated_at)
+         SELECT key, title, frequency_months, completed_date, updated_by, updated_at
+         FROM manual_compliance`,
+      ),
+      db.prepare("DROP TABLE manual_compliance"),
+      db.prepare("ALTER TABLE manual_compliance_next RENAME TO manual_compliance"),
+    ]);
+  }
+
+  const documentDefinition = await db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_documents'")
+    .first<{ sql: string }>();
+  if (/CHECK\s*\(\s*category/i.test(documentDefinition?.sql ?? "")) {
+    await db.batch([
+      db.prepare("DROP TABLE IF EXISTS manual_documents_next"),
+      db.prepare(
+        `CREATE TABLE manual_documents_next (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          category TEXT NOT NULL,
+          title TEXT NOT NULL,
+          document_date TEXT NOT NULL,
+          file_name TEXT NOT NULL,
+          content_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL,
+          data BLOB NOT NULL,
+          created_by INTEGER NOT NULL REFERENCES staff(id),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+      ),
+      db.prepare(
+        `INSERT INTO manual_documents_next
+          (id, category, title, document_date, file_name, content_type,
+           size_bytes, data, created_by, created_at)
+         SELECT id, category, title, document_date, file_name, content_type,
+                size_bytes, data, created_by, created_at
+         FROM manual_documents`,
+      ),
+      db.prepare("DROP TABLE manual_documents"),
+      db.prepare("ALTER TABLE manual_documents_next RENAME TO manual_documents"),
+      db.prepare(
+        "CREATE INDEX IF NOT EXISTS manual_documents_category_date_idx ON manual_documents(category, document_date)",
+      ),
+    ]);
   }
 }
 
