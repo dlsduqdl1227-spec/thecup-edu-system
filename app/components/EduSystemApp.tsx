@@ -1910,6 +1910,9 @@ function RoastingManual({
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const [selectedDocumentPreview, setSelectedDocumentPreview] = useState<string | null>(null);
   const selectedDocumentPreviewRef = useRef<string | null>(null);
+  const [complianceDocuments, setComplianceDocuments] = useState<Partial<Record<ComplianceKey, { file: File; previewUrl: string }>>>({});
+  const [complianceInputKeys, setComplianceInputKeys] = useState<Partial<Record<ComplianceKey, number>>>({});
+  const compliancePreviewRefs = useRef<Partial<Record<ComplianceKey, string>>>({});
 
   const load = useCallback(async () => {
     try {
@@ -1935,6 +1938,9 @@ function RoastingManual({
     if (selectedDocumentPreviewRef.current) {
       URL.revokeObjectURL(selectedDocumentPreviewRef.current);
     }
+    Object.values(compliancePreviewRefs.current).forEach((previewUrl) => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    });
   }, []);
 
   function chooseDocument(file: File | null) {
@@ -1958,19 +1964,47 @@ function RoastingManual({
     setUploadInputKey((value) => value + 1);
   }
 
+  function chooseComplianceDocument(key: ComplianceKey, file: File | null) {
+    const previousPreview = compliancePreviewRefs.current[key];
+    if (previousPreview) URL.revokeObjectURL(previousPreview);
+    if (!file?.size) {
+      delete compliancePreviewRefs.current[key];
+      setComplianceDocuments((current) => ({ ...current, [key]: undefined }));
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    compliancePreviewRefs.current[key] = previewUrl;
+    setComplianceDocuments((current) => ({ ...current, [key]: { file, previewUrl } }));
+  }
+
+  function clearComplianceDocument(key: ComplianceKey) {
+    chooseComplianceDocument(key, null);
+    setComplianceInputKeys((current) => ({ ...current, [key]: (current[key] ?? 0) + 1 }));
+  }
+
   async function updateCompliance(event: FormEvent<HTMLFormElement>, key: ComplianceKey) {
     event.preventDefault();
     const form = event.currentTarget;
     const completedDate = String(new FormData(form).get("completedDate") ?? "");
+    const selected = complianceDocuments[key]?.file ?? null;
     setBusy(`compliance:${key}`);
     try {
+      const payload = new FormData();
+      payload.set("key", key);
+      payload.set("completedDate", completedDate);
+      if (selected) payload.set("document", await optimizeManualDocument(selected));
       await requestJson("/api/roasting/manual", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ key, completedDate }),
+        method: "PUT",
+        body: payload,
       });
+      clearComplianceDocument(key);
       await load();
-      notify({ kind: "ok", message: "최근 완료일과 다음 예정일을 갱신했습니다." });
+      notify({
+        kind: "ok",
+        message: selected
+          ? "완료일, 다음 예정일과 증빙 이미지를 함께 저장했습니다."
+          : "최근 완료일과 다음 예정일을 갱신했습니다.",
+      });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
@@ -2068,6 +2102,9 @@ function RoastingManual({
       note: "포장 완료 수량과 특이사항이 있으면 차장님께 함께 전달하세요.",
     },
   ];
+  const operationalDocuments = manualData.documents.filter(
+    (document) => document.category === "roasting" || document.category === "packing",
+  );
 
   return (
     <div className="picker-manual">
@@ -2095,6 +2132,9 @@ function RoastingManual({
               const status = remainingDays === null
                 ? "unregistered"
                 : remainingDays < 0 ? "overdue" : remainingDays <= 30 ? "soon" : "safe";
+              const documents = manualData.documents.filter((document) => document.category === item.key);
+              const [latestDocument, ...previousDocuments] = documents;
+              const selected = complianceDocuments[item.key];
               return (
                 <article className={`compliance-card ${status}`} key={item.key}>
                   <div className="compliance-card-heading">
@@ -2114,10 +2154,67 @@ function RoastingManual({
                       ? "보건증은 매년 발급일과 증빙 자료를 확인합니다."
                       : "위생교육은 매년 이수 여부와 수료 자료를 확인합니다."}</p>
                   {item.updatedByName && <small>최근 갱신 {item.updatedByName} · {formatDateTime(item.updatedAt)}</small>}
+                  <div className="compliance-evidence">
+                    <div className="compliance-evidence-heading">
+                      <strong>증빙 자료</strong>
+                      <span>{documents.length ? `${documents.length}건 보관 중` : "등록 필요"}</span>
+                    </div>
+                    {latestDocument ? (
+                      <ManualDocumentCard
+                        document={latestDocument}
+                        busy={busy}
+                        canDelete={user.role === "admin"}
+                        onDelete={deleteDocument}
+                      />
+                    ) : (
+                      <div className="compliance-evidence-empty">아직 등록된 증빙 이미지가 없습니다.</div>
+                    )}
+                    {previousDocuments.length > 0 && (
+                      <details className="compliance-history">
+                        <summary>이전 증빙 {previousDocuments.length}건 보기</summary>
+                        <div className="compliance-history-grid">
+                          {previousDocuments.map((document) => (
+                            <ManualDocumentCard
+                              document={document}
+                              busy={busy}
+                              canDelete={user.role === "admin"}
+                              onDelete={deleteDocument}
+                              key={document.id}
+                            />
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                   {user.role === "admin" && (
                     <form key={`${item.key}:${item.completedDate ?? "unregistered"}`} className="compliance-update" onSubmit={(event) => void updateCompliance(event, item.key)}>
                       <Field label={item.key === "health_certificate" ? "최근 발급일" : "최근 완료일"}><input name="completedDate" type="date" defaultValue={item.completedDate ?? ""} required /></Field>
-                      <button className="secondary-button" disabled={busy === `compliance:${item.key}`}>{busy === `compliance:${item.key}` ? "저장 중…" : "날짜 갱신"}</button>
+                      <div className="field compliance-file-field">
+                        <span>증빙 이미지</span>
+                        <label className="compliance-file-option">
+                          <strong>{selected ? "다른 이미지 선택" : "촬영 또는 앨범 선택"}</strong>
+                          <small>{selected ? selected.file.name : "날짜와 함께 한 번에 저장"}</small>
+                          <input
+                            key={`${item.key}-${complianceInputKeys[item.key] ?? 0}`}
+                            type="file"
+                            accept="image/*"
+                            aria-label={`${item.title} 증빙 이미지 촬영 또는 앨범 선택`}
+                            onChange={(event) => chooseComplianceDocument(item.key, event.currentTarget.files?.[0] ?? null)}
+                          />
+                        </label>
+                      </div>
+                      {selected && (
+                        <div className="compliance-selected-file">
+                          {/* This is a temporary local object URL and must not pass through an image optimizer. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={selected.previewUrl} alt={`${item.title} 선택 이미지 미리보기`} />
+                          <div><strong>저장 전 미리보기</strong><span>{selected.file.name}</span></div>
+                          <button type="button" className="ghost-button" onClick={() => clearComplianceDocument(item.key)}>선택 취소</button>
+                        </div>
+                      )}
+                      <button className="secondary-button" disabled={busy === `compliance:${item.key}`}>
+                        {busy === `compliance:${item.key}` ? "저장 중…" : selected ? "날짜·증빙 함께 저장" : "날짜 저장"}
+                      </button>
                     </form>
                   )}
                 </article>
@@ -2150,18 +2247,19 @@ function RoastingManual({
 
       <section className="manual-section" aria-labelledby="manual-documents-title">
         <div className="manual-section-heading">
-          <div><span className="eyebrow">자료 보관함</span><h2 id="manual-documents-title">검사·교육·보건증·로스팅·포장 자료</h2></div>
-          <p>촬영한 자료는 이미지로 최적화해 보관하며, 로스팅 권한이 있는 직원은 언제든 열람할 수 있습니다.</p>
+          <div><span className="eyebrow">작업 참고자료</span><h2 id="manual-documents-title">로스팅·포장 자료</h2></div>
+          <p>검사·교육·보건증은 위 D-day 카드에서 함께 관리하고, 이곳에는 작업에 필요한 참고 이미지만 보관합니다.</p>
         </div>
         {user.role === "admin" && (
           <form className="panel manual-upload-form" onSubmit={(event) => void uploadDocument(event)}>
             <Field label="자료 분류">
-              <select name="category" defaultValue="self_quality">
-                {Object.entries(manualDocumentCategoryLabel).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+              <select name="category" defaultValue="roasting">
+                <option value="roasting">로스팅 자료</option>
+                <option value="packing">포장 자료</option>
               </select>
             </Field>
             <Field label="자료 날짜"><input name="documentDate" type="date" defaultValue={today} required /></Field>
-            <Field label="자료명"><input name="title" placeholder="예: 2026년 자가품질검사 결과서" maxLength={80} required /></Field>
+            <Field label="자료명"><input name="title" placeholder="예: 피커 포장 완성 예시" maxLength={80} required /></Field>
             <div className="field manual-file-field">
               <span>자료 이미지</span>
               <div className="manual-file-options">
@@ -2197,30 +2295,62 @@ function RoastingManual({
             </div>
           </form>
         )}
-        {loading ? null : manualData.documents.length ? (
+        {loading ? null : operationalDocuments.length ? (
           <div className="manual-document-grid">
-            {manualData.documents.map((document) => (
-              <article className="manual-document-card" key={document.id}>
-                <a href={`/api/roasting/manual/documents/${document.id}?v=${encodeURIComponent(document.createdAt)}`} target="_blank" rel="noreferrer" aria-label={`${document.title} 이미지 열기`}>
-                  {/* Keep the protected same-origin image request authenticated instead of routing it through an optimizer. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/roasting/manual/documents/${document.id}?v=${encodeURIComponent(document.createdAt)}`} alt={`${document.title} 자료`} loading="lazy" />
-                  <span className="manual-document-open">이미지 크게 보기</span>
-                </a>
-                <div>
-                  <span>{manualDocumentCategoryLabel[document.category]} · {formatDisplayDate(document.documentDate)}</span>
-                  <h3>{document.title}</h3>
-                  <p>{document.createdByName} · {formatFileSize(document.sizeBytes)}</p>
-                </div>
-                {user.role === "admin" && <button type="button" className="document-delete-button" disabled={busy === `document:${document.id}`} onClick={() => void deleteDocument(document)}>{busy === `document:${document.id}` ? "삭제 중…" : "삭제"}</button>}
-              </article>
+            {operationalDocuments.map((document) => (
+              <ManualDocumentCard
+                document={document}
+                busy={busy}
+                canDelete={user.role === "admin"}
+                onDelete={deleteDocument}
+                key={document.id}
+              />
             ))}
           </div>
         ) : (
-          <div className="panel empty-state"><strong>아직 저장된 자료 이미지가 없습니다.</strong><p>자가품질검사 결과서, 위생교육 수료증, 보건증, 포장 예시 등을 촬영하거나 앨범에서 등록하세요.</p></div>
+          <div className="panel empty-state"><strong>아직 저장된 작업 참고자료가 없습니다.</strong><p>로스팅 설정이나 포장 완성 예시처럼 작업에 필요한 이미지를 등록하세요.</p></div>
         )}
       </section>
     </div>
+  );
+}
+
+function ManualDocumentCard({
+  document,
+  busy,
+  canDelete,
+  onDelete,
+}: {
+  document: ManualDocument;
+  busy: string | null;
+  canDelete: boolean;
+  onDelete: (document: ManualDocument) => Promise<void>;
+}) {
+  const imageUrl = `/api/roasting/manual/documents/${document.id}?v=${encodeURIComponent(document.createdAt)}`;
+  return (
+    <article className="manual-document-card">
+      <a href={imageUrl} target="_blank" rel="noreferrer" aria-label={`${document.title} 이미지 열기`}>
+        {/* Keep the protected same-origin image request authenticated instead of routing it through an optimizer. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt={`${document.title} 자료`} loading="lazy" />
+        <span className="manual-document-open">이미지 크게 보기</span>
+      </a>
+      <div>
+        <span>{manualDocumentCategoryLabel[document.category]} · {formatDisplayDate(document.documentDate)}</span>
+        <h3>{document.title}</h3>
+        <p>{document.createdByName} · {formatFileSize(document.sizeBytes)}</p>
+      </div>
+      {canDelete && (
+        <button
+          type="button"
+          className="document-delete-button"
+          disabled={busy === `document:${document.id}`}
+          onClick={() => void onDelete(document)}
+        >
+          {busy === `document:${document.id}` ? "삭제 중…" : "삭제"}
+        </button>
+      )}
+    </article>
   );
 }
 

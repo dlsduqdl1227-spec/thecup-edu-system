@@ -2203,9 +2203,8 @@ td.expense {
 
 .compliance-update {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   margin-top: 15px;
   border-top: 1px solid var(--line);
   padding-top: 15px;
@@ -2216,7 +2215,149 @@ td.expense {
 }
 
 .compliance-update .secondary-button {
+  width: 100%;
+  min-height: 46px;
+}
+
+.compliance-evidence {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 15px;
+}
+
+.compliance-evidence-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.compliance-evidence-heading strong {
+  font-size: 13px;
+}
+
+.compliance-evidence-heading span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.compliance-evidence-empty {
+  border: 1px dashed #a9a9a9;
+  background: #f6f6f6;
+  padding: 18px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.compliance-history {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.compliance-history summary {
   min-height: 42px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.compliance-history-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.compliance-file-option {
+  position: relative;
+  display: flex;
+  min-height: 58px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #a9a9a9;
+  background: #f6f6f6;
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.compliance-file-option:hover,
+.compliance-file-option:focus-within {
+  border-color: var(--ink);
+  background: var(--white);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.compliance-file-option strong {
+  font-size: 13px;
+}
+
+.compliance-file-option small {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.compliance-file-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.compliance-selected-file {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--ink);
+  background: #f4f4f4;
+  padding: 9px;
+}
+
+.compliance-selected-file img {
+  grid-row: span 2;
+  display: block;
+  width: 76px;
+  height: 62px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  object-fit: contain;
+}
+
+.compliance-selected-file > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.compliance-selected-file strong {
+  font-size: 12px;
+}
+
+.compliance-selected-file span {
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.compliance-selected-file .ghost-button {
+  grid-column: 2;
+  justify-self: start;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.compliance-evidence .manual-document-card {
+  margin-top: 0;
 }
 
 .picker-workflow {

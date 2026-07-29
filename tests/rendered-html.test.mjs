@@ -110,6 +110,11 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.equal((app.match(/className="manual-file-option"/g) ?? []).length, 1);
   assert.match(app, /encodeURIComponent\(document\.createdAt\)/);
   assert.match(app, /선택한 자료 이미지 미리보기/);
+  assert.match(app, /날짜·증빙 함께 저장/);
+  assert.match(app, /이전 증빙 \{previousDocuments\.length\}건 보기/);
+  assert.match(app, /검사·교육·보건증은 위 D-day 카드에서 함께 관리/);
+  assert.match(app, /로스팅·포장 자료/);
+  assert.doesNotMatch(app, /검사·교육·보건증·로스팅·포장 자료/);
   assert.match(app, /이미지 크게 보기/);
   assert.match(app, /내가 등록한 기록만 표시됩니다/);
   assert.match(app, /전체 직원의 우유 입고·수업 사용 기록과 등록자/);
@@ -158,6 +163,8 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.roasting-workspace-tabs/);
   assert.match(styles, /\.picker-manual/);
   assert.match(styles, /\.compliance-grid/);
+  assert.match(styles, /\.compliance-evidence/);
+  assert.match(styles, /\.compliance-file-option/);
   assert.match(styles, /\.manual-document-grid/);
   assert.match(styles, /\.manual-file-options/);
   assert.match(styles, /\.manual-upload-preview/);
@@ -199,6 +206,9 @@ test("roasting handover manual is permission-protected and durably stored", asyn
   assert.match(manualRoute, /MAX_DOCUMENT_BYTES = 400_000/);
   assert.match(manualRoute, /MAX_DOCUMENT_COUNT = 50/);
   assert.match(manualRoute, /MAX_DOCUMENT_STORAGE_BYTES = 20_000_000/);
+  assert.match(manualRoute, /export async function PUT/);
+  assert.match(manualRoute, /await db\.batch\(statements\)/);
+  assert.match(manualRoute, /검사·교육·보건증 자료는 해당 D-day 카드에서 등록/);
   assert.match(documentRoute, /requirePermission\(request, "roasting"\)/);
   assert.match(documentRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(documentRoute, /blobResponseBody/);
