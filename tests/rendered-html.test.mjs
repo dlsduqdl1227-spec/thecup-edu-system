@@ -102,6 +102,11 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /Asia\/Seoul/);
   assert.match(app, /capture="environment"/);
   assert.match(app, /선택한 영수증 미리보기/);
+  assert.match(app, /사진 촬영/);
+  assert.match(app, /앨범에서 선택/);
+  assert.match(app, /aria-label="앨범에서 자료 이미지 선택"/);
+  assert.match(app, /선택한 자료 이미지 미리보기/);
+  assert.match(app, /이미지 크게 보기/);
   assert.match(app, /내가 등록한 기록만 표시됩니다/);
   assert.match(app, /전체 직원의 우유 입고·수업 사용 기록과 등록자/);
   assert.match(app, /name="beanQuantityKg"/);
@@ -150,6 +155,9 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.picker-manual/);
   assert.match(styles, /\.compliance-grid/);
   assert.match(styles, /\.manual-document-grid/);
+  assert.match(styles, /\.manual-file-options/);
+  assert.match(styles, /\.manual-upload-preview/);
+  assert.match(styles, /\.manual-document-open/);
   assert.match(styles, /\.copy-profile-notice/);
   assert.match(styles, /\.live-development/);
   assert.match(styles, /body \{[\s\S]*?font-size: 16px/);

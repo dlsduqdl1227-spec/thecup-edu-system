@@ -1906,6 +1906,9 @@ function RoastingManual({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [uploadInputKey, setUploadInputKey] = useState(0);
+  const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [selectedDocumentPreview, setSelectedDocumentPreview] = useState<string | null>(null);
+  const selectedDocumentPreviewRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -1926,6 +1929,33 @@ function RoastingManual({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  useEffect(() => () => {
+    if (selectedDocumentPreviewRef.current) {
+      URL.revokeObjectURL(selectedDocumentPreviewRef.current);
+    }
+  }, []);
+
+  function chooseDocument(file: File | null) {
+    if (selectedDocumentPreviewRef.current) {
+      URL.revokeObjectURL(selectedDocumentPreviewRef.current);
+      selectedDocumentPreviewRef.current = null;
+    }
+    if (!file?.size) {
+      setSelectedDocument(null);
+      setSelectedDocumentPreview(null);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    selectedDocumentPreviewRef.current = previewUrl;
+    setSelectedDocument(file);
+    setSelectedDocumentPreview(previewUrl);
+  }
+
+  function clearSelectedDocument() {
+    chooseDocument(null);
+    setUploadInputKey((value) => value + 1);
+  }
 
   async function updateCompliance(event: FormEvent<HTMLFormElement>, key: ComplianceKey) {
     event.preventDefault();
@@ -1951,14 +1981,13 @@ function RoastingManual({
     event.preventDefault();
     const form = event.currentTarget;
     const source = new FormData(form);
-    const selected = source.get("document");
-    if (!(selected instanceof File) || !selected.size) {
-      notify({ kind: "error", message: "확인할 자료 이미지를 선택해 주세요." });
+    if (!selectedDocument?.size) {
+      notify({ kind: "error", message: "사진을 촬영하거나 앨범에서 자료 이미지를 선택해 주세요." });
       return;
     }
     setBusy("upload");
     try {
-      const optimized = await optimizeManualDocument(selected);
+      const optimized = await optimizeManualDocument(selectedDocument);
       const payload = new FormData();
       payload.set("category", String(source.get("category") ?? ""));
       payload.set("title", String(source.get("title") ?? ""));
@@ -1968,8 +1997,9 @@ function RoastingManual({
         method: "POST",
         body: payload,
       });
-      form.querySelector<HTMLInputElement>('input[name="title"]')!.value = "";
-      setUploadInputKey((value) => value + 1);
+      const titleInput = form.querySelector<HTMLInputElement>('input[name="title"]');
+      if (titleInput) titleInput.value = "";
+      clearSelectedDocument();
       await load();
       notify({ kind: "ok", message: `자료 이미지를 ${formatFileSize(result.sizeBytes)}로 최적화해 저장했습니다.` });
     } catch (error) {
@@ -2125,12 +2155,50 @@ function RoastingManual({
             </Field>
             <Field label="자료 날짜"><input name="documentDate" type="date" defaultValue={today} required /></Field>
             <Field label="자료명"><input name="title" placeholder="예: 2026년 자가품질검사 결과서" maxLength={80} required /></Field>
-            <Field label="자료 이미지">
-              <input key={uploadInputKey} name="document" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required />
-            </Field>
+            <div className="field manual-file-field">
+              <span>자료 이미지</span>
+              <div className="manual-file-options">
+                <label className="manual-file-option">
+                  <strong>사진 촬영</strong>
+                  <small>카메라로 바로 찍기</small>
+                  <input
+                    key={`camera-${uploadInputKey}`}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    aria-label="카메라로 자료 이미지 촬영"
+                    onChange={(event) => chooseDocument(event.currentTarget.files?.[0] ?? null)}
+                  />
+                </label>
+                <label className="manual-file-option">
+                  <strong>앨범에서 선택</strong>
+                  <small>저장된 사진 가져오기</small>
+                  <input
+                    key={`album-${uploadInputKey}`}
+                    type="file"
+                    accept="image/*"
+                    aria-label="앨범에서 자료 이미지 선택"
+                    onChange={(event) => chooseDocument(event.currentTarget.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            </div>
+            {selectedDocument && selectedDocumentPreview && (
+              <div className="manual-upload-preview">
+                {/* This is a temporary local object URL and must not pass through an image optimizer. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={selectedDocumentPreview} alt="선택한 자료 이미지 미리보기" />
+                <div>
+                  <span>선택한 자료 이미지 미리보기</span>
+                  <strong>{selectedDocument.name}</strong>
+                  <p>{formatFileSize(selectedDocument.size)} · 저장할 때 자동으로 용량을 줄입니다.</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={clearSelectedDocument}>다시 선택</button>
+              </div>
+            )}
             <div className="manual-upload-action">
-              <p>이미지는 약 350KB 이하로 자동 최적화하며 최대 50개, 총 20MB까지 보관합니다.</p>
-              <button className="primary-button" disabled={busy === "upload"}>{busy === "upload" ? "최적화·저장 중…" : "자료 저장"}</button>
+              <p>사진 촬영과 앨범 선택을 모두 지원합니다. 이미지는 약 350KB 이하로 자동 최적화해 보관합니다.</p>
+              <button className="primary-button" disabled={busy === "upload" || !selectedDocument}>{busy === "upload" ? "최적화·저장 중…" : "자료 저장"}</button>
             </div>
           </form>
         )}
@@ -2142,6 +2210,7 @@ function RoastingManual({
                   {/* Keep the protected same-origin image request authenticated instead of routing it through an optimizer. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/roasting/manual/documents/${document.id}`} alt={`${document.title} 자료`} loading="lazy" />
+                  <span className="manual-document-open">이미지 크게 보기</span>
                 </a>
                 <div>
                   <span>{manualDocumentCategoryLabel[document.category]} · {formatDisplayDate(document.documentDate)}</span>
