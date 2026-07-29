@@ -108,6 +108,7 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /사진 촬영 또는 앨범 선택/);
   assert.match(app, /aria-label="자료 사진 촬영 또는 앨범 선택"/);
   assert.equal((app.match(/className="manual-file-option"/g) ?? []).length, 1);
+  assert.match(app, /encodeURIComponent\(document\.createdAt\)/);
   assert.match(app, /선택한 자료 이미지 미리보기/);
   assert.match(app, /이미지 크게 보기/);
   assert.match(app, /내가 등록한 기록만 표시됩니다/);

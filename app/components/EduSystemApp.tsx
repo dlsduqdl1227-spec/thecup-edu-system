@@ -2201,10 +2201,10 @@ function RoastingManual({
           <div className="manual-document-grid">
             {manualData.documents.map((document) => (
               <article className="manual-document-card" key={document.id}>
-                <a href={`/api/roasting/manual/documents/${document.id}`} target="_blank" rel="noreferrer" aria-label={`${document.title} 이미지 열기`}>
+                <a href={`/api/roasting/manual/documents/${document.id}?v=${encodeURIComponent(document.createdAt)}`} target="_blank" rel="noreferrer" aria-label={`${document.title} 이미지 열기`}>
                   {/* Keep the protected same-origin image request authenticated instead of routing it through an optimizer. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/roasting/manual/documents/${document.id}`} alt={`${document.title} 자료`} loading="lazy" />
+                  <img src={`/api/roasting/manual/documents/${document.id}?v=${encodeURIComponent(document.createdAt)}`} alt={`${document.title} 자료`} loading="lazy" />
                   <span className="manual-document-open">이미지 크게 보기</span>
                 </a>
                 <div>
