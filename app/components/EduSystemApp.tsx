@@ -16,6 +16,13 @@ import {
   kilogramsToInventoryQuantity,
 } from "../../lib/quantity";
 import { compareInventoryItems, type InventorySort } from "../../lib/inventory-sort";
+import {
+  daysUntilDate,
+  formatDday,
+  nextComplianceDueDate,
+  type ComplianceKey,
+  type ManualDocumentCategory,
+} from "../../lib/compliance";
 
 type Role = "admin" | "employee" | "instructor";
 type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "staff";
@@ -124,6 +131,29 @@ type RoastEditorState =
   | { mode: "copy"; profile: RoastProfile }
   | null;
 
+type RoastingWorkspaceTab = "manual" | "profiles";
+
+type ComplianceRecord = {
+  key: ComplianceKey;
+  title: string;
+  frequencyMonths: number;
+  completedDate: string;
+  updatedAt: string;
+  updatedByName: string | null;
+};
+
+type ManualDocument = {
+  id: number;
+  category: ManualDocumentCategory;
+  title: string;
+  documentDate: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  createdByName: string;
+};
+
 type DashboardData = {
   user: User;
   finance: FinanceMonth[];
@@ -185,6 +215,13 @@ const movementLabel: Record<string, string> = {
   roast_out: "생두 출고 · 로스팅",
 };
 
+const manualDocumentCategoryLabel: Record<ManualDocumentCategory, string> = {
+  self_quality: "자가품질검사",
+  hygiene_education: "위생교육",
+  roasting: "로스팅 자료",
+  packing: "포장 자료",
+};
+
 type PermissionField = "canFinance" | "canInventory" | "canRoasting";
 
 const navItems: Array<{
@@ -198,7 +235,7 @@ const navItems: Array<{
   { key: "record", label: "수업 사용 기록", short: "수업 기록" },
   { key: "inventory", label: "재고 관리", short: "재고", permission: "canInventory" },
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
-  { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
+  { key: "roasting", label: "로스팅 · 매뉴얼", short: "로스팅", permission: "canRoasting" },
   { key: "staff", label: "직원 · 권한", short: "직원", adminOnly: true },
 ];
 
@@ -209,7 +246,7 @@ const permissionOptions: Array<{
 }> = [
   { field: "canFinance", label: "매출", description: "매출 내역과 매출·지출 등록" },
   { field: "canInventory", label: "재고", description: "생두·원두 재고와 입출고" },
-  { field: "canRoasting", label: "로스팅", description: "프로파일 열람" },
+  { field: "canRoasting", label: "로스팅", description: "피커 매뉴얼과 프로파일 열람" },
 ];
 
 function allowedNavigation(user: User) {
@@ -1691,6 +1728,7 @@ function RoastingView({
   const [profiles, setProfiles] = useState<RoastProfile[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editor, setEditor] = useState<RoastEditorState>(null);
+  const [workspaceTab, setWorkspaceTab] = useState<RoastingWorkspaceTab>("manual");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (preferredId?: number) => {
@@ -1756,13 +1794,42 @@ function RoastingView({
   return (
     <section className="page-section">
       <PageHeader
-        eyebrow="로스팅 기록"
-        title="로스팅 프로파일"
-        description="온도, bar 기준 가스 압력, 1차 크랙과 배출 시점을 기록하고 구간별 평균 ROR을 확인합니다."
-        action={user.role === "admin" ? <button className="primary-button small" onClick={() => setEditor({ mode: "create" })}>새 프로파일</button> : undefined}
+        eyebrow="로스팅 운영"
+        title={workspaceTab === "manual" ? "피커 매뉴얼(로스팅 및 포장)" : "로스팅 프로파일"}
+        description={workspaceTab === "manual"
+          ? "주문 확인부터 로스팅, 포장과 정기 의무 일정까지 인수인계에 필요한 내용을 순서대로 확인합니다."
+          : "온도, bar 기준 가스 압력, 1차 크랙과 배출 시점을 기록하고 구간별 평균 ROR을 확인합니다."}
+        action={workspaceTab === "profiles" && user.role === "admin"
+          ? <button className="primary-button small" onClick={() => setEditor({ mode: "create" })}>새 프로파일</button>
+          : undefined}
       />
 
-      {loading ? <div className="panel empty-state">프로파일을 불러오는 중입니다.</div> : profiles.length ? (
+      <div className="roasting-workspace-tabs" role="tablist" aria-label="로스팅 화면 선택">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={workspaceTab === "manual"}
+          className={workspaceTab === "manual" ? "active" : ""}
+          onClick={() => setWorkspaceTab("manual")}
+        >
+          <strong>피커 매뉴얼</strong>
+          <span>로스팅·포장·정기 일정</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={workspaceTab === "profiles"}
+          className={workspaceTab === "profiles" ? "active" : ""}
+          onClick={() => setWorkspaceTab("profiles")}
+        >
+          <strong>로스팅 프로파일</strong>
+          <span>원두별 온도·화력 기록</span>
+        </button>
+      </div>
+
+      {workspaceTab === "manual" ? (
+        <RoastingManual user={user} notify={notify} onOpenProfiles={() => setWorkspaceTab("profiles")} />
+      ) : loading ? <div className="panel empty-state">프로파일을 불러오는 중입니다.</div> : profiles.length ? (
         <div className="roast-layout">
           <aside className="profile-list">
             {profiles.map((profile) => (
@@ -1820,6 +1887,276 @@ function RoastingView({
         </div>
       )}
     </section>
+  );
+}
+
+function RoastingManual({
+  user,
+  notify,
+  onOpenProfiles,
+}: {
+  user: User;
+  notify: (toast: { kind: "ok" | "error"; message: string }) => void;
+  onOpenProfiles: () => void;
+}) {
+  const [manualData, setManualData] = useState<{
+    compliance: ComplianceRecord[];
+    documents: ManualDocument[];
+  }>({ compliance: [], documents: [] });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [uploadInputKey, setUploadInputKey] = useState(0);
+
+  const load = useCallback(async () => {
+    try {
+      const result = await requestJson<{
+        compliance: ComplianceRecord[];
+        documents: ManualDocument[];
+      }>("/api/roasting/manual");
+      setManualData(result);
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    // Load the durable handover schedule and uploaded reference images.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
+
+  async function updateCompliance(event: FormEvent<HTMLFormElement>, key: ComplianceKey) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const completedDate = String(new FormData(form).get("completedDate") ?? "");
+    setBusy(`compliance:${key}`);
+    try {
+      await requestJson("/api/roasting/manual", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key, completedDate }),
+      });
+      await load();
+      notify({ kind: "ok", message: "최근 완료일과 다음 예정일을 갱신했습니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function uploadDocument(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const source = new FormData(form);
+    const selected = source.get("document");
+    if (!(selected instanceof File) || !selected.size) {
+      notify({ kind: "error", message: "확인할 자료 이미지를 선택해 주세요." });
+      return;
+    }
+    setBusy("upload");
+    try {
+      const optimized = await optimizeManualDocument(selected);
+      const payload = new FormData();
+      payload.set("category", String(source.get("category") ?? ""));
+      payload.set("title", String(source.get("title") ?? ""));
+      payload.set("documentDate", String(source.get("documentDate") ?? ""));
+      payload.set("document", optimized);
+      const result = await requestJson<{ id: number; sizeBytes: number }>("/api/roasting/manual", {
+        method: "POST",
+        body: payload,
+      });
+      form.querySelector<HTMLInputElement>('input[name="title"]')!.value = "";
+      setUploadInputKey((value) => value + 1);
+      await load();
+      notify({ kind: "ok", message: `자료 이미지를 ${formatFileSize(result.sizeBytes)}로 최적화해 저장했습니다.` });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteDocument(document: ManualDocument) {
+    if (!window.confirm(`${document.title} 자료를 삭제할까요?`)) return;
+    setBusy(`document:${document.id}`);
+    try {
+      await requestJson(`/api/roasting/manual/documents/${document.id}`, { method: "DELETE" });
+      await load();
+      notify({ kind: "ok", message: "자료 이미지를 삭제했습니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const workflow = [
+    {
+      number: "01",
+      eyebrow: "주문 확인",
+      title: "당일 주문부터 먼저 확인",
+      bullets: [
+        "네이버 스마트스토어 관리자센터에서 신규 주문을 확인합니다.",
+        "직접 확인이 어려우면 차장님께 주문 확인을 전달합니다.",
+      ],
+      note: "누락 방지를 위해 로스팅 시작 전에 주문 수량과 분쇄도를 먼저 확인하세요.",
+    },
+    {
+      number: "02",
+      eyebrow: "로스팅",
+      title: "14:00 전에 로스팅 완료",
+      bullets: [
+        "당일 택배 수거를 위해 로스팅은 보통 14:00 전에 끝냅니다.",
+        "원두별 로스팅 프로파일과 실제 화력 조절 기록을 순서대로 확인합니다.",
+      ],
+      note: "프로파일을 임의로 바꾸기보다 기존 기준을 먼저 따라 진행하세요.",
+    },
+    {
+      number: "03",
+      eyebrow: "포장",
+      title: "구성품을 빠짐없이 종이 포장",
+      bullets: [
+        "원두 패키지, 실링, 분쇄도 가이드를 함께 준비합니다.",
+        "세 가지 구성품을 종이 포장지로 감싸 택배 상자에 넣습니다.",
+        "택배 상자에는 피커 도장을 반드시 찍습니다.",
+        "라벨 스티커는 전면부 피커 글자 하단에 붙입니다.",
+      ],
+      note: "도장과 라벨 위치까지 확인한 뒤 상자를 마감하세요.",
+    },
+    {
+      number: "04",
+      eyebrow: "발송",
+      title: "발송 확인은 차장님이 진행",
+      bullets: [
+        "포장이 끝난 상품을 당일 택배 수거 위치에 정리합니다.",
+        "최종 발송 여부와 송장 확인은 차장님께서 진행합니다.",
+      ],
+      note: "포장 완료 수량과 특이사항이 있으면 차장님께 함께 전달하세요.",
+    },
+  ];
+
+  return (
+    <div className="picker-manual">
+      <section className="manual-priority panel">
+        <div>
+          <span className="eyebrow">오늘의 기준</span>
+          <h2>주문 확인 → 14:00 전 로스팅 → 포장 → 발송 전달</h2>
+          <p>처음 맡는 직원도 위 순서를 따라가면 당일 작업을 빠뜨리지 않도록 구성했습니다.</p>
+        </div>
+        <button type="button" className="primary-button" onClick={onOpenProfiles}>로스팅 프로파일 열기</button>
+      </section>
+
+      <section className="manual-section" aria-labelledby="compliance-title">
+        <div className="manual-section-heading">
+          <div><span className="eyebrow">정기 의무 일정</span><h2 id="compliance-title">검사·교육 D-day</h2></div>
+          <p>완료일을 기준으로 다음 예정일을 자동 계산합니다. 날짜 변경은 관리자만 할 수 있습니다.</p>
+        </div>
+        {loading ? <div className="panel empty-state">정기 의무 일정을 불러오는 중입니다.</div> : (
+          <div className="compliance-grid">
+            {manualData.compliance.map((item) => {
+              const dueDate = nextComplianceDueDate(item.completedDate, item.frequencyMonths);
+              const remainingDays = daysUntilDate(dueDate, today);
+              const status = remainingDays < 0 ? "overdue" : remainingDays <= 30 ? "soon" : "safe";
+              return (
+                <article className={`compliance-card ${status}`} key={item.key}>
+                  <div className="compliance-card-heading">
+                    <div>
+                      <span>{item.frequencyMonths === 12 ? "매년 1회" : `${item.frequencyMonths}개월마다`}</span>
+                      <h3>{item.title}</h3>
+                    </div>
+                    <strong>{formatDday(remainingDays)}</strong>
+                  </div>
+                  <dl>
+                    <div><dt>최근 완료일</dt><dd>{formatDisplayDate(item.completedDate)}</dd></div>
+                    <div><dt>다음 예정일</dt><dd>{formatDisplayDate(dueDate)}</dd></div>
+                  </dl>
+                  <p>{item.key === "self_quality"
+                    ? "자가품질검사는 9개월마다 결과와 증빙 자료를 확인합니다."
+                    : "위생교육은 매년 이수 여부와 수료 자료를 확인합니다."}</p>
+                  {item.updatedByName && <small>최근 갱신 {item.updatedByName} · {formatDateTime(item.updatedAt)}</small>}
+                  {user.role === "admin" && (
+                    <form key={item.completedDate} className="compliance-update" onSubmit={(event) => void updateCompliance(event, item.key)}>
+                      <Field label="최근 완료일"><input name="completedDate" type="date" defaultValue={item.completedDate} required /></Field>
+                      <button className="secondary-button" disabled={busy === `compliance:${item.key}`}>{busy === `compliance:${item.key}` ? "저장 중…" : "날짜 갱신"}</button>
+                    </form>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="manual-section" aria-labelledby="picker-flow-title">
+        <div className="manual-section-heading">
+          <div><span className="eyebrow">작업 순서</span><h2 id="picker-flow-title">피커 로스팅 및 포장 매뉴얼</h2></div>
+          <p>위에서 아래로 순서대로 확인하고, 각 단계의 마지막 안내를 체크합니다.</p>
+        </div>
+        <ol className="picker-workflow">
+          {workflow.map((step) => (
+            <li key={step.number}>
+              <span className="picker-step-number">{step.number}</span>
+              <div className="picker-step-content">
+                <span className="eyebrow">{step.eyebrow}</span>
+                <h3>{step.title}</h3>
+                <ul>{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
+                <p>{step.note}</p>
+                {step.number === "02" && <button type="button" className="ghost-button" onClick={onOpenProfiles}>원두별 프로파일 확인</button>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="manual-section" aria-labelledby="manual-documents-title">
+        <div className="manual-section-heading">
+          <div><span className="eyebrow">자료 보관함</span><h2 id="manual-documents-title">검사·교육·로스팅·포장 자료</h2></div>
+          <p>촬영한 자료는 이미지로 최적화해 보관하며, 로스팅 권한이 있는 직원은 언제든 열람할 수 있습니다.</p>
+        </div>
+        {user.role === "admin" && (
+          <form className="panel manual-upload-form" onSubmit={(event) => void uploadDocument(event)}>
+            <Field label="자료 분류">
+              <select name="category" defaultValue="self_quality">
+                {Object.entries(manualDocumentCategoryLabel).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+              </select>
+            </Field>
+            <Field label="자료 날짜"><input name="documentDate" type="date" defaultValue={today} required /></Field>
+            <Field label="자료명"><input name="title" placeholder="예: 2026년 자가품질검사 결과서" maxLength={80} required /></Field>
+            <Field label="자료 이미지">
+              <input key={uploadInputKey} name="document" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required />
+            </Field>
+            <div className="manual-upload-action">
+              <p>이미지는 약 350KB 이하로 자동 최적화하며 최대 50개, 총 20MB까지 보관합니다.</p>
+              <button className="primary-button" disabled={busy === "upload"}>{busy === "upload" ? "최적화·저장 중…" : "자료 저장"}</button>
+            </div>
+          </form>
+        )}
+        {loading ? null : manualData.documents.length ? (
+          <div className="manual-document-grid">
+            {manualData.documents.map((document) => (
+              <article className="manual-document-card" key={document.id}>
+                <a href={`/api/roasting/manual/documents/${document.id}`} target="_blank" rel="noreferrer" aria-label={`${document.title} 이미지 열기`}>
+                  {/* Keep the protected same-origin image request authenticated instead of routing it through an optimizer. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/roasting/manual/documents/${document.id}`} alt={`${document.title} 자료`} loading="lazy" />
+                </a>
+                <div>
+                  <span>{manualDocumentCategoryLabel[document.category]} · {formatDisplayDate(document.documentDate)}</span>
+                  <h3>{document.title}</h3>
+                  <p>{document.createdByName} · {formatFileSize(document.sizeBytes)}</p>
+                </div>
+                {user.role === "admin" && <button type="button" className="document-delete-button" disabled={busy === `document:${document.id}`} onClick={() => void deleteDocument(document)}>{busy === `document:${document.id}` ? "삭제 중…" : "삭제"}</button>}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="panel empty-state"><strong>아직 저장된 자료 이미지가 없습니다.</strong><p>자가품질검사 결과서, 위생교육 수료증, 포장 예시 등을 촬영해 등록하세요.</p></div>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -2805,7 +3142,15 @@ async function requestJson<T = { ok: boolean }>(url: string, init?: RequestInit)
 }
 
 async function optimizeReceipt(source: File): Promise<File> {
-  const image = await loadReceiptImage(source);
+  return optimizeUploadImage(source, "receipt", "영수증");
+}
+
+async function optimizeManualDocument(source: File): Promise<File> {
+  return optimizeUploadImage(source, "manual-document", "자료");
+}
+
+async function optimizeUploadImage(source: File, prefix: string, label: string): Promise<File> {
+  const image = await loadUploadImage(source);
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) throw new Error("이미지를 최적화할 수 없습니다.");
@@ -2833,12 +3178,12 @@ async function optimizeReceipt(source: File): Promise<File> {
   }
   image.close();
   if (!blob || blob.size > 400_000) {
-    throw new Error("영수증 이미지를 400KB 이하로 줄일 수 없습니다. 다른 사진을 선택해 주세요.");
+    throw new Error(`${label} 이미지를 400KB 이하로 줄일 수 없습니다. 다른 사진을 선택해 주세요.`);
   }
-  return new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" });
+  return new File([blob], `${prefix}-${Date.now()}.jpg`, { type: "image/jpeg" });
 }
 
-async function loadReceiptImage(source: File): Promise<{
+async function loadUploadImage(source: File): Promise<{
   source: CanvasImageSource;
   width: number;
   height: number;
@@ -2864,7 +3209,7 @@ async function loadReceiptImage(source: File): Promise<{
       const element = new Image();
       element.decoding = "async";
       element.onload = () => resolve(element);
-      element.onerror = () => reject(new Error("이 기기에서 영수증 이미지를 읽을 수 없습니다."));
+      element.onerror = () => reject(new Error("이 기기에서 이미지를 읽을 수 없습니다."));
       element.src = objectUrl;
     });
     return {
@@ -2914,6 +3259,10 @@ function movementInputQuantity(movement: Movement): number {
 
 function formatDateOnly(value: string | null | undefined): string | null {
   return value?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+}
+
+function formatDisplayDate(value: string | null | undefined): string {
+  return formatDateOnly(value)?.replaceAll("-", ".") ?? "날짜 없음";
 }
 
 function formatFileSize(bytes: number): string {

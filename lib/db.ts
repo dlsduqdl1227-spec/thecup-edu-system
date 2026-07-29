@@ -3,6 +3,7 @@ import {
   summarizeLegacyInventory,
   type LegacyInventoryEntry,
 } from "./legacy-inventory";
+import { COMPLIANCE_DEFINITIONS } from "./compliance";
 
 export type StaffRole = "admin" | "employee" | "instructor";
 export type StaffPermission = "finance" | "inventory" | "roasting";
@@ -166,6 +167,26 @@ const schemaStatements = [
     data BLOB NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS manual_compliance (
+    key TEXT PRIMARY KEY CHECK(key IN ('self_quality','hygiene_education')),
+    title TEXT NOT NULL,
+    frequency_months INTEGER NOT NULL,
+    completed_date TEXT NOT NULL,
+    updated_by INTEGER REFERENCES staff(id),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS manual_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL CHECK(category IN ('self_quality','hygiene_education','roasting','packing')),
+    title TEXT NOT NULL,
+    document_date TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    data BLOB NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES staff(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS roasting_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     bean_name TEXT NOT NULL,
@@ -212,6 +233,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS finance_date_idx ON finance_transactions(transaction_date)",
   "CREATE INDEX IF NOT EXISTS audit_created_idx ON audit_logs(created_at)",
   "CREATE INDEX IF NOT EXISTS roasting_points_profile_idx ON roasting_points(profile_id, seconds)",
+  "CREATE INDEX IF NOT EXISTS manual_documents_category_date_idx ON manual_documents(category, document_date)",
   `CREATE TRIGGER IF NOT EXISTS inventory_nonnegative_update
    BEFORE UPDATE OF quantity ON inventory_items
    WHEN NEW.quantity < 0
@@ -245,6 +267,19 @@ async function initializeDatabase(): Promise<void> {
   await ensureInventoryItemColumns(db);
   await ensureInventoryMovementColumns(db);
   await ensureRoastingProfileColumns(db);
+
+  const complianceSeedStatements = COMPLIANCE_DEFINITIONS.map((item) =>
+    db
+      .prepare(
+        `INSERT INTO manual_compliance
+          (key, title, frequency_months, completed_date)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           title = excluded.title,
+           frequency_months = excluded.frequency_months`,
+      )
+      .bind(item.key, item.title, item.frequencyMonths, item.initialCompletedDate),
+  );
 
   const financeSeedStatements = monthlySeeds.map((row) =>
     db
@@ -286,7 +321,7 @@ async function initializeDatabase(): Promise<void> {
          AND name IN ('더컵 로스팅 원두', '더컵 볶은 원두')`,
     )
     .run();
-  await db.batch([...financeSeedStatements, ...inventorySeedStatements]);
+  await db.batch([...complianceSeedStatements, ...financeSeedStatements, ...inventorySeedStatements]);
   await ensureLegacyInventory(db);
 }
 
