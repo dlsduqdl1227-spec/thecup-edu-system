@@ -34,16 +34,6 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /brand\/monthly-coffee\.png/);
   assert.match(app, /수업 사용 기록/);
   assert.match(app, /로스팅 프로파일/);
-  assert.match(app, /피커 매뉴얼\(로스팅 및 포장\)/);
-  assert.match(app, /검사·교육·보건증 D-day/);
-  assert.match(app, /보건증은 매년 발급일과 증빙 자료를 확인합니다/);
-  assert.match(app, /날짜 입력 후 계산/);
-  assert.match(app, /네이버 스마트스토어 관리자센터/);
-  assert.match(app, /14:00 전에 로스팅 완료/);
-  assert.match(app, /택배 상자에는 피커 도장을 반드시 찍습니다/);
-  assert.match(app, /라벨 스티커는 전면부 피커 글자 하단에 붙입니다/);
-  assert.match(app, /nextComplianceDueDate/);
-  assert.match(app, /api\/roasting\/manual/);
   assert.match(app, /복사해서 새로 만들기/);
   assert.match(app, /프로파일 복사본 만들기/);
   assert.match(app, /mode === "edit" \? "PATCH" : "POST"/);
@@ -96,7 +86,10 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /role="tablist"/);
   assert.match(app, /monthly-detail-content/);
   assert.match(app, /CSV 기준 매출/);
-  assert.match(app, /추가 등록 내역/);
+  assert.match(app, /월별 상세 내역/);
+  assert.match(app, /CSV 월 지출 합계/);
+  assert.match(app, /CSV 지출 1건/);
+  assert.match(app, /selectedMonthHasCsvExpense/);
   assert.match(app, /해당 연도의 12개월을 기준으로 계산했습니다/);
   assert.match(app, /\{quarter\}분기/);
   assert.doesNotMatch(app, /숫자가 말해주는 오늘의 운영|Q\{quarter\}/);
@@ -105,18 +98,6 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /Asia\/Seoul/);
   assert.match(app, /capture="environment"/);
   assert.match(app, /선택한 영수증 미리보기/);
-  assert.match(app, /사진 촬영 또는 앨범 선택/);
-  assert.match(app, /aria-label="자료 사진 촬영 또는 앨범 선택"/);
-  assert.equal((app.match(/className="manual-file-option"/g) ?? []).length, 1);
-  assert.match(app, /encodeURIComponent\(document\.createdAt\)/);
-  assert.match(app, /선택한 자료 이미지 미리보기/);
-  assert.match(app, /날짜·증빙 함께 저장/);
-  assert.match(app, /시스템 등록 기준/);
-  assert.match(app, /이전 증빙 \{previousDocuments\.length\}건 보기/);
-  assert.match(app, /검사·교육·보건증은 위 D-day 카드에서 함께 관리/);
-  assert.match(app, /로스팅·포장 자료/);
-  assert.doesNotMatch(app, /검사·교육·보건증·로스팅·포장 자료/);
-  assert.match(app, /이미지 크게 보기/);
   assert.match(app, /내가 등록한 기록만 표시됩니다/);
   assert.match(app, /전체 직원의 우유 입고·수업 사용 기록과 등록자/);
   assert.match(app, /name="beanQuantityKg"/);
@@ -141,6 +122,7 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.month-tabs/);
   assert.match(styles, /\.monthly-summary-grid/);
   assert.match(styles, /\.monthly-transaction-list/);
+  assert.match(styles, /\.csv-expense-entry/);
   assert.match(styles, /\.inventory-sections/);
   assert.match(styles, /\.inventory-section-heading/);
   assert.match(styles, /\.inventory-entry-switch/);
@@ -161,17 +143,6 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.roast-gas-guide/);
   assert.match(styles, /\.roast-gas-list/);
   assert.match(styles, /\.roast-gas-pressure/);
-  assert.match(styles, /\.roasting-workspace-tabs/);
-  assert.match(styles, /\.picker-manual/);
-  assert.match(styles, /\.compliance-grid/);
-  assert.match(styles, /\.compliance-evidence/);
-  assert.match(styles, /\.compliance-file-option/);
-  assert.match(styles, /\.compliance-card \{[\s\S]*?display: flex;[\s\S]*?height: 100%/);
-  assert.match(styles, /\.compliance-update \{[\s\S]*?margin-top: auto/);
-  assert.match(styles, /\.manual-document-grid/);
-  assert.match(styles, /\.manual-file-options/);
-  assert.match(styles, /\.manual-upload-preview/);
-  assert.match(styles, /\.manual-document-open/);
   assert.match(styles, /\.copy-profile-notice/);
   assert.match(styles, /\.live-development/);
   assert.match(styles, /body \{[\s\S]*?font-size: 16px/);
@@ -192,45 +163,6 @@ test("ships the branded monochrome application instead of the starter preview", 
   const bindings = JSON.parse(hosting);
   assert.equal(bindings.d1, "DB");
   assert.equal(bindings.r2, null);
-});
-
-test("roasting handover manual is permission-protected and durably stored", async () => {
-  const [manualRoute, documentRoute, compliance, database, schema] = await Promise.all([
-    readFile(new URL("app/api/roasting/manual/route.ts", root), "utf8"),
-    readFile(new URL("app/api/roasting/manual/documents/[id]/route.ts", root), "utf8"),
-    readFile(new URL("lib/compliance.ts", root), "utf8"),
-    readFile(new URL("lib/db.ts", root), "utf8"),
-    readFile(new URL("db/schema.ts", root), "utf8"),
-  ]);
-
-  assert.match(manualRoute, /requirePermission\(request, "roasting"\)/);
-  assert.match(manualRoute, /requireUser\(request, \["admin"\]\)/);
-  assert.match(manualRoute, /hasValidImageSignature/);
-  assert.match(manualRoute, /MAX_DOCUMENT_BYTES = 400_000/);
-  assert.match(manualRoute, /MAX_DOCUMENT_COUNT = 50/);
-  assert.match(manualRoute, /MAX_DOCUMENT_STORAGE_BYTES = 20_000_000/);
-  assert.match(manualRoute, /export async function PUT/);
-  assert.match(manualRoute, /await db\.batch\(statements\)/);
-  assert.match(manualRoute, /검사·교육·보건증 자료는 해당 D-day 카드에서 등록/);
-  assert.match(documentRoute, /requirePermission\(request, "roasting"\)/);
-  assert.match(documentRoute, /requireUser\(request, \["admin"\]\)/);
-  assert.match(documentRoute, /blobResponseBody/);
-  assert.match(documentRoute, /content-length/);
-  assert.match(documentRoute, /x-content-type-options/);
-  assert.match(compliance, /initialCompletedDate: "2026-05-27"/);
-  assert.match(compliance, /initialCompletedDate: "2026-05-20"/);
-  assert.match(compliance, /key: "health_certificate"/);
-  assert.match(compliance, /initialCompletedDate: null/);
-  assert.match(compliance, /frequencyMonths: 9/);
-  assert.match(compliance, /frequencyMonths: 12/);
-  assert.match(database, /CREATE TABLE IF NOT EXISTS manual_compliance/);
-  assert.match(database, /CREATE TABLE IF NOT EXISTS manual_documents/);
-  assert.match(database, /ON CONFLICT\(key\) DO UPDATE/);
-  assert.match(database, /ensureManualTableSchemas/);
-  assert.match(database, /manual_compliance_next/);
-  assert.match(database, /manual_documents_next/);
-  assert.match(schema, /sqliteTable\("manual_compliance"/);
-  assert.match(schema, /"manual_documents"/);
 });
 
 test("admin record routes preserve linked inventory, finance and receipt data", async () => {
@@ -267,7 +199,6 @@ test("admin record routes preserve linked inventory, finance and receipt data", 
   assert.match(adminRecords, /UPDATE inventory_items SET quantity/);
   assert.match(milkPurchase, /hasValidImageSignature/);
   assert.match(receiptRoute, /content-length/);
-  assert.match(receiptRoute, /blobResponseBody/);
   assert.match(receiptRoute, /user\.canFinance/);
   assert.match(receiptRoute, /user\.role !== "instructor"/);
   assert.match(imageSignature, /image\/jpeg/);
@@ -275,12 +206,10 @@ test("admin record routes preserve linked inventory, finance and receipt data", 
   assert.match(imageSignature, /image\/webp/);
 });
 
-test("migration covers identity, finance, inventory, receipts, roasting and the handover manual", async () => {
-  const [migration, turningPointMigration, manualMigration, healthCertificateMigration] = await Promise.all([
+test("migration covers identity, finance, inventory, receipts and roasting", async () => {
+  const [migration, turningPointMigration] = await Promise.all([
     readFile(new URL("drizzle/0000_mixed_night_nurse.sql", root), "utf8"),
     readFile(new URL("drizzle/0007_natural_mantis.sql", root), "utf8"),
-    readFile(new URL("drizzle/0008_rare_the_hunter.sql", root), "utf8"),
-    readFile(new URL("drizzle/0009_fixed_spitfire.sql", root), "utf8"),
   ]);
   for (const table of [
     "staff",
@@ -299,11 +228,6 @@ test("migration covers identity, finance, inventory, receipts, roasting and the 
   assert.match(migration, /development_ratio/);
   assert.match(migration, /inventory_nonnegative_update/);
   assert.match(turningPointMigration, /turning_point_seconds/);
-  assert.match(manualMigration, /CREATE TABLE `manual_compliance`/);
-  assert.match(manualMigration, /CREATE TABLE `manual_documents`/);
-  assert.match(manualMigration, /manual_documents_category_date_idx/);
-  assert.match(healthCertificateMigration, /`completed_date` text,/);
-  assert.match(healthCertificateMigration, /INSERT INTO `__new_manual_compliance`/);
 });
 
 test("guards critical identity, date and persistence edge cases", async () => {
