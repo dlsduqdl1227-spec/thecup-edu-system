@@ -21,7 +21,7 @@ export async function GET(request: Request) {
                 s.name AS createdByName
          FROM roasting_profiles p
          JOIN staff s ON s.id = p.created_by
-         ORDER BY p.id DESC`,
+         ORDER BY COALESCE(p.sort_order, 2147483647), p.id DESC`,
       )
       .all<Record<string, unknown>>();
     const points = await db
@@ -75,8 +75,9 @@ export async function POST(request: Request) {
         `INSERT INTO roasting_profiles
           (bean_name, origin, process, batch_weight, charge_temp, yellowing_seconds, turning_point_seconds,
            first_crack_seconds, drop_temp, total_seconds, development_seconds,
-           development_ratio, gas_notes, notes, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           development_ratio, gas_notes, notes, created_by, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+           (SELECT COALESCE(MIN(sort_order), 1) - 1 FROM roasting_profiles))`,
       )
       .bind(
         profile.beanName,

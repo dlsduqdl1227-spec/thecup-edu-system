@@ -1,0 +1,1 @@
+ALTER TABLE `roasting_profiles` ADD `sort_order` integer;

@@ -38,6 +38,10 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(app, /프로파일 복사본 만들기/);
   assert.match(app, /mode === "edit" \? "PATCH" : "POST"/);
   assert.match(app, /새 프로파일로 저장/);
+  assert.match(app, /프로파일 목록/);
+  assert.match(app, /끌어서 이동 · ↑↓ 버튼/);
+  assert.match(app, /api\/roasting\/order/);
+  assert.match(app, /draggable=\{!savingOrder\}/);
   assert.match(app, /자동 계산 디벨롭/);
   assert.match(app, /터닝포인트/);
   assert.match(app, /한눈에 따라하기/);
@@ -127,6 +131,8 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.inventory-section-heading/);
   assert.match(styles, /\.inventory-entry-switch/);
   assert.match(styles, /\.inline-roast-workflow/);
+  assert.match(styles, /\.profile-drag-handle/);
+  assert.match(styles, /\.profile-order-actions/);
   assert.match(styles, /\.export-button/);
   assert.match(styles, /\.quantity-helper/);
   assert.match(styles, /\.inventory-overview-controls/);
@@ -207,9 +213,10 @@ test("admin record routes preserve linked inventory, finance and receipt data", 
 });
 
 test("migration covers identity, finance, inventory, receipts and roasting", async () => {
-  const [migration, turningPointMigration] = await Promise.all([
+  const [migration, turningPointMigration, profileOrderMigration] = await Promise.all([
     readFile(new URL("drizzle/0000_mixed_night_nurse.sql", root), "utf8"),
     readFile(new URL("drizzle/0007_natural_mantis.sql", root), "utf8"),
+    readFile(new URL("drizzle/0008_hard_roughhouse.sql", root), "utf8"),
   ]);
   for (const table of [
     "staff",
@@ -228,10 +235,11 @@ test("migration covers identity, finance, inventory, receipts and roasting", asy
   assert.match(migration, /development_ratio/);
   assert.match(migration, /inventory_nonnegative_update/);
   assert.match(turningPointMigration, /turning_point_seconds/);
+  assert.match(profileOrderMigration, /ADD `sort_order` integer/);
 });
 
 test("guards critical identity, date and persistence edge cases", async () => {
-  const [http, database, auth, bootstrap, login, staff, finance, inventory, milkPurchase, receiptStorage, roasting, permissionsMigration, legacyMigration, deletionMigration, dashboard] = await Promise.all([
+  const [http, database, auth, bootstrap, login, staff, finance, inventory, milkPurchase, receiptStorage, roasting, roastingOrder, permissionsMigration, legacyMigration, deletionMigration, dashboard] = await Promise.all([
     readFile(new URL("lib/http.ts", root), "utf8"),
     readFile(new URL("lib/db.ts", root), "utf8"),
     readFile(new URL("lib/auth.ts", root), "utf8"),
@@ -243,6 +251,7 @@ test("guards critical identity, date and persistence edge cases", async () => {
     readFile(new URL("app/api/inventory/milk-purchase/route.ts", root), "utf8"),
     readFile(new URL("lib/receipt-storage.ts", root), "utf8"),
     readFile(new URL("app/api/roasting/route.ts", root), "utf8"),
+    readFile(new URL("app/api/roasting/order/route.ts", root), "utf8"),
     readFile(new URL("drizzle/0001_melted_scalphunter.sql", root), "utf8"),
     readFile(new URL("drizzle/0005_clean_red_skull.sql", root), "utf8"),
     readFile(new URL("drizzle/0006_nappy_winter_soldier.sql", root), "utf8"),
@@ -276,6 +285,10 @@ test("guards critical identity, date and persistence edge cases", async () => {
   assert.match(receiptStorage, /DELETE FROM receipt_files/);
   assert.match(roasting, /requirePermission\(request, "roasting"\)/);
   assert.match(roasting, /sqlite_sequence WHERE name = 'roasting_profiles'/);
+  assert.match(roasting, /COALESCE\(p\.sort_order, 2147483647\)/);
+  assert.match(roastingOrder, /requireUser\(request, \["admin"\]\)/);
+  assert.match(roastingOrder, /profileIds/);
+  assert.match(roastingOrder, /UPDATE roasting_profiles SET sort_order/);
   const roastingParser = await readFile(new URL("lib/roasting.ts", root), "utf8");
   assert.match(roastingParser, /point\.gasPressure > 5/);
   assert.match(roastingParser, /가스 압력\(0~5bar\)/);
@@ -287,6 +300,7 @@ test("guards critical identity, date and persistence edge cases", async () => {
   assert.match(database, /readLegacyInventoryEntries/);
   assert.match(database, /summarizeLegacyInventory/);
   assert.match(database, /ensureRoastingProfileColumns/);
+  assert.match(database, /ALTER TABLE roasting_profiles ADD COLUMN sort_order INTEGER/);
   assert.match(database, /ORDER BY rp\.bean_temp ASC/);
   assert.match(database, /ON CONFLICT\(legacy_key\) DO NOTHING/);
   const historicalSeeds = [...database.matchAll(

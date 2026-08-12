@@ -3,7 +3,6 @@ import {
   summarizeLegacyInventory,
   type LegacyInventoryEntry,
 } from "./legacy-inventory";
-import { COMPLIANCE_DEFINITIONS } from "./compliance";
 
 export type StaffRole = "admin" | "employee" | "instructor";
 export type StaffPermission = "finance" | "inventory" | "roasting";
@@ -167,26 +166,6 @@ const schemaStatements = [
     data BLOB NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
-  `CREATE TABLE IF NOT EXISTS manual_compliance (
-    key TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    frequency_months INTEGER NOT NULL,
-    completed_date TEXT,
-    updated_by INTEGER REFERENCES staff(id),
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE TABLE IF NOT EXISTS manual_documents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT NOT NULL,
-    title TEXT NOT NULL,
-    document_date TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    content_type TEXT NOT NULL,
-    size_bytes INTEGER NOT NULL,
-    data BLOB NOT NULL,
-    created_by INTEGER NOT NULL REFERENCES staff(id),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
   `CREATE TABLE IF NOT EXISTS roasting_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     bean_name TEXT NOT NULL,
@@ -202,6 +181,7 @@ const schemaStatements = [
     development_ratio REAL NOT NULL,
     gas_notes TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER,
     created_by INTEGER NOT NULL REFERENCES staff(id),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -233,7 +213,6 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS finance_date_idx ON finance_transactions(transaction_date)",
   "CREATE INDEX IF NOT EXISTS audit_created_idx ON audit_logs(created_at)",
   "CREATE INDEX IF NOT EXISTS roasting_points_profile_idx ON roasting_points(profile_id, seconds)",
-  "CREATE INDEX IF NOT EXISTS manual_documents_category_date_idx ON manual_documents(category, document_date)",
   `CREATE TRIGGER IF NOT EXISTS inventory_nonnegative_update
    BEFORE UPDATE OF quantity ON inventory_items
    WHEN NEW.quantity < 0
@@ -267,20 +246,6 @@ async function initializeDatabase(): Promise<void> {
   await ensureInventoryItemColumns(db);
   await ensureInventoryMovementColumns(db);
   await ensureRoastingProfileColumns(db);
-  await ensureManualTableSchemas(db);
-
-  const complianceSeedStatements = COMPLIANCE_DEFINITIONS.map((item) =>
-    db
-      .prepare(
-        `INSERT INTO manual_compliance
-          (key, title, frequency_months, completed_date)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET
-           title = excluded.title,
-           frequency_months = excluded.frequency_months`,
-      )
-      .bind(item.key, item.title, item.frequencyMonths, item.initialCompletedDate),
-  );
 
   const financeSeedStatements = monthlySeeds.map((row) =>
     db
@@ -322,7 +287,7 @@ async function initializeDatabase(): Promise<void> {
          AND name IN ('더컵 로스팅 원두', '더컵 볶은 원두')`,
     )
     .run();
-  await db.batch([...complianceSeedStatements, ...financeSeedStatements, ...inventorySeedStatements]);
+  await db.batch([...financeSeedStatements, ...inventorySeedStatements]);
   await ensureLegacyInventory(db);
 }
 
@@ -354,78 +319,6 @@ async function ensureStaffPermissionColumns(db: D1Database): Promise<void> {
   }
 }
 
-async function ensureManualTableSchemas(db: D1Database): Promise<void> {
-  const complianceColumns = await db
-    .prepare("PRAGMA table_info(manual_compliance)")
-    .all<{ name: string; notnull: number }>();
-  const complianceDefinition = await db
-    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_compliance'")
-    .first<{ sql: string }>();
-  const completedDateColumn = complianceColumns.results.find((column) => column.name === "completed_date");
-  const complianceNeedsUpgrade = completedDateColumn?.notnull === 1
-    || /CHECK\s*\(\s*key/i.test(complianceDefinition?.sql ?? "");
-
-  if (complianceNeedsUpgrade) {
-    await db.batch([
-      db.prepare("DROP TABLE IF EXISTS manual_compliance_next"),
-      db.prepare(
-        `CREATE TABLE manual_compliance_next (
-          key TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          frequency_months INTEGER NOT NULL,
-          completed_date TEXT,
-          updated_by INTEGER REFERENCES staff(id),
-          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )`,
-      ),
-      db.prepare(
-        `INSERT INTO manual_compliance_next
-          (key, title, frequency_months, completed_date, updated_by, updated_at)
-         SELECT key, title, frequency_months, completed_date, updated_by, updated_at
-         FROM manual_compliance`,
-      ),
-      db.prepare("DROP TABLE manual_compliance"),
-      db.prepare("ALTER TABLE manual_compliance_next RENAME TO manual_compliance"),
-    ]);
-  }
-
-  const documentDefinition = await db
-    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_documents'")
-    .first<{ sql: string }>();
-  if (/CHECK\s*\(\s*category/i.test(documentDefinition?.sql ?? "")) {
-    await db.batch([
-      db.prepare("DROP TABLE IF EXISTS manual_documents_next"),
-      db.prepare(
-        `CREATE TABLE manual_documents_next (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          category TEXT NOT NULL,
-          title TEXT NOT NULL,
-          document_date TEXT NOT NULL,
-          file_name TEXT NOT NULL,
-          content_type TEXT NOT NULL,
-          size_bytes INTEGER NOT NULL,
-          data BLOB NOT NULL,
-          created_by INTEGER NOT NULL REFERENCES staff(id),
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )`,
-      ),
-      db.prepare(
-        `INSERT INTO manual_documents_next
-          (id, category, title, document_date, file_name, content_type,
-           size_bytes, data, created_by, created_at)
-         SELECT id, category, title, document_date, file_name, content_type,
-                size_bytes, data, created_by, created_at
-         FROM manual_documents`,
-      ),
-      db.prepare("DROP TABLE manual_documents"),
-      db.prepare("ALTER TABLE manual_documents_next RENAME TO manual_documents"),
-      db.prepare(
-        "CREATE INDEX IF NOT EXISTS manual_documents_category_date_idx ON manual_documents(category, document_date)",
-      ),
-    ]);
-  }
-}
-
 async function ensureInventoryMovementColumns(db: D1Database): Promise<void> {
   const columns = await db
     .prepare("PRAGMA table_info(inventory_movements)")
@@ -451,6 +344,12 @@ async function ensureRoastingProfileColumns(db: D1Database): Promise<void> {
       .run();
   }
 
+  if (!names.has("sort_order")) {
+    await db
+      .prepare("ALTER TABLE roasting_profiles ADD COLUMN sort_order INTEGER")
+      .run();
+  }
+
   await db
     .prepare(
       `UPDATE roasting_profiles
@@ -467,6 +366,18 @@ async function ensureRoastingProfileColumns(db: D1Database): Promise<void> {
          yellowing_seconds
        )
        WHERE turning_point_seconds IS NULL`,
+    )
+    .run();
+
+  await db
+    .prepare(
+      `UPDATE roasting_profiles
+       SET sort_order = (
+         SELECT COUNT(*)
+         FROM roasting_profiles AS newer
+         WHERE newer.id > roasting_profiles.id
+       )
+       WHERE sort_order IS NULL`,
     )
     .run();
 }

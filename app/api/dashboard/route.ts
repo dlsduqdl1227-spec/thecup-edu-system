@@ -183,7 +183,7 @@ export async function GET(request: Request) {
                       s.name AS createdByName
                FROM roasting_profiles p
                JOIN staff s ON s.id = p.created_by
-               ORDER BY p.id DESC`,
+               ORDER BY COALESCE(p.sort_order, 2147483647), p.id DESC`,
             )
             .all()
         : { results: [] };

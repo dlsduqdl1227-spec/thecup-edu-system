@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { customType, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const sqliteBlob = customType<{ data: ArrayBuffer }>({
   dataType() {
@@ -105,34 +105,6 @@ export const receiptFiles = sqliteTable("receipt_files", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const manualCompliance = sqliteTable("manual_compliance", {
-  key: text("key", { enum: ["self_quality", "hygiene_education", "health_certificate"] }).primaryKey(),
-  title: text("title").notNull(),
-  frequencyMonths: integer("frequency_months").notNull(),
-  completedDate: text("completed_date"),
-  updatedBy: integer("updated_by").references(() => staff.id),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
-
-export const manualDocuments = sqliteTable(
-  "manual_documents",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    category: text("category", {
-      enum: ["self_quality", "hygiene_education", "health_certificate", "roasting", "packing"],
-    }).notNull(),
-    title: text("title").notNull(),
-    documentDate: text("document_date").notNull(),
-    fileName: text("file_name").notNull(),
-    contentType: text("content_type").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    data: sqliteBlob("data").notNull(),
-    createdBy: integer("created_by").notNull().references(() => staff.id),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [index("manual_documents_category_date_idx").on(table.category, table.documentDate)],
-);
-
 export const roastingProfiles = sqliteTable("roasting_profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   beanName: text("bean_name").notNull(),
@@ -149,6 +121,7 @@ export const roastingProfiles = sqliteTable("roasting_profiles", {
   developmentRatio: real("development_ratio").notNull(),
   gasNotes: text("gas_notes").notNull().default(""),
   notes: text("notes").notNull().default(""),
+  sortOrder: integer("sort_order"),
   createdBy: integer("created_by").notNull().references(() => staff.id),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
