@@ -171,6 +171,11 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
   const courses = data?.courses ?? [];
   const markers = scheduleMarkers(month, courses);
   const dayCount = daysInMonth(month);
+  const scheduledCourses = [...courses].sort((left, right) => {
+    const leftDate = left.recruitmentStartDate ?? left.recruitmentEndDate ?? "9999-12-31";
+    const rightDate = right.recruitmentStartDate ?? right.recruitmentEndDate ?? "9999-12-31";
+    return leftDate.localeCompare(rightDate) || left.name.localeCompare(right.name, "ko-KR");
+  });
   const calendarCells = [
     ...Array.from({ length: firstWeekday(month) }, (_, index) => ({ key: `blank-${index}`, day: null })),
     ...Array.from({ length: dayCount }, (_, index) => ({ key: `day-${index + 1}`, day: index + 1 })),
@@ -252,7 +257,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
                 </div>
 
                 <div className="public-schedule-agenda" aria-label={`${readableMonth(month)} 날짜순 일정`}>
-                  {courses.map((course) => (
+                  {scheduledCourses.map((course) => (
                     <article className={`public-agenda-row status-${course.status.toLowerCase()}`} key={course.id}>
                       <div className="public-agenda-date">
                         <span>모집 일정</span>
