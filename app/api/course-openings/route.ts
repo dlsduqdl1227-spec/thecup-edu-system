@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const month = validateCourseMonth(url.searchParams.get("month") ?? currentKoreanMonth());
     const db = getD1();
-    const [coursesResult, applicantsResult] = await Promise.all([
+    const [coursesResult, applicantsResult, visibilitySetting] = await Promise.all([
       db
         .prepare(
           `SELECT id, public_id AS publicId, name, category, course_month AS courseMonth,
@@ -59,6 +59,9 @@ export async function GET(request: Request) {
         )
         .bind(month)
         .all(),
+      db
+        .prepare("SELECT value FROM app_settings WHERE key = 'public_course_openings_visible'")
+        .first<{ value: string }>(),
     ]);
 
     const applicants = applicantsResult.results as Array<Record<string, unknown> & { courseId: number; status: string }>;
@@ -69,7 +72,45 @@ export async function GET(request: Request) {
       ).length;
       return { ...course, currentApplicants, applicants: courseApplicants };
     });
-    return Response.json({ month, courses });
+    return Response.json({
+      month,
+      publicPageVisible: visibilitySetting?.value === "1",
+      courses,
+    });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    assertSameOrigin(request);
+    await ensureDatabase();
+    const actor = await requireUser(request, ["admin"]);
+    const payload = (await request.json()) as Record<string, unknown>;
+    if (typeof payload.publicPageVisible !== "boolean") {
+      throw new Error("공개 페이지 노출 상태가 올바르지 않습니다.");
+    }
+    const publicPageVisible = payload.publicPageVisible;
+    await getD1()
+      .prepare(
+        `INSERT INTO app_settings (key, value, updated_by, updated_at)
+         VALUES ('public_course_openings_visible', ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET
+           value = excluded.value,
+           updated_by = excluded.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+      )
+      .bind(publicPageVisible ? "1" : "0", actor.id)
+      .run();
+    await audit(
+      actor.id,
+      "update_public_course_openings_visibility",
+      "app_setting",
+      "public_course_openings_visible",
+      publicPageVisible ? "외부 개강 현황 공개" : "외부 개강 현황 숨김",
+    );
+    return Response.json({ publicPageVisible });
   } catch (error) {
     return jsonError(error);
   }

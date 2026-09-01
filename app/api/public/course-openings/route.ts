@@ -37,6 +37,25 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const month = validateCourseMonth(url.searchParams.get("month") ?? currentKoreanMonth());
     const db = getD1();
+    const visibilitySetting = await db
+      .prepare(
+        `SELECT value, updated_at AS updatedAt
+         FROM app_settings
+         WHERE key = 'public_course_openings_visible'`,
+      )
+      .first<{ value: string; updatedAt: string }>();
+    if (visibilitySetting?.value !== "1") {
+      return new Response(
+        JSON.stringify({
+          month,
+          isVisible: false,
+          updatedAt: formatKoreanTimestamp(visibilitySetting?.updatedAt),
+          totalApplicants: 0,
+          courses: [],
+        }),
+        { status: 200, headers: cacheHeaders },
+      );
+    }
     const [coursesResult, updatedResult] = await Promise.all([
       db
         .prepare(
@@ -114,6 +133,7 @@ export async function GET(request: Request) {
     return new Response(
       JSON.stringify({
         month,
+        isVisible: true,
         updatedAt: formatKoreanTimestamp(updatedResult?.updatedAt),
         totalApplicants,
         courses,

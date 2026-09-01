@@ -239,22 +239,27 @@ test("migration covers identity, finance, inventory, receipts and roasting", asy
 });
 
 test("public course openings are read-only, privacy-safe and iframe-ready", async () => {
-  const [app, publicPage, publicComponent, publicRoute, adminRoute, applicantRoute, worker, styles, database, migration] = await Promise.all([
+  const [app, publicPage, publicComponent, publicRoute, adminRoute, applicantRoute, authStatusRoute, worker, styles, database, migration, visibilityMigration] = await Promise.all([
     readFile(new URL("app/components/EduSystemApp.tsx", root), "utf8"),
     readFile(new URL("app/embed/course-openings/page.tsx", root), "utf8"),
     readFile(new URL("app/components/PublicCourseOpenings.tsx", root), "utf8"),
     readFile(new URL("app/api/public/course-openings/route.ts", root), "utf8"),
     readFile(new URL("app/api/course-openings/route.ts", root), "utf8"),
     readFile(new URL("app/api/course-openings/[id]/applicants/route.ts", root), "utf8"),
+    readFile(new URL("app/api/auth/status/route.ts", root), "utf8"),
     readFile(new URL("worker/index.ts", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("lib/db.ts", root), "utf8"),
     readFile(new URL("drizzle/0009_complex_drax.sql", root), "utf8"),
+    readFile(new URL("drizzle/0010_optimal_otto_octavius.sql", root), "utf8"),
   ]);
 
   assert.match(app, /개강 관리/);
   assert.match(app, /로그인 없이 실시간 개강 현황 보기/);
   assert.match(app, /대기·확정 상태만 공개 인원에 포함/);
+  assert.match(app, /외부 공개 페이지 전체 노출/);
+  assert.match(app, /페이지 숨기기/);
+  assert.match(app, /publicPageVisible &&/);
   assert.match(publicPage, /PublicCourseOpenings/);
   assert.match(publicComponent, /30_000/);
   assert.match(publicComponent, /잠시 후 다시 확인해 주세요/);
@@ -264,18 +269,25 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(publicComponent, /이 달에는 등록된 공개 모집 일정이 없습니다/);
   assert.match(publicComponent, /public-calendar/);
   assert.match(publicComponent, /public-schedule-agenda/);
+  assert.match(publicComponent, /개강 현황을 준비하고 있습니다/);
+  assert.match(publicComponent, /!data\.isVisible/);
   assert.match(publicRoute, /c\.is_public = 1/);
   assert.match(publicRoute, /a\.status IN \('WAITING', 'CONFIRMED'\)/);
   assert.match(publicRoute, /COUNT\(DISTINCT CASE/);
   assert.match(publicRoute, /recruitment_start_date AS recruitmentStartDate/);
   assert.match(publicRoute, /recruitment_end_date AS recruitmentEndDate/);
   assert.match(publicRoute, /totalApplicants/);
+  assert.match(publicRoute, /isVisible: false/);
+  assert.match(publicRoute, /public_course_openings_visible/);
   assert.match(publicRoute, /public, max-age=30/);
   assert.match(publicRoute, /export const POST = methodNotAllowed/);
   assert.match(publicRoute, /export const DELETE = methodNotAllowed/);
   assert.doesNotMatch(publicRoute, /applicant_name|phone_last4|email|payment|notes|created_by/i);
   assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
+  assert.match(adminRoute, /export async function PATCH/);
+  assert.match(adminRoute, /ON CONFLICT\(key\) DO UPDATE/);
   assert.match(applicantRoute, /requireUser\(request, \["admin"\]\)/);
+  assert.match(authStatusRoute, /publicPageVisible/);
   assert.match(worker, /frame-ancestors 'self' https:\/\/coffeemonthly\.creatorlink\.net https:\/\/\*\.creatorlink\.net/);
   assert.match(worker, /headers\.delete\("X-Frame-Options"\)/);
   assert.match(styles, /\.public-openings-page[\s\S]*?overflow-x: hidden/);
@@ -284,9 +296,13 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.public-schedule-agenda[\s\S]*?display: grid/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS course_openings/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS course_applicants/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS app_settings/);
+  assert.match(database, /public_course_openings_visible', '0'/);
   assert.match(database, /q-grader-\$\{courseMonth\}/);
   assert.match(migration, /idx_course_applicants_course_phone/);
   assert.match(migration, /idx_course_openings_public_month/);
+  assert.match(visibilityMigration, /CREATE TABLE `app_settings`/);
+  assert.match(visibilityMigration, /public_course_openings_visible', '0'/);
 });
 
 test("guards critical identity, date and persistence edge cases", async () => {

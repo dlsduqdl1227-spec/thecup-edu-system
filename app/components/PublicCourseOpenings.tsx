@@ -22,6 +22,7 @@ type PublicCourse = {
 
 type PublicCourseResponse = {
   month: string;
+  isVisible: boolean;
   updatedAt: string;
   totalApplicants: number;
   courses: PublicCourse[];
@@ -182,6 +183,18 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
   ];
   const recruitingCount = courses.filter((course) => course.status !== "CLOSED" && course.status !== "FULL").length;
   const openableCount = courses.filter((course) => course.status === "OPENABLE").length;
+
+  if (!loading && data && !data.isVisible) {
+    return (
+      <main className="public-openings-page public-openings-hidden-page">
+        <section className="public-openings-hidden" aria-live="polite">
+          <span>THE CUP EDU</span>
+          <h1>개강 현황을 준비하고 있습니다.</h1>
+          <p>새로운 모집 일정이 확정되면 이곳에서 안내해 드리겠습니다.</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="public-openings-page">

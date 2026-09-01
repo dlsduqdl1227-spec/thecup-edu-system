@@ -22,6 +22,13 @@ export const staff = sqliteTable("staff", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedBy: integer("updated_by").references(() => staff.id),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const sessions = sqliteTable("sessions", {
   tokenHash: text("token_hash").primaryKey(),
   staffId: integer("staff_id").notNull().references(() => staff.id),

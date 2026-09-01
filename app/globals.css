@@ -1130,6 +1130,43 @@ a {
   margin: 0;
 }
 
+.opening-visibility-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border-left: 4px solid var(--ink);
+}
+
+.opening-visibility-control.is-hidden {
+  border-left-color: #777;
+  background: #f1f1f1;
+}
+
+.opening-visibility-control > div {
+  display: grid;
+  gap: 6px;
+}
+
+.opening-visibility-control > div > strong {
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+
+.opening-visibility-control p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.opening-visibility-control button {
+  flex: 0 0 auto;
+  min-width: 142px;
+}
+
 .public-preview-link {
   display: inline-flex;
   align-items: center;
@@ -1398,6 +1435,40 @@ a {
   padding: 20px;
   background: #f4f4f4;
   color: #111;
+}
+
+.public-openings-hidden-page {
+  display: grid;
+  place-items: center;
+}
+
+.public-openings-hidden {
+  display: grid;
+  gap: 12px;
+  width: min(680px, 100%);
+  padding: clamp(36px, 8vw, 72px) 24px;
+  border: 1px solid #d8d8d8;
+  background: #fff;
+  text-align: center;
+}
+
+.public-openings-hidden > span {
+  color: #777;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+
+.public-openings-hidden h1 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 38px);
+  letter-spacing: -0.04em;
+}
+
+.public-openings-hidden p {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
 }
 
 .public-openings-header {
@@ -1989,9 +2060,14 @@ a {
 
 @media (max-width: 640px) {
   .opening-admin-toolbar,
-  .opening-detail-heading {
+  .opening-detail-heading,
+  .opening-visibility-control {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .opening-visibility-control button {
+    width: 100%;
   }
 
   .public-preview-link,

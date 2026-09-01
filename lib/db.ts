@@ -103,6 +103,12 @@ const schemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_by INTEGER REFERENCES staff(id),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS sessions (
     token_hash TEXT PRIMARY KEY,
     staff_id INTEGER NOT NULL REFERENCES staff(id),
@@ -279,6 +285,12 @@ export async function ensureDatabase(): Promise<void> {
 async function initializeDatabase(): Promise<void> {
   const db = getD1();
   await db.batch(schemaStatements.map((statement) => db.prepare(statement)));
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO app_settings (key, value)
+       VALUES ('public_course_openings_visible', '0')`,
+    )
+    .run();
   await ensureStaffPermissionColumns(db);
   await ensureInventoryItemColumns(db);
   await ensureInventoryMovementColumns(db);

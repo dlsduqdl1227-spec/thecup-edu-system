@@ -262,8 +262,9 @@ export function EduSystemApp() {
   const [authState, setAuthState] = useState<{
     loading: boolean;
     bootstrapRequired: boolean;
+    publicPageVisible: boolean;
     user: User | null;
-  }>({ loading: true, bootstrapRequired: false, user: null });
+  }>({ loading: true, bootstrapRequired: false, publicPageVisible: false, user: null });
   const [data, setData] = useState<DashboardData | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [busy, setBusy] = useState(false);
@@ -272,7 +273,11 @@ export function EduSystemApp() {
 
   const loadAuth = useCallback(async () => {
     try {
-      const status = await requestJson<{ bootstrapRequired: boolean; user: User | null }>(
+      const status = await requestJson<{
+        bootstrapRequired: boolean;
+        publicPageVisible: boolean;
+        user: User | null;
+      }>(
         "/api/auth/status",
       );
       setAuthState({ loading: false, ...status });
@@ -281,7 +286,7 @@ export function EduSystemApp() {
         setActiveTab(initialTab(status.user));
       }
     } catch (error) {
-      setAuthState({ loading: false, bootstrapRequired: false, user: null });
+      setAuthState({ loading: false, bootstrapRequired: false, publicPageVisible: false, user: null });
       setToast({ kind: "error", message: errorMessage(error) });
     }
   }, []);
@@ -323,7 +328,12 @@ export function EduSystemApp() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      setAuthState({ loading: false, bootstrapRequired: false, user: result.user });
+      setAuthState((current) => ({
+        loading: false,
+        bootstrapRequired: false,
+        publicPageVisible: current.publicPageVisible,
+        user: result.user,
+      }));
       setNavigationHistory([]);
       setActiveTab(initialTab(result.user));
       setToast({ kind: "ok", message: `${result.user.name}님, 환영합니다.` });
@@ -340,7 +350,7 @@ export function EduSystemApp() {
       await requestJson("/api/auth/logout", { method: "POST" });
       setNavigationHistory([]);
       setData(null);
-      setAuthState((current) => ({ ...current, user: null }));
+      await loadAuth();
     } catch (error) {
       setToast({ kind: "error", message: errorMessage(error) });
     } finally {
@@ -363,6 +373,7 @@ export function EduSystemApp() {
       <>
         <AuthScreen
           bootstrapRequired={authState.bootstrapRequired}
+          publicPageVisible={authState.publicPageVisible}
           busy={busy}
           onSubmit={handleAuth}
         />
@@ -531,10 +542,12 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
 
 function AuthScreen({
   bootstrapRequired,
+  publicPageVisible,
   busy,
   onSubmit,
 }: {
   bootstrapRequired: boolean;
+  publicPageVisible: boolean;
   busy: boolean;
   onSubmit: (endpoint: string, data: FormData) => Promise<void>;
 }) {
@@ -597,10 +610,12 @@ function AuthScreen({
               {busy ? "확인 중…" : bootstrapRequired ? "관리자 등록하고 시작" : "로그인"}
             </button>
           </form>
-          <a className="guest-opening-link" href="/embed/course-openings?month=current">
-            <span>게스트 조회</span>
-            로그인 없이 실시간 개강 현황 보기 →
-          </a>
+          {publicPageVisible && (
+            <a className="guest-opening-link" href="/embed/course-openings?month=current">
+              <span>게스트 조회</span>
+              로그인 없이 실시간 개강 현황 보기 →
+            </a>
+          )}
           <div className="security-note">
             <span>보안</span>
             휴대폰 번호 원문은 저장하지 않으며, 등록된 직원만 접근할 수 있습니다.
@@ -2606,16 +2621,21 @@ function CourseOpeningsAdminView({
   const [courses, setCourses] = useState<CourseOpening[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editor, setEditor] = useState<"create" | CourseOpening | null>(null);
+  const [publicPageVisible, setPublicPageVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (targetMonth = month, preferredId?: number) => {
     setLoading(true);
     try {
-      const result = await requestJson<{ courses: CourseOpening[] }>(
+      const result = await requestJson<{
+        publicPageVisible: boolean;
+        courses: CourseOpening[];
+      }>(
         `/api/course-openings?month=${encodeURIComponent(targetMonth)}`,
       );
       setCourses(result.courses);
+      setPublicPageVisible(result.publicPageVisible);
       setSelectedId((current) => {
         if (preferredId && result.courses.some((course) => course.id === preferredId)) return preferredId;
         if (current && result.courses.some((course) => course.id === current)) return current;
@@ -2652,6 +2672,28 @@ function CourseOpeningsAdminView({
       setEditor(null);
       await load(savedMonth, course?.id ?? result.id);
       notify({ kind: "ok", message: course ? "과정 정보를 수정했습니다." : "새 개강 과정을 등록했습니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updatePublicPageVisibility(nextVisible: boolean) {
+    setBusy(true);
+    try {
+      const result = await requestJson<{ publicPageVisible: boolean }>("/api/course-openings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicPageVisible: nextVisible }),
+      });
+      setPublicPageVisible(result.publicPageVisible);
+      notify({
+        kind: "ok",
+        message: result.publicPageVisible
+          ? "외부 개강 현황 페이지를 공개했습니다."
+          : "외부 개강 현황 페이지를 숨겼습니다.",
+      });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
@@ -2764,8 +2806,29 @@ function CourseOpeningsAdminView({
           />
         </Field>
         <a className="public-preview-link" href={`/embed/course-openings?month=${month}`} target="_blank" rel="noreferrer">
-          게스트 공개 화면 열기 ↗
+          {publicPageVisible ? "게스트 공개 화면 열기 ↗" : "숨김 화면 확인 ↗"}
         </a>
+      </div>
+
+      <div className={publicPageVisible ? "opening-visibility-control panel is-visible" : "opening-visibility-control panel is-hidden"}>
+        <div>
+          <span className="eyebrow">외부 공개 페이지 전체 노출</span>
+          <strong>{publicPageVisible ? "현재 공개 중" : "현재 숨김"}</strong>
+          <p>
+            {publicPageVisible
+              ? "게스트가 로그인 없이 과정 일정과 모집 인원을 확인할 수 있습니다."
+              : "로그인 화면의 게스트 링크와 외부 과정·인원 정보가 모두 숨겨져 있습니다."}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={publicPageVisible ? "danger-button" : "primary-button"}
+          disabled={busy}
+          aria-pressed={publicPageVisible}
+          onClick={() => void updatePublicPageVisibility(!publicPageVisible)}
+        >
+          {busy ? "변경 중…" : publicPageVisible ? "페이지 숨기기" : "페이지 공개하기"}
+        </button>
       </div>
 
       {loading ? <div className="panel empty-state">개강 정보를 불러오는 중입니다.</div> : courses.length ? (
@@ -3623,6 +3686,7 @@ function auditLabel(action: string): string {
     create_course_applicant: "수강 희망자 등록",
     update_course_applicant: "신청 상태 변경",
     delete_course_applicant: "신청 기록 삭제",
+    update_public_course_openings_visibility: "외부 개강 현황 노출 변경",
   };
   return labels[action] ?? action;
 }
