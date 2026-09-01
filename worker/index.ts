@@ -12,8 +12,22 @@ interface ExecutionContext {
 }
 
 const worker = {
-  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return handler.fetch(request, env, ctx);
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const response = await handler.fetch(request, env, ctx);
+    const pathname = new URL(request.url).pathname;
+    if (pathname !== "/embed/course-openings") return response;
+
+    const headers = new Headers(response.headers);
+    headers.delete("X-Frame-Options");
+    headers.set(
+      "Content-Security-Policy",
+      "frame-ancestors 'self' https://coffeemonthly.creatorlink.net https://*.creatorlink.net",
+    );
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   },
 };
 

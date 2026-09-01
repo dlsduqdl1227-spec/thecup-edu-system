@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { customType, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const sqliteBlob = customType<{ data: ArrayBuffer }>({
   dataType() {
@@ -134,6 +134,59 @@ export const roastingPoints = sqliteTable("roasting_points", {
   beanTemp: real("bean_temp").notNull(),
   gasPressure: real("gas_pressure").notNull().default(0),
 });
+
+export const courseOpenings = sqliteTable(
+  "course_openings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    publicId: text("public_id").notNull().unique(),
+    name: text("name").notNull(),
+    category: text("category").notNull(),
+    courseMonth: text("course_month").notNull(),
+    openingMinimum: integer("opening_minimum").notNull(),
+    capacity: integer("capacity"),
+    recruitmentStartDate: text("recruitment_start_date"),
+    recruitmentEndDate: text("recruitment_end_date"),
+    isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
+    statusOverride: text("status_override", { enum: ["AUTO", "CLOSED"] }).notNull().default("AUTO"),
+    displayOrder: integer("display_order").notNull().default(0),
+    durationHours: integer("duration_hours").notNull().default(0),
+    tuition: integer("tuition").notNull().default(0),
+    feeNote: text("fee_note").notNull().default(""),
+    createdBy: integer("created_by").references(() => staff.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_course_openings_public_month").on(
+      table.courseMonth,
+      table.isPublic,
+      table.displayOrder,
+    ),
+  ],
+);
+
+export const courseApplicants = sqliteTable(
+  "course_applicants",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    courseId: integer("course_id").notNull().references(() => courseOpenings.id, { onDelete: "cascade" }),
+    applicantName: text("applicant_name").notNull(),
+    phoneHash: text("phone_hash").notNull(),
+    phoneLast4: text("phone_last4").notNull(),
+    status: text("status", {
+      enum: ["WAITING", "CONFIRMED", "CANCELLED", "REJECTED", "REFUNDED"],
+    }).notNull().default("WAITING"),
+    notes: text("notes").notNull().default(""),
+    createdBy: integer("created_by").notNull().references(() => staff.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_course_applicants_course_phone").on(table.courseId, table.phoneHash),
+    index("idx_course_applicants_course_status").on(table.courseId, table.status),
+  ],
+);
 
 export const auditLogs = sqliteTable("audit_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),

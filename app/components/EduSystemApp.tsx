@@ -18,7 +18,7 @@ import {
 import { compareInventoryItems, type InventorySort } from "../../lib/inventory-sort";
 
 type Role = "admin" | "employee" | "instructor";
-type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "staff";
+type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "openings" | "staff";
 
 type User = {
   id: number;
@@ -155,6 +155,39 @@ type AuditLog = {
   actorName: string | null;
 };
 
+type ApplicantStatus = "WAITING" | "CONFIRMED" | "CANCELLED" | "REJECTED" | "REFUNDED";
+
+type CourseApplicant = {
+  id: number;
+  courseId: number;
+  applicantName: string;
+  phoneLast4: string;
+  status: ApplicantStatus;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CourseOpening = {
+  id: number;
+  publicId: string;
+  name: string;
+  category: string;
+  courseMonth: string;
+  openingMinimum: number;
+  capacity: number | null;
+  recruitmentStartDate: string | null;
+  recruitmentEndDate: string | null;
+  isPublic: number;
+  statusOverride: "AUTO" | "CLOSED";
+  displayOrder: number;
+  durationHours: number;
+  tuition: number;
+  feeNote: string;
+  currentApplicants: number;
+  applicants: CourseApplicant[];
+};
+
 const today = currentKoreanDate();
 const won = new Intl.NumberFormat("ko-KR", {
   style: "currency",
@@ -199,6 +232,7 @@ const navItems: Array<{
   { key: "inventory", label: "재고 관리", short: "재고", permission: "canInventory" },
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
   { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
+  { key: "openings", label: "개강 관리", short: "개강", adminOnly: true },
   { key: "staff", label: "직원 · 권한", short: "직원", adminOnly: true },
 ];
 
@@ -437,6 +471,9 @@ export function EduSystemApp() {
             {activeTab === "roasting" && (
               <RoastingView user={user} notify={setToast} />
             )}
+            {activeTab === "openings" && (
+              <CourseOpeningsAdminView notify={setToast} />
+            )}
             {activeTab === "staff" && (
               <StaffView currentUserId={user.id} notify={setToast} />
             )}
@@ -560,6 +597,10 @@ function AuthScreen({
               {busy ? "확인 중…" : bootstrapRequired ? "관리자 등록하고 시작" : "로그인"}
             </button>
           </form>
+          <a className="guest-opening-link" href="/embed/course-openings?month=current">
+            <span>게스트 조회</span>
+            로그인 없이 실시간 개강 현황 보기 →
+          </a>
           <div className="security-note">
             <span>보안</span>
             휴대폰 번호 원문은 저장하지 않으며, 등록된 직원만 접근할 수 있습니다.
@@ -2534,6 +2575,377 @@ function RoastCurve({ profile }: { profile: RoastProfile }) {
   );
 }
 
+const applicantStatusLabel: Record<ApplicantStatus, string> = {
+  WAITING: "상담·대기",
+  CONFIRMED: "수강 확정",
+  CANCELLED: "신청 취소",
+  REJECTED: "신청 반려",
+  REFUNDED: "환불 완료",
+};
+
+function adminCourseStatus(course: CourseOpening): { code: string; label: string } {
+  if (course.statusOverride === "CLOSED") return { code: "CLOSED", label: "접수 종료" };
+  if (course.capacity !== null && course.currentApplicants >= course.capacity) {
+    return { code: "FULL", label: "모집 마감" };
+  }
+  if (course.currentApplicants >= course.openingMinimum) {
+    return { code: "OPENABLE", label: "개강 가능" };
+  }
+  return {
+    code: "WAITING",
+    label: `개강까지 ${Math.max(0, course.openingMinimum - course.currentApplicants)}명`,
+  };
+}
+
+function CourseOpeningsAdminView({
+  notify,
+}: {
+  notify: (toast: { kind: "ok" | "error"; message: string }) => void;
+}) {
+  const [month, setMonth] = useState(today.slice(0, 7));
+  const [courses, setCourses] = useState<CourseOpening[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [editor, setEditor] = useState<"create" | CourseOpening | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async (targetMonth = month, preferredId?: number) => {
+    setLoading(true);
+    try {
+      const result = await requestJson<{ courses: CourseOpening[] }>(
+        `/api/course-openings?month=${encodeURIComponent(targetMonth)}`,
+      );
+      setCourses(result.courses);
+      setSelectedId((current) => {
+        if (preferredId && result.courses.some((course) => course.id === preferredId)) return preferredId;
+        if (current && result.courses.some((course) => course.id === current)) return current;
+        return result.courses[0]?.id ?? null;
+      });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setLoading(false);
+    }
+  }, [month, notify]);
+
+  useEffect(() => {
+    // Load the selected month's private administration data after the tab opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
+
+  const selected = courses.find((course) => course.id === selectedId) ?? null;
+
+  async function saveCourse(payload: Record<string, unknown>, course?: CourseOpening) {
+    setBusy(true);
+    try {
+      const result = await requestJson<{ id?: number }>(
+        course ? `/api/course-openings/${course.id}` : "/api/course-openings",
+        {
+          method: course ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const savedMonth = String(payload.courseMonth);
+      setMonth(savedMonth);
+      setEditor(null);
+      await load(savedMonth, course?.id ?? result.id);
+      notify({ kind: "ok", message: course ? "과정 정보를 수정했습니다." : "새 개강 과정을 등록했습니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteCourse(course: CourseOpening) {
+    if (!window.confirm(`${course.name} 과정과 등록된 신청자를 모두 삭제할까요?`)) return;
+    setBusy(true);
+    try {
+      await requestJson(`/api/course-openings/${course.id}`, { method: "DELETE" });
+      setSelectedId(null);
+      await load(month);
+      notify({ kind: "ok", message: "과정을 삭제했습니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addApplicant(course: CourseOpening, form: HTMLFormElement) {
+    setBusy(true);
+    try {
+      const data = new FormData(form);
+      await requestJson(`/api/course-openings/${course.id}/applicants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(data.entries())),
+      });
+      form.reset();
+      await load(month, course.id);
+      notify({ kind: "ok", message: "수강 희망자를 등록했습니다. 공개 인원이 갱신됩니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateApplicant(course: CourseOpening, applicant: CourseApplicant, status: ApplicantStatus) {
+    setBusy(true);
+    try {
+      await requestJson(`/api/course-openings/${course.id}/applicants/${applicant.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, notes: applicant.notes }),
+      });
+      await load(month, course.id);
+      notify({ kind: "ok", message: "신청 상태를 변경했습니다. 공개 집계에도 반영됩니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteApplicant(course: CourseOpening, applicant: CourseApplicant) {
+    if (!window.confirm(`${applicant.applicantName} 신청 기록을 삭제할까요?`)) return;
+    setBusy(true);
+    try {
+      await requestJson(`/api/course-openings/${course.id}/applicants/${applicant.id}`, { method: "DELETE" });
+      await load(month, course.id);
+      notify({ kind: "ok", message: "신청 기록을 삭제했습니다." });
+    } catch (error) {
+      notify({ kind: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editor) {
+    return (
+      <section className="page-section">
+        <PageHeader
+          eyebrow="개강 관리"
+          title={editor === "create" ? "새 과정 등록" : "과정 정보 수정"}
+          description="외부 공개 화면에 표시할 과정 정보와 모집 조건을 설정합니다."
+          action={<button type="button" className="ghost-button" onClick={() => setEditor(null)}>목록으로</button>}
+        />
+        <CourseOpeningForm
+          course={editor === "create" ? null : editor}
+          defaultMonth={month}
+          busy={busy}
+          onSubmit={(payload) => saveCourse(payload, editor === "create" ? undefined : editor)}
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="page-section">
+      <PageHeader
+        eyebrow="외부 홈페이지 연동"
+        title="실시간 개강 현황 관리"
+        description="과정과 수강 희망자를 관리하면 공개 화면의 모집 인원이 30초 이내 자동 갱신됩니다."
+        action={<button type="button" className="primary-button small" onClick={() => setEditor("create")}>새 과정</button>}
+      />
+
+      <div className="opening-admin-toolbar panel">
+        <Field label="진행 월">
+          <input
+            type="month"
+            value={month}
+            onChange={(event) => {
+              setMonth(event.target.value);
+              setSelectedId(null);
+            }}
+          />
+        </Field>
+        <a className="public-preview-link" href={`/embed/course-openings?month=${month}`} target="_blank" rel="noreferrer">
+          게스트 공개 화면 열기 ↗
+        </a>
+      </div>
+
+      {loading ? <div className="panel empty-state">개강 정보를 불러오는 중입니다.</div> : courses.length ? (
+        <div className="opening-admin-layout">
+          <aside className="opening-course-list" aria-label="과정 목록">
+            {courses.map((course) => {
+              const status = adminCourseStatus(course);
+              return (
+                <button
+                  type="button"
+                  key={course.id}
+                  className={selectedId === course.id ? "opening-course-option active" : "opening-course-option"}
+                  onClick={() => setSelectedId(course.id)}
+                >
+                  <span>{course.category.replaceAll("_", " ")}</span>
+                  <strong>{course.name}</strong>
+                  <small>{course.currentApplicants}명 / 개강 기준 {course.openingMinimum}명</small>
+                  <em className={`opening-status ${status.code.toLowerCase()}`}>{status.label}</em>
+                </button>
+              );
+            })}
+          </aside>
+
+          {selected && (
+            <article className="panel opening-course-detail">
+              <div className="panel-heading opening-detail-heading">
+                <div>
+                  <span className="eyebrow">{selected.courseMonth} · 표시 순서 {selected.displayOrder}</span>
+                  <h3>{selected.name}</h3>
+                  <p>{selected.isPublic ? "외부 공개 중" : "관리자에게만 표시"} · {adminCourseStatus(selected).label}</p>
+                </div>
+                <div className="button-row">
+                  <button type="button" className="ghost-button" onClick={() => setEditor(selected)}>과정 수정</button>
+                  <button type="button" className="danger-button" disabled={busy} onClick={() => void deleteCourse(selected)}>과정 삭제</button>
+                </div>
+              </div>
+
+              <div className="opening-kpi-grid">
+                <div><span>현재 모집 인원</span><strong>{selected.currentApplicants}명</strong></div>
+                <div><span>개강 기준</span><strong>{selected.openingMinimum}명</strong></div>
+                <div><span>전체 정원</span><strong>{selected.capacity === null ? "미설정" : `${selected.capacity}명`}</strong></div>
+                <div><span>모집 상태</span><strong>{adminCourseStatus(selected).label}</strong></div>
+              </div>
+
+              <section className="applicant-entry-section">
+                <div className="panel-heading">
+                  <div><span className="eyebrow">비공개 관리자 정보</span><h3>수강 희망자 추가</h3></div>
+                  <span className="privacy-badge">공개 API에서 제외</span>
+                </div>
+                <form
+                  className="applicant-entry-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void addApplicant(selected, event.currentTarget);
+                  }}
+                >
+                  <Field label="신청자 이름"><input name="applicantName" required maxLength={40} /></Field>
+                  <Field label="연락처"><input name="phone" type="tel" inputMode="numeric" required placeholder="010-0000-0000" /></Field>
+                  <Field label="신청 상태">
+                    <select name="status" defaultValue="WAITING">
+                      <option value="WAITING">상담·대기</option>
+                      <option value="CONFIRMED">수강 확정</option>
+                      <option value="CANCELLED">신청 취소</option>
+                      <option value="REJECTED">신청 반려</option>
+                      <option value="REFUNDED">환불 완료</option>
+                    </select>
+                  </Field>
+                  <Field label="관리 메모"><input name="notes" maxLength={300} placeholder="공개되지 않습니다" /></Field>
+                  <button className="primary-button" disabled={busy}>{busy ? "처리 중…" : "신청자 추가"}</button>
+                </form>
+              </section>
+
+              <section className="applicant-list-section">
+                <div className="panel-heading">
+                  <div><span className="eyebrow">신청 상태 관리</span><h3>등록 인원 {selected.applicants.length}명</h3></div>
+                  <small>대기·확정 상태만 공개 인원에 포함됩니다.</small>
+                </div>
+                {selected.applicants.length ? (
+                  <div className="applicant-list">
+                    {selected.applicants.map((applicant) => (
+                      <div className="applicant-row" key={applicant.id}>
+                        <div className="applicant-identity">
+                          <strong>{applicant.applicantName}</strong>
+                          <span>연락처 끝 4자리 · {applicant.phoneLast4}</span>
+                          {applicant.notes && <small>{applicant.notes}</small>}
+                        </div>
+                        <select
+                          aria-label={`${applicant.applicantName} 신청 상태`}
+                          value={applicant.status}
+                          disabled={busy}
+                          onChange={(event) => void updateApplicant(selected, applicant, event.target.value as ApplicantStatus)}
+                        >
+                          {Object.entries(applicantStatusLabel).map(([value, label]) => (
+                            <option value={value} key={value}>{label}</option>
+                          ))}
+                        </select>
+                        <button type="button" className="staff-delete-button" disabled={busy} onClick={() => void deleteApplicant(selected, applicant)}>삭제</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="empty-state compact">아직 등록된 수강 희망자가 없습니다.</div>}
+              </section>
+            </article>
+          )}
+        </div>
+      ) : (
+        <div className="panel empty-state">
+          <strong>{month}에 등록된 과정이 없습니다.</strong>
+          <span>‘새 과정’을 눌러 첫 모집 과정을 등록하세요.</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CourseOpeningForm({
+  course,
+  defaultMonth,
+  busy,
+  onSubmit,
+}: {
+  course: CourseOpening | null;
+  defaultMonth: string;
+  busy: boolean;
+  onSubmit: (payload: Record<string, unknown>) => Promise<void>;
+}) {
+  return (
+    <form
+      className="panel course-opening-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        const payload: Record<string, unknown> = Object.fromEntries(formData.entries());
+        payload.isPublic = formData.get("isPublic") === "on";
+        void onSubmit(payload);
+      }}
+    >
+      <div className="course-form-intro">
+        <span className="eyebrow">공개 모집 정보</span>
+        <h3>{course ? course.name : "Q Grader 기본값으로 시작"}</h3>
+        <p>전체 정원은 선택 입력이며, 미설정 시 공개 화면에도 표시하지 않습니다.</p>
+      </div>
+      <div className="course-form-grid">
+        <Field label="과정명"><input name="name" required maxLength={80} defaultValue={course?.name ?? "Q Grader"} /></Field>
+        <Field label="과정 유형">
+          <select name="category" defaultValue={course?.category ?? "Q_GRADER"}>
+            <option value="Q_GRADER">Q Grader</option>
+            <option value="BARISTA">바리스타</option>
+            <option value="SCA">SCA</option>
+            <option value="ROASTING">로스팅</option>
+            <option value="OTHER">기타</option>
+          </select>
+        </Field>
+        <Field label="진행 월"><input name="courseMonth" type="month" required defaultValue={course?.courseMonth ?? defaultMonth} /></Field>
+        <Field label="개강 기준 인원"><input name="openingMinimum" type="number" min="1" required defaultValue={course?.openingMinimum ?? 6} /></Field>
+        <Field label="전체 정원 (선택)"><input name="capacity" type="number" min="1" defaultValue={course?.capacity ?? ""} /></Field>
+        <Field label="모집 상태">
+          <select name="statusOverride" defaultValue={course?.statusOverride ?? "AUTO"}>
+            <option value="AUTO">인원에 따라 자동 계산</option>
+            <option value="CLOSED">접수 종료</option>
+          </select>
+        </Field>
+        <Field label="모집 시작일"><input name="recruitmentStartDate" type="date" defaultValue={course?.recruitmentStartDate ?? ""} /></Field>
+        <Field label="모집 종료일"><input name="recruitmentEndDate" type="date" defaultValue={course?.recruitmentEndDate ?? ""} /></Field>
+        <Field label="표시 순서"><input name="displayOrder" type="number" min="0" defaultValue={course?.displayOrder ?? 0} /></Field>
+        <Field label="교육시간"><input name="durationHours" type="number" min="0" defaultValue={course?.durationHours ?? 48} /></Field>
+        <Field label="수강료"><input name="tuition" type="number" min="0" step="1000" defaultValue={course?.tuition ?? 1500000} /></Field>
+        <Field label="비용 안내"><input name="feeNote" maxLength={100} defaultValue={course?.feeNote ?? "시험비 별도"} /></Field>
+      </div>
+      <label className="course-public-toggle">
+        <input name="isPublic" type="checkbox" defaultChecked={course ? Boolean(course.isPublic) : true} />
+        <span><strong>외부 홈페이지 공개</strong><small>켜면 게스트 화면과 공개 API에 과정이 표시됩니다.</small></span>
+      </label>
+      <div className="button-row form-actions">
+        <button className="primary-button" disabled={busy}>{busy ? "저장 중…" : course ? "변경 내용 저장" : "과정 등록"}</button>
+      </div>
+    </form>
+  );
+}
+
 function StaffView({
   currentUserId,
   notify,
@@ -3205,6 +3617,12 @@ function auditLabel(action: string): string {
     create_roast_profile: "프로파일 생성",
     update_roast_profile: "프로파일 수정",
     delete_roast_profile: "프로파일 삭제",
+    create_course_opening: "개강 과정 등록",
+    update_course_opening: "개강 과정 수정",
+    delete_course_opening: "개강 과정 삭제",
+    create_course_applicant: "수강 희망자 등록",
+    update_course_applicant: "신청 상태 변경",
+    delete_course_applicant: "신청 기록 삭제",
   };
   return labels[action] ?? action;
 }

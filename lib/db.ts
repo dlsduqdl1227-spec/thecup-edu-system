@@ -3,6 +3,7 @@ import {
   summarizeLegacyInventory,
   type LegacyInventoryEntry,
 } from "./legacy-inventory";
+import { currentKoreanMonth } from "./course-openings";
 
 export type StaffRole = "admin" | "employee" | "instructor";
 export type StaffPermission = "finance" | "inventory" | "roasting";
@@ -193,6 +194,39 @@ const schemaStatements = [
     bean_temp REAL NOT NULL,
     gas_pressure REAL NOT NULL DEFAULT 0
   )`,
+  `CREATE TABLE IF NOT EXISTS course_openings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    public_id TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    course_month TEXT NOT NULL,
+    opening_minimum INTEGER NOT NULL CHECK(opening_minimum > 0),
+    capacity INTEGER CHECK(capacity IS NULL OR capacity > 0),
+    recruitment_start_date TEXT,
+    recruitment_end_date TEXT,
+    is_public INTEGER NOT NULL DEFAULT 1,
+    status_override TEXT NOT NULL DEFAULT 'AUTO' CHECK(status_override IN ('AUTO','CLOSED')),
+    display_order INTEGER NOT NULL DEFAULT 0,
+    duration_hours INTEGER NOT NULL DEFAULT 0,
+    tuition INTEGER NOT NULL DEFAULT 0,
+    fee_note TEXT NOT NULL DEFAULT '',
+    created_by INTEGER REFERENCES staff(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS course_applicants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL REFERENCES course_openings(id) ON DELETE CASCADE,
+    applicant_name TEXT NOT NULL,
+    phone_hash TEXT NOT NULL,
+    phone_last4 TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'WAITING'
+      CHECK(status IN ('WAITING','CONFIRMED','CANCELLED','REJECTED','REFUNDED')),
+    notes TEXT NOT NULL DEFAULT '',
+    created_by INTEGER NOT NULL REFERENCES staff(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     actor_id INTEGER REFERENCES staff(id),
@@ -213,6 +247,9 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS finance_date_idx ON finance_transactions(transaction_date)",
   "CREATE INDEX IF NOT EXISTS audit_created_idx ON audit_logs(created_at)",
   "CREATE INDEX IF NOT EXISTS roasting_points_profile_idx ON roasting_points(profile_id, seconds)",
+  "CREATE INDEX IF NOT EXISTS idx_course_openings_public_month ON course_openings(course_month, is_public, display_order)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_course_applicants_course_phone ON course_applicants(course_id, phone_hash)",
+  "CREATE INDEX IF NOT EXISTS idx_course_applicants_course_status ON course_applicants(course_id, status)",
   `CREATE TRIGGER IF NOT EXISTS inventory_nonnegative_update
    BEFORE UPDATE OF quantity ON inventory_items
    WHEN NEW.quantity < 0
@@ -288,6 +325,18 @@ async function initializeDatabase(): Promise<void> {
     )
     .run();
   await db.batch([...financeSeedStatements, ...inventorySeedStatements]);
+  const courseMonth = currentKoreanMonth();
+  await db
+    .prepare(
+      `INSERT INTO course_openings
+        (public_id, name, category, course_month, opening_minimum, capacity,
+         is_public, status_override, display_order, duration_hours, tuition, fee_note)
+       SELECT ?, 'Q Grader', 'Q_GRADER', ?, 6, NULL, 1, 'AUTO', 0, 48, 1500000, '시험비 별도'
+       WHERE NOT EXISTS (SELECT 1 FROM course_openings)`,
+    )
+    .bind(`q-grader-${courseMonth}`, courseMonth)
+    .run();
+  await db.prepare("PRAGMA optimize").run();
   await ensureLegacyInventory(db);
 }
 
