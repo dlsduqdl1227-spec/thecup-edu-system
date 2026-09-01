@@ -261,6 +261,7 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(publicComponent, /현재 수강 희망 인원/);
   assert.match(publicComponent, /현재 수강 총인원/);
   assert.match(publicComponent, /월간 모집 스케줄/);
+  assert.match(publicComponent, /이 달에는 등록된 공개 모집 일정이 없습니다/);
   assert.match(publicComponent, /public-calendar/);
   assert.match(publicComponent, /public-schedule-agenda/);
   assert.match(publicRoute, /c\.is_public = 1/);

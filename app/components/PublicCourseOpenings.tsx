@@ -221,9 +221,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
             </article>
           </section>
 
-          {courses.length ? (
-            <>
-              <section className="public-schedule-shell" aria-labelledby="public-schedule-title">
+          <section className="public-schedule-shell" aria-labelledby="public-schedule-title">
                 <div className="public-section-heading">
                   <div>
                     <span>MONTHLY SCHEDULE</span>
@@ -231,6 +229,10 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
                   </div>
                   <p>과정을 선택할 필요 없이 모집 시작일과 마감일을 한눈에 확인하세요.</p>
                 </div>
+
+                {!courses.length && (
+                  <p className="public-schedule-empty">이 달에는 등록된 공개 모집 일정이 없습니다.</p>
+                )}
 
                 <div className="public-calendar" aria-label={`${readableMonth(month)} 달력`}>
                   <div className="public-calendar-weekdays" aria-hidden="true">
@@ -272,8 +274,9 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
                     </article>
                   ))}
                 </div>
-              </section>
+          </section>
 
+          {courses.length ? (
               <section className="public-course-details" aria-labelledby="public-course-details-title">
                 <div className="public-section-heading">
                   <div>
@@ -329,13 +332,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
                   ))}
                 </div>
               </section>
-            </>
-          ) : (
-            <div className="public-openings-empty">
-              <strong>{readableMonth(month)} 공개 과정이 없습니다.</strong>
-              <span>새로운 과정이 등록되면 이곳에 바로 표시됩니다.</span>
-            </div>
-          )}
+          ) : null}
         </>
       ) : (
         <div className="public-openings-empty">
