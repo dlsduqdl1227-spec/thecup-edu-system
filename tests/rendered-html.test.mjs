@@ -259,9 +259,16 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(publicComponent, /30_000/);
   assert.match(publicComponent, /잠시 후 다시 확인해 주세요/);
   assert.match(publicComponent, /현재 수강 희망 인원/);
+  assert.match(publicComponent, /현재 수강 총인원/);
+  assert.match(publicComponent, /월간 모집 스케줄/);
+  assert.match(publicComponent, /public-calendar/);
+  assert.match(publicComponent, /public-schedule-agenda/);
   assert.match(publicRoute, /c\.is_public = 1/);
   assert.match(publicRoute, /a\.status IN \('WAITING', 'CONFIRMED'\)/);
   assert.match(publicRoute, /COUNT\(DISTINCT CASE/);
+  assert.match(publicRoute, /recruitment_start_date AS recruitmentStartDate/);
+  assert.match(publicRoute, /recruitment_end_date AS recruitmentEndDate/);
+  assert.match(publicRoute, /totalApplicants/);
   assert.match(publicRoute, /public, max-age=30/);
   assert.match(publicRoute, /export const POST = methodNotAllowed/);
   assert.match(publicRoute, /export const DELETE = methodNotAllowed/);
@@ -272,6 +279,8 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(worker, /headers\.delete\("X-Frame-Options"\)/);
   assert.match(styles, /\.public-openings-page[\s\S]*?overflow-x: hidden/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.public-course-grid/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.public-calendar[\s\S]*?display: none/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.public-schedule-agenda[\s\S]*?display: grid/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS course_openings/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS course_applicants/);
   assert.match(database, /q-grader-\$\{courseMonth\}/);

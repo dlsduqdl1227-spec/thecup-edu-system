@@ -20,6 +20,8 @@ type PublicCourseRow = {
   durationHours: number;
   tuition: number;
   feeNote: string;
+  recruitmentStartDate: string | null;
+  recruitmentEndDate: string | null;
   currentApplicants: number;
 };
 
@@ -42,6 +44,8 @@ export async function GET(request: Request) {
                   c.opening_minimum AS openingMinimum, c.capacity,
                   c.status_override AS statusOverride,
                   c.duration_hours AS durationHours, c.tuition, c.fee_note AS feeNote,
+                  c.recruitment_start_date AS recruitmentStartDate,
+                  c.recruitment_end_date AS recruitmentEndDate,
                   COUNT(DISTINCT CASE
                     WHEN a.status IN ('WAITING', 'CONFIRMED') THEN a.phone_hash
                     ELSE NULL
@@ -97,13 +101,21 @@ export async function GET(request: Request) {
         durationHours: Number(course.durationHours),
         tuition: Number(course.tuition),
         feeNote: course.feeNote,
+        recruitmentStartDate: course.recruitmentStartDate,
+        recruitmentEndDate: course.recruitmentEndDate,
       };
     });
+
+    const totalApplicants = courses.reduce(
+      (total, course) => total + course.currentApplicants,
+      0,
+    );
 
     return new Response(
       JSON.stringify({
         month,
         updatedAt: formatKoreanTimestamp(updatedResult?.updatedAt),
+        totalApplicants,
         courses,
       }),
       { status: 200, headers: cacheHeaders },
