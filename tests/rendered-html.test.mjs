@@ -44,8 +44,13 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /운영 · 개강 관리/);
   assert.match(app, /BookingAdmin/);
   assert.match(app, /OperationsHub/);
-  assert.match(app, /예약 · 스케줄/);
-  assert.match(app, /개강 · 모집/);
+  assert.match(app, /하나의 월을 기준으로 스테이션 일정, 예약과 과정 모집을 한 화면에서 관리/);
+  assert.match(app, /아래 두 영역이 함께 자동 동기화/);
+  assert.match(app, /id="operations-schedule"/);
+  assert.match(app, /id="operations-openings"/);
+  assert.match(app, /initialTab="schedule"/);
+  assert.match(app, /<CourseOpeningsAdminView notify=\{notify\} month=\{month\} onMonthChange=\{setMonth\} embedded/);
+  assert.doesNotMatch(app, /workspace === "booking"/);
   assert.match(bookingPortal, /수업 예정자/);
   assert.match(bookingPortal, /수강생 로그인/);
   assert.match(bookingPortal, /운영자 로그인/);
@@ -155,6 +160,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(styles, /\.monthly-transaction-list/);
   assert.match(styles, /\.booking-batch-builder/);
   assert.match(styles, /\.booking-batch-calendar/);
+  assert.match(styles, /\.operations-unified-toolbar/);
+  assert.match(styles, /\.integrated-section-heading/);
   assert.match(styles, /\.csv-expense-entry/);
   assert.match(styles, /\.inventory-sections/);
   assert.match(styles, /\.inventory-section-heading/);

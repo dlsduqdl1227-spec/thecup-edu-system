@@ -6373,86 +6373,185 @@ td,
   padding-top: 26px;
 }
 
-.operations-hub-switcher {
+.operations-unified-header {
+  padding-bottom: 30px;
+}
+
+.operations-unified-header .page-header {
+  margin-bottom: 24px;
+}
+
+.operations-unified-toolbar {
   display: grid;
-  grid-template-columns: minmax(240px, .8fr) minmax(460px, 1.2fr);
-  gap: 28px;
-  width: min(1480px, 100%);
-  margin: 0 auto;
-  padding: 42px clamp(28px, 4vw, 68px) 0;
+  grid-template-columns: minmax(160px, 210px) minmax(280px, 1fr) auto;
+  align-items: stretch;
+  min-width: 0;
+  border-color: #111;
 }
 
-.operations-hub-switcher > div {
+.operations-unified-toolbar > label {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  border-right: 1px solid #111;
+  padding: 15px 18px;
+}
+
+.operations-unified-toolbar > label span,
+.operations-unified-status > span,
+.opening-admin-current-month span,
+.integrated-section-heading span {
+  color: #777;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+.operations-unified-toolbar input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #bbb;
+  background: #fff;
+  color: #111;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.operations-unified-months {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.operations-unified-months > span {
   align-self: center;
+  color: #777;
+  padding: 18px;
+  font-size: 11px;
 }
 
-.operations-hub-switcher > div > span,
+.operations-unified-months button {
+  display: grid;
+  min-width: 82px;
+  flex: 1 0 82px;
+  place-content: center;
+  gap: 3px;
+  border: 0;
+  border-right: 1px solid #ddd;
+  background: #fff;
+  color: #111;
+}
+
+.operations-unified-months button b {
+  font-size: 14px;
+}
+
+.operations-unified-months button small {
+  color: #888;
+  font-size: 9px;
+}
+
+.operations-unified-months button.active {
+  background: #111;
+  color: #fff;
+}
+
+.operations-unified-months button.active small {
+  color: #aaa;
+}
+
+.operations-jump-actions {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+}
+
+.operations-jump-actions button {
+  min-width: 114px;
+  border: 0;
+  border-left: 1px solid #111;
+  background: #f1f1f1;
+  color: #111;
+  padding: 0 15px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.operations-jump-actions button:hover {
+  background: #111;
+  color: #fff;
+}
+
+.operations-unified-status {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  border-left: 4px solid #111;
+  background: #ededed;
+  padding: 12px 16px;
+}
+
+.operations-unified-status strong {
+  font-size: 14px;
+}
+
+.operations-unified-status p {
+  margin: 0;
+  color: #666;
+  font-size: 11px;
+}
+
+.operations-unified-section {
+  scroll-margin-top: 18px;
+}
+
+.integrated-admin-section {
+  padding-top: 32px;
+  border-top: 1px solid #111;
+}
+
+.integrated-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.integrated-section-heading h2 {
+  margin: 8px 0 5px;
+  font-size: clamp(25px, 3vw, 38px);
+  letter-spacing: -.04em;
+}
+
+.integrated-section-heading p {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+}
+
+.opening-admin-current-month {
+  display: grid;
+  gap: 3px;
+}
+
+.opening-admin-current-month strong {
+  font-size: 18px;
+}
+
+.opening-admin-current-month small {
+  color: #777;
+  font-size: 9px;
+}
+
 .inventory-command-bar header > span,
 .roast-quick-start > div > span {
   color: #777;
   font-size: 9px;
   font-weight: 850;
   letter-spacing: .13em;
-}
-
-.operations-hub-switcher > div > strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 18px;
-}
-
-.operations-hub-switcher > div > p {
-  margin: 7px 0 0;
-  color: #777;
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.operations-hub-switcher nav {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border: 1px solid #111;
-}
-
-.operations-hub-switcher nav button {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  min-height: 92px;
-  border: 0;
-  border-right: 1px solid #111;
-  background: #fff;
-  color: #111;
-  padding: 17px;
-  text-align: left;
-}
-
-.operations-hub-switcher nav button:last-child {
-  border-right: 0;
-}
-
-.operations-hub-switcher nav button small {
-  grid-row: 1 / span 2;
-  color: #999;
-  font-size: 9px;
-}
-
-.operations-hub-switcher nav button b {
-  font-size: 14px;
-}
-
-.operations-hub-switcher nav button span {
-  color: #777;
-  font-size: 10px;
-}
-
-.operations-hub-switcher nav button.active {
-  background: #111;
-  color: #fff;
-}
-
-.operations-hub-switcher nav button.active span {
-  color: #aaa;
 }
 
 .inventory-command-bar {
@@ -6675,9 +6774,21 @@ td,
 }
 
 @media (max-width: 980px) {
-  .operations-hub-switcher {
-    grid-template-columns: 1fr;
-    gap: 14px;
+  .operations-unified-toolbar {
+    grid-template-columns: minmax(160px, 200px) minmax(0, 1fr);
+  }
+
+  .operations-jump-actions {
+    grid-column: 1 / -1;
+    border-top: 1px solid #111;
+  }
+
+  .operations-jump-actions button {
+    min-height: 44px;
+  }
+
+  .operations-jump-actions button:first-child {
+    border-left: 0;
   }
 
   .inventory-command-bar {
@@ -6695,26 +6806,52 @@ td,
 }
 
 @media (max-width: 640px) {
-  .operations-hub-switcher {
-    padding: 24px 16px 0;
-  }
-
   .operations-hub > .page-section {
     padding-top: 20px;
   }
 
-  .operations-hub-switcher nav {
+  .operations-unified-header {
+    padding-bottom: 22px;
+  }
+
+  .operations-unified-toolbar {
     grid-template-columns: 1fr;
   }
 
-  .operations-hub-switcher nav button {
-    min-height: 72px;
+  .operations-unified-toolbar > label {
     border-right: 0;
     border-bottom: 1px solid #111;
   }
 
-  .operations-hub-switcher nav button:last-child {
-    border-bottom: 0;
+  .operations-unified-months {
+    min-height: 62px;
+    border-bottom: 1px solid #111;
+  }
+
+  .operations-jump-actions {
+    grid-column: auto;
+    border-top: 0;
+  }
+
+  .operations-unified-status {
+    grid-template-columns: auto 1fr;
+  }
+
+  .operations-unified-status p {
+    grid-column: 1 / -1;
+  }
+
+  .integrated-admin-section {
+    padding-top: 24px;
+  }
+
+  .integrated-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .integrated-section-heading > button {
+    width: 100%;
   }
 
   .inventory-command-bar header {

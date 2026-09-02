@@ -104,6 +104,9 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(adminRoute, /scheduleMonths/);
   assert.match(admin, /월간 일정 일괄 생성/);
   assert.match(admin, /등록된 일정/);
+  assert.match(admin, /onScheduleMonthsChange\?\.\(result\.scheduleMonths\)/);
+  assert.match(admin, /integrated-admin-section/);
+  assert.match(admin, /initialTab = "requests"/);
   assert.match(admin, /window\.setInterval\(\(\) => void load\(\), 30_000\)/);
   assert.match(admin, /평일 전체/);
   assert.match(admin, /선택 일정 일괄 생성/);

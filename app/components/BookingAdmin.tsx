@@ -33,9 +33,24 @@ const won = new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW",
 const stationLabel: Record<string, string> = { ESPRESSO: "에스프레소", BREWING: "브루잉", ROASTING: "로스팅" };
 const reservationLabel: Record<string, string> = { REQUESTED: "승인 대기", CONFIRMED: "확정", COMPLETED: "완료", CANCELLED: "취소", REJECTED: "거절", NO_SHOW: "노쇼" };
 
-export function BookingAdmin({ notify }: { notify: (message: { kind: "ok" | "error"; message: string }) => void }) {
-  const [month, setMonth] = useState("");
-  const [tab, setTab] = useState<AdminTab>("requests");
+export function BookingAdmin({
+  notify,
+  month: controlledMonth,
+  onMonthChange,
+  onScheduleMonthsChange,
+  embedded = false,
+  initialTab = "requests",
+}: {
+  notify: (message: { kind: "ok" | "error"; message: string }) => void;
+  month?: string;
+  onMonthChange?: (month: string) => void;
+  onScheduleMonthsChange?: (months: string[]) => void;
+  embedded?: boolean;
+  initialTab?: AdminTab;
+}) {
+  const [internalMonth, setInternalMonth] = useState("");
+  const month = controlledMonth ?? internalMonth;
+  const [tab, setTab] = useState<AdminTab>(initialTab);
   const [data, setData] = useState<BookingAdminData | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -43,11 +58,20 @@ export function BookingAdmin({ notify }: { notify: (message: { kind: "ok" | "err
     try {
       const result = await requestJson<BookingAdminData>(month ? `/api/booking/admin?month=${encodeURIComponent(month)}` : "/api/booking/admin");
       setData(result);
-      if (!month) setMonth(result.month);
+      onScheduleMonthsChange?.(result.scheduleMonths);
+      if (!month) {
+        setInternalMonth(result.month);
+        onMonthChange?.(result.month);
+      }
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     }
-  }, [month, notify]);
+  }, [month, notify, onMonthChange, onScheduleMonthsChange]);
+
+  function changeMonth(nextMonth: string) {
+    setInternalMonth(nextMonth);
+    onMonthChange?.(nextMonth);
+  }
 
   useEffect(() => {
     // Initial and month-dependent remote data lookup, plus cross-screen schedule synchronization.
@@ -77,12 +101,12 @@ export function BookingAdmin({ notify }: { notify: (message: { kind: "ok" | "err
   const confirmed = data.reservations.filter((row) => row.status === "CONFIRMED").length;
 
   return (
-    <section className="page-section booking-admin-page">
-      <header className="booking-admin-heading">
+    <section className={embedded ? "page-section booking-admin-page integrated-admin-section" : "page-section booking-admin-page"}>
+      {embedded ? <header className="integrated-section-heading"><div><span>01 · STATION SCHEDULE</span><h2>스테이션 일정과 예약 운영</h2><p>선택한 달의 일정 생성, 휴강 처리, 예약 승인과 회원 관리를 한곳에서 처리합니다.</p></div></header> : <header className="booking-admin-heading">
         <div><span>COFFEE STATION OPERATIONS</span><h1>예약 운영</h1><p>상담 승인부터 스케줄, 예약 확정, 현장결제와 평가까지 관리합니다.</p></div>
-        <label>조회 월<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
-      </header>
-      {data.scheduleMonths.length > 0 && <nav className="booking-admin-month-nav" aria-label="등록된 운영 월"><span>등록된 일정</span>{data.scheduleMonths.map((value) => <button type="button" key={value} className={month === value ? "active" : ""} onClick={() => setMonth(value)}>{Number(value.slice(5))}월</button>)}</nav>}
+        <label>조회 월<input type="month" value={month} onChange={(event) => changeMonth(event.target.value)} /></label>
+      </header>}
+      {!embedded && data.scheduleMonths.length > 0 && <nav className="booking-admin-month-nav" aria-label="등록된 운영 월"><span>등록된 일정</span>{data.scheduleMonths.map((value) => <button type="button" key={value} className={month === value ? "active" : ""} onClick={() => changeMonth(value)}>{Number(value.slice(5))}월</button>)}</nav>}
       <div className="booking-admin-kpis"><article><span>상담 대기</span><strong>{consultations}</strong></article><article><span>예약 요청</span><strong>{pending}</strong></article><article><span>확정 예약</span><strong>{confirmed}</strong></article><article><span>운영 슬롯</span><strong>{data.slots.length}</strong></article></div>
       <nav className="booking-admin-tabs" aria-label="예약 운영 메뉴">{tabs.map(([key, label]) => <button type="button" key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}{key === "requests" && pending ? <b>{pending}</b> : null}</button>)}</nav>
       {tab === "requests" && <ReservationRequests data={data} busy={busy} act={act} />}

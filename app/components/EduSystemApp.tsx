@@ -534,22 +534,59 @@ export function EduSystemApp() {
 }
 
 function OperationsHub({ notify }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void }) {
-  const [workspace, setWorkspace] = useState<"booking" | "openings">("booking");
+  const [month, setMonth] = useState("");
+  const [scheduleMonths, setScheduleMonths] = useState<string[]>([]);
+  const selectedMonthLabel = month ? `${Number(month.slice(5))}월` : "일정 확인 중";
+
+  function moveToSection(sectionId: string) {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   return (
-    <div className="operations-hub">
-      <section className="operations-hub-switcher" aria-label="운영 업무 선택">
-        <div>
-          <span>OPERATIONS CENTER</span>
-          <strong>운영과 개강을 한곳에서 관리합니다.</strong>
-          <p>예약·스케줄과 과정 모집 사이를 이동해도 현재 작업 흐름이 끊기지 않습니다.</p>
+    <div className="operations-hub operations-hub-unified">
+      <section className="page-section operations-unified-header">
+        <PageHeader
+          eyebrow="통합 운영"
+          title="운영 · 개강 관리"
+          description="하나의 월을 기준으로 스테이션 일정, 예약과 과정 모집을 한 화면에서 관리합니다."
+        />
+        <div className="operations-unified-toolbar panel">
+          <label>
+            <span>기준 월</span>
+            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+          </label>
+          <nav className="operations-unified-months" aria-label="등록된 운영 월">
+            {scheduleMonths.length ? scheduleMonths.map((value) => (
+              <button type="button" key={value} className={month === value ? "active" : ""} onClick={() => setMonth(value)}>
+                <b>{Number(value.slice(5))}월</b>
+                <small>일정 등록</small>
+              </button>
+            )) : <span>등록된 일정을 확인하고 있습니다.</span>}
+          </nav>
+          <div className="operations-jump-actions" aria-label="통합 관리 바로가기">
+            <button type="button" onClick={() => moveToSection("operations-schedule")}>스테이션 일정</button>
+            <button type="button" onClick={() => moveToSection("operations-openings")}>개강 모집</button>
+          </div>
         </div>
-        <nav role="tablist" aria-label="운영 관리 화면">
-          <button type="button" role="tab" aria-selected={workspace === "booking"} className={workspace === "booking" ? "active" : ""} onClick={() => setWorkspace("booking")}><small>01</small><b>예약 · 스케줄</b><span>상담, 회원, 예약 운영</span></button>
-          <button type="button" role="tab" aria-selected={workspace === "openings"} className={workspace === "openings" ? "active" : ""} onClick={() => setWorkspace("openings")}><small>02</small><b>개강 · 모집</b><span>과정, 희망자, 공개 현황</span></button>
-        </nav>
+        <div className="operations-unified-status">
+          <span>현재 기준</span>
+          <strong>{month || selectedMonthLabel}</strong>
+          <p>선택한 {selectedMonthLabel}을 기준으로 아래 두 영역이 함께 자동 동기화됩니다.</p>
+        </div>
       </section>
-      {workspace === "booking" ? <BookingAdmin notify={notify} /> : <CourseOpeningsAdminView notify={notify} />}
+      <div id="operations-schedule" className="operations-unified-section">
+        <BookingAdmin
+          notify={notify}
+          month={month}
+          onMonthChange={setMonth}
+          onScheduleMonthsChange={setScheduleMonths}
+          embedded
+          initialTab="schedule"
+        />
+      </div>
+      <div id="operations-openings" className="operations-unified-section">
+        <CourseOpeningsAdminView notify={notify} month={month} onMonthChange={setMonth} embedded />
+      </div>
     </div>
   );
 }
@@ -2705,10 +2742,17 @@ function adminCourseStatus(course: CourseOpening): { code: string; label: string
 
 function CourseOpeningsAdminView({
   notify,
+  month: controlledMonth,
+  onMonthChange,
+  embedded = false,
 }: {
   notify: (toast: { kind: "ok" | "error"; message: string }) => void;
+  month?: string;
+  onMonthChange?: (month: string) => void;
+  embedded?: boolean;
 }) {
-  const [month, setMonth] = useState(today.slice(0, 7));
+  const [internalMonth, setInternalMonth] = useState(today.slice(0, 7));
+  const month = controlledMonth ?? internalMonth;
   const [courses, setCourses] = useState<CourseOpening[]>([]);
   const [scheduleMonths, setScheduleMonths] = useState<ScheduleMonthSummary[]>([]);
   const [scheduleDays, setScheduleDays] = useState<ScheduleDaySummary[]>([]);
@@ -2718,7 +2762,17 @@ function CourseOpeningsAdminView({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  function changeMonth(nextMonth: string) {
+    setInternalMonth(nextMonth);
+    onMonthChange?.(nextMonth);
+    setSelectedId(null);
+  }
+
   const load = useCallback(async (targetMonth = month, preferredId?: number) => {
+    if (!/^\d{4}-\d{2}$/.test(targetMonth)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const result = await requestJson<{
@@ -2766,7 +2820,7 @@ function CourseOpeningsAdminView({
         },
       );
       const savedMonth = String(payload.courseMonth);
-      setMonth(savedMonth);
+      changeMonth(savedMonth);
       setEditor(null);
       await load(savedMonth, course?.id ?? result.id);
       notify({ kind: "ok", message: course ? "과정 정보를 수정했습니다." : "새 개강 과정을 등록했습니다." });
@@ -2866,7 +2920,7 @@ function CourseOpeningsAdminView({
 
   if (editor) {
     return (
-      <section className="page-section">
+      <section className={embedded ? "page-section opening-admin-page integrated-admin-section" : "page-section"}>
         <PageHeader
           eyebrow="개강 관리"
           title={editor === "create" ? "새 과정 등록" : "과정 정보 수정"}
@@ -2883,35 +2937,42 @@ function CourseOpeningsAdminView({
     );
   }
 
+  if (!month) {
+    return <section className="page-section opening-admin-page integrated-admin-section"><div className="panel empty-state">통합 운영 월을 불러오는 중입니다.</div></section>;
+  }
+
   return (
-    <section className="page-section">
-      <PageHeader
+    <section className={embedded ? "page-section opening-admin-page integrated-admin-section" : "page-section"}>
+      {embedded ? (
+        <header className="integrated-section-heading">
+          <div><span>02 · COURSE RECRUITMENT</span><h2>개강 모집과 수강 희망자</h2><p>같은 달의 과정 모집, 희망 인원과 게스트 공개 상태를 이어서 관리합니다.</p></div>
+          <button type="button" className="primary-button small" onClick={() => setEditor("create")}>새 과정</button>
+        </header>
+      ) : <PageHeader
         eyebrow="외부 홈페이지 연동"
         title="실시간 개강 현황 관리"
         description="과정과 수강 희망자를 관리하면 공개 화면의 모집 인원이 30초 이내 자동 갱신됩니다."
         action={<button type="button" className="primary-button small" onClick={() => setEditor("create")}>새 과정</button>}
-      />
+      />}
 
       <div className="opening-admin-toolbar panel">
-        <Field label="진행 월">
+        {!embedded && <Field label="진행 월">
           <input
             type="month"
             value={month}
-            onChange={(event) => {
-              setMonth(event.target.value);
-              setSelectedId(null);
-            }}
+            onChange={(event) => changeMonth(event.target.value)}
           />
-        </Field>
+        </Field>}
+        {embedded && <div className="opening-admin-current-month"><span>통합 기준 월</span><strong>{month}</strong><small>상단 월 선택과 연동</small></div>}
         <a className="public-preview-link" href={`/embed/course-openings?month=${month}`} target="_blank" rel="noreferrer">
           {publicPageVisible ? "게스트 공개 화면 열기 ↗" : "숨김 화면 확인 ↗"}
         </a>
       </div>
 
-      {scheduleMonths.length > 0 && (
+      {!embedded && scheduleMonths.length > 0 && (
         <nav className="opening-schedule-months" aria-label="등록된 스테이션 운영 월">
           <span>등록된 스테이션 일정</span>
-          <div>{scheduleMonths.map((summary) => <button type="button" className={summary.month === month ? "active" : ""} key={summary.month} onClick={() => { setMonth(summary.month); setSelectedId(null); }}><b>{Number(summary.month.slice(5))}월</b><small>{summary.operationDays}일 · {summary.totalSlots}개</small></button>)}</div>
+          <div>{scheduleMonths.map((summary) => <button type="button" className={summary.month === month ? "active" : ""} key={summary.month} onClick={() => changeMonth(summary.month)}><b>{Number(summary.month.slice(5))}월</b><small>{summary.operationDays}일 · {summary.totalSlots}개</small></button>)}</div>
         </nav>
       )}
 
