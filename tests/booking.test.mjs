@@ -124,6 +124,7 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /<a href=\{availability\.consultationUrl\}>카카오톡 상담<\/a>/);
   assert.match(portal, /<Link href="\/\?view=consultation#portal-entry-content">/);
   assert.match(portal, /id="portal-entry-content"/);
+  assert.match(portal, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
   assert.match(portal, /카카오톡 상담/);
   assert.match(portal, /window\.setInterval\(\(\) => void loadAvailability\(\), 30_000\)/);
   assert.match(admin, /name="kakaoChatUrl"/);

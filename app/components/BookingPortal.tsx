@@ -111,6 +111,13 @@ export function BookingPortal({ initialEntry = null }: { initialEntry?: Entry })
     const refresh = window.setInterval(() => void loadAvailability(), 30_000);
     return () => window.clearInterval(refresh);
   }, [loadAvailability]);
+  useEffect(() => {
+    if (authLoading || !entry) return;
+    const target = document.getElementById("portal-entry-content");
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [authLoading, entry]);
 
   async function submitPublic(event: FormEvent<HTMLFormElement>, endpoint: string) {
     event.preventDefault();
