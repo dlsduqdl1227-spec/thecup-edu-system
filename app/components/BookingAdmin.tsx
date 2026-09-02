@@ -2,7 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-type Member = { id: number; loginId: string | null; name: string; phoneLast4: string; approvalStatus: string; consultationStatus: string; desiredStationType: string; consultationMemo: string; adminMemo: string; approvedAt: string | null; createdAt: string };
+type Member = { id: number; name: string; phoneLast4: string; approvalStatus: string; consultationStatus: string; desiredStationType: string; consultationMemo: string; adminMemo: string; approvedAt: string | null; createdAt: string };
 type Station = { id: number; type: string; name: string; active: number; displayOrder: number };
 type Slot = { id: number; stationId: number; startAt: string; endAt: string; status: string; blockReason: string; stationType: string; stationName: string; hasConfirmed: number; requestCount: number };
 type Reservation = { id: number; memberId: number; memberName: string; phoneLast4: string; memberApprovalStatus: string; slotId: number; status: string; purpose: string; materialPlan: string; openToPeerPractice: number; userMemo: string; adminMemo: string; rejectionReason: string; createdAt: string; startAt: string; endAt: string; stationType: string; stationName: string };
@@ -280,13 +280,12 @@ function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string })
     if (adminMemo === null) return;
     void act(
       { action: "approveMember", memberId: member.id, approved: approvedState, adminMemo },
-      approvedState ? "회원 DB 저장과 수강생 ID 자동 발급을 완료했습니다." : "회원 권한을 회수했습니다.",
+      approvedState ? "승인했습니다. 이제 본인 이름과 등록 연락처로 바로 로그인할 수 있습니다." : "회원 권한을 회수했습니다.",
     );
   }
-  function editLoginId(member: Member) {
-    const loginId = window.prompt("수강생 ID를 입력하세요. 영문 대문자·숫자·하이픈 4~20자", member.loginId ?? `CUP${String(member.id).padStart(5, "0")}`);
-    if (!loginId) return;
-    void act({ action: "setMemberLoginId", memberId: member.id, loginId }, "수강생 ID를 변경했습니다. 기존 로그인은 해제됩니다.");
+  function remove(member: Member) {
+    if (!window.confirm(`${member.name} 수강생 계정을 삭제할까요?\n로그인은 즉시 차단되며 기존 예약·결제 이력은 보존됩니다.`)) return;
+    void act({ action: "deleteMember", memberId: member.id }, "수강생 계정을 삭제했습니다. 기존 운영 이력은 보존됩니다.");
   }
   async function issue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = event.currentTarget; const values = Object.fromEntries(new FormData(form).entries());
@@ -321,10 +320,13 @@ function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string })
                   <h3>{member.name} <small>· {member.phoneLast4}</small></h3>
                   <p>{(stationLabel[member.desiredStationType] ?? member.desiredStationType) || "희망 스테이션 미정"}</p>
                   <p className="booking-member-dates">DB #{member.id} · 등록 {dateTime(member.createdAt)}{member.approvedAt ? ` · 권한 부여 ${dateTime(member.approvedAt)}` : ""}</p>
-                  <p className="booking-member-id"><b>{member.loginId || "승인 시 ID 자동 발급"}</b>{member.approvalStatus === "APPROVED" && <button type="button" disabled={busy} onClick={() => editLoginId(member)}>ID 변경</button>}</p>
+                  <p className="booking-member-login"><b>로그인 아이디 · {member.name}</b><span>등록 연락처와 함께 사용</span></p>
                   {member.consultationMemo && <blockquote>{member.consultationMemo}</blockquote>}
                 </div>
-                {member.approvalStatus === "APPROVED" ? <button className="danger" disabled={busy} onClick={() => approve(member, false)}>권한 회수</button> : <button className="solid" disabled={busy} onClick={() => approve(member, true)}>상담 완료·승인</button>}
+                <div className="booking-member-actions">
+                  {member.approvalStatus === "APPROVED" ? <button disabled={busy} onClick={() => approve(member, false)}>권한 회수</button> : <button className="solid" disabled={busy} onClick={() => approve(member, true)}>상담 완료·승인</button>}
+                  <button className="danger" disabled={busy} onClick={() => remove(member)}>계정 삭제</button>
+                </div>
               </article>
             )) : <Empty>선택한 상태의 회원이 없습니다.</Empty>}
           </div>
@@ -332,7 +334,7 @@ function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string })
         <section>
           <div className="booking-admin-section-title"><div><span>PASS</span><h2>{month} 이용권 발급</h2></div></div>
           <form className="booking-admin-stack-form" onSubmit={issue}>
-            <label>승인 회원<select name="memberId" required defaultValue=""><option value="" disabled>회원을 선택하세요</option>{approved.map((member) => <option key={member.id} value={member.id}>{member.name} · {member.loginId ?? member.phoneLast4}</option>)}</select></label>
+            <label>승인 회원<select name="memberId" required defaultValue=""><option value="" disabled>회원을 선택하세요</option>{approved.map((member) => <option key={member.id} value={member.id}>{member.name} · 연락처 끝 {member.phoneLast4}</option>)}</select></label>
             <label>이용권<select name="type" defaultValue="MONTHLY"><option value="MONTHLY">월 이용권 · {won.format(data.settings.monthlyPrice)}</option><option value="DAILY">1회 이용권 · {won.format(data.settings.dailyPrice)}</option></select></label>
             <label>동시 확정 예약 제한<input name="maxActiveBookings" type="number" min="1" placeholder="비워두면 운영 설정 적용" /></label>
             <button className="solid" disabled={busy || !approved.length}>이용권 발급</button>

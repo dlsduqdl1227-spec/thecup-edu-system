@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
-type Member = { id: number; loginId: string; name: string; approvalStatus: "APPROVED" };
+type Member = { id: number; name: string; approvalStatus: "APPROVED" };
 type Slot = {
   id: number;
   stationId: number;
@@ -34,7 +34,6 @@ type Reservation = {
 };
 type MemberPass = { id: number; type: "DAILY" | "MONTHLY"; validMonth: string; price: number; status: "ACTIVE" | "EXPIRED" | "CANCELLED"; maxActiveBookings: number | null };
 type PracticeLog = { id: number; reservationId: number; stationType: string; recipeData: string; sensoryNote: string; reflection: string; updatedAt: string };
-type Evaluation = { id: number; status: "PREPARING" | "REQUESTED" | "COMPLETED"; result: string; ethicsStatus: string; requestedAt: string; evaluatedAt: string | null };
 type BookingData = {
   member: Member;
   month: string;
@@ -44,7 +43,6 @@ type BookingData = {
   payments: Array<{ id: number; amount: number; status: string }>;
   feedback: Array<{ id: number; reservationId: number; message: string; status: string; adminReply: string }>;
   practiceLogs: PracticeLog[];
-  evaluations: Evaluation[];
   settings: { dailyPrice: number; monthlyPrice: number; cancelHours: number; maxActiveBookings: number | null };
 };
 type PublicAvailability = { month: string; updatedAt: string; slots: PublicSlot[]; consultationUrl: string };
@@ -176,7 +174,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
             <button className={memberTab === "reservations" ? "active" : ""} onClick={() => setMemberTab("reservations")}>내 예약</button>
             <button className={memberTab === "practice" ? "active" : ""} onClick={() => setMemberTab("practice")}>실습 기록</button>
           </nav>
-          <div className="portal-member-account"><span><b>{member.name}</b><small>{member.loginId}</small></span><button onClick={() => void logout()} disabled={busy}>로그아웃</button></div>
+          <div className="portal-member-account"><span><b>{member.name}</b><small>승인 수강생</small></span><button onClick={() => void logout()} disabled={busy}>로그아웃</button></div>
         </header>
         <section className="portal-member-main">
           {!memberData ? <Empty>수강생 예약 정보를 불러오는 중입니다.</Empty> : <>
@@ -203,16 +201,16 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
         <div><span>THE CUP EDU · COFFEE STATION</span><h1>필요한 스테이션을<br />간단하게 확인하고 예약하세요.</h1><p>계정 유형에 따라 필요한 기능만 보여드립니다.</p></div>
         <div className="portal-role-grid">
           <Link href="/?view=visitor#portal-entry-content" className={entry === "visitor" ? "active" : ""} aria-current={entry === "visitor" ? "page" : undefined} onClick={(event) => { if (!member) return; event.preventDefault(); setEntry("visitor"); setShowHome(true); }}><span>01</span><h2>수업 예정자</h2><p>로그인 없이 월별로 남은 스테이션을 확인합니다.</p><b>빈자리 보기 →</b></Link>
-          <Link href="/?view=student#portal-entry-content" className={entry === "student" ? "active" : ""} aria-current={entry === "student" ? "page" : undefined} onClick={(event) => { if (!member) return; event.preventDefault(); setShowHome(false); }}><span>02</span><h2>수강생</h2><p>부여받은 수강생 ID로 로그인하고 예약합니다.</p><b>{member ? "내 수강 화면 →" : "수강생 로그인 →"}</b></Link>
+          <Link href="/?view=student#portal-entry-content" className={entry === "student" ? "active" : ""} aria-current={entry === "student" ? "page" : undefined} onClick={(event) => { if (!member) return; event.preventDefault(); setShowHome(false); }}><span>02</span><h2>수강생</h2><p>승인된 본인 이름과 연락처로 로그인하고 예약합니다.</p><b>{member ? "내 수강 화면 →" : "수강생 로그인 →"}</b></Link>
           <Link href="/admin"><span>03</span><h2>운영자</h2><p>상담, 회원, 스테이션과 예약을 관리합니다.</p><b>운영자 로그인 →</b></Link>
         </div>
       </section>
 
-      {entry === "student" && <section id="portal-entry-content" className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>관리자가 발급한 ID와 등록된 휴대폰 번호를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>수강생 ID<input name="loginId" autoCapitalize="characters" autoComplete="username" placeholder="CUP00001" required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
+      {entry === "student" && <section id="portal-entry-content" className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>승인받은 본인 이름과 등록된 휴대폰 번호를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>이름<input name="name" autoComplete="name" placeholder="본인 이름" maxLength={40} required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
 
       {entry === "visitor" && <VisitorSchedule month={month} setMonth={setMonth} availability={availability} />}
 
-      {entry === "consultation" && <section id="portal-entry-content" className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 상담을 완료하면 수강생 ID가 발급됩니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
+      {entry === "consultation" && <section id="portal-entry-content" className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 승인하면 본인 이름과 연락처로 바로 이용할 수 있습니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
 
       {!entry && <section className="portal-quick-guide"><span>운영 시간</span><strong>09:00–17:30</strong><p>09:00–11:30 · 12:00–14:30 · 15:00–17:30</p></section>}
       <footer className="portal-footer"><Brand compact /><p>예약은 운영자 승인 후 확정됩니다.</p></footer>
@@ -229,7 +227,7 @@ function VisitorSchedule({ month, setMonth, availability }: { month: string; set
   const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
   const [picked, setPicked] = useState("");
   const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
-  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 수강생 ID를 발급받으면 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
+  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 승인을 받으면 본인 이름과 연락처로 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
 }
 
 function MemberSchedule({ data, month, setMonth, reload, notify }: { data: BookingData; month: string; setMonth: (value: string) => void; reload: () => Promise<void>; notify: Notify }) {
@@ -302,9 +300,7 @@ function MemberPractice({ data, reload, notify }: { data: BookingData; reload: (
   const selected = completed.some((row) => row.id === picked) ? picked : completed[0]?.id ?? 0;
   const existing = data.practiceLogs.find((row) => row.reservationId === selected);
   async function save(event: FormEvent<HTMLFormElement>) { event.preventDefault(); try { await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "savePracticeLog", reservationId: selected, ...Object.fromEntries(new FormData(event.currentTarget).entries()) }) }); await reload(); notify({ kind: "ok", text: "실습 기록을 저장했습니다." }); } catch (error) { notify({ kind: "error", text: errorText(error) }); } }
-  async function requestEvaluation() { try { await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "requestEvaluation" }) }); await reload(); notify({ kind: "ok", text: "내부평가를 신청했습니다." }); } catch (error) { notify({ kind: "error", text: errorText(error) }); } }
-  const evaluation = data.evaluations[0];
-  return <><SectionHeading eyebrow="PRACTICE LOG" title="실습 기록" text="완료된 예약에 레시피와 개선 내용을 기록합니다." /><div className="portal-practice"><aside>{completed.map((row) => <button key={row.id} className={selected === row.id ? "active" : ""} onClick={() => setPicked(row.id)}><b>{shortDate(row.startAt)}</b><span>{row.stationName}</span></button>)}{!completed.length && <p>완료된 예약이 없습니다.</p>}</aside>{selected ? <form key={`${selected}-${existing?.updatedAt ?? "new"}`} onSubmit={save}><label>레시피·프로파일<textarea name="recipeData" rows={4} defaultValue={existing?.recipeData ?? ""} /></label><label>관능 기록<textarea name="sensoryNote" rows={4} defaultValue={existing?.sensoryNote ?? ""} /></label><label>개선 메모<textarea name="reflection" rows={4} defaultValue={existing?.reflection ?? ""} /></label><button>기록 저장</button></form> : <Empty>기록할 완료 예약을 선택해 주세요.</Empty>}</div><div className="portal-evaluation"><div><span>INTERNAL EVALUATION</span><h2>내부평가</h2><p>{evaluation ? `상태 · ${evaluation.status === "COMPLETED" ? "평가 완료" : "평가 진행 중"}` : "실습 기록 작성 후 신청할 수 있습니다."}</p></div><button disabled={!data.practiceLogs.length || Boolean(evaluation && evaluation.status !== "COMPLETED")} onClick={() => void requestEvaluation()}>평가 신청</button></div></>;
+  return <><SectionHeading eyebrow="PRACTICE LOG" title="실습 기록" text="완료된 예약에 레시피와 개선 내용을 기록합니다." /><div className="portal-practice"><aside>{completed.map((row) => <button key={row.id} className={selected === row.id ? "active" : ""} onClick={() => setPicked(row.id)}><b>{shortDate(row.startAt)}</b><span>{row.stationName}</span></button>)}{!completed.length && <p>완료된 예약이 없습니다.</p>}</aside>{selected ? <form key={`${selected}-${existing?.updatedAt ?? "new"}`} onSubmit={save}><label>레시피·프로파일<textarea name="recipeData" rows={4} defaultValue={existing?.recipeData ?? ""} /></label><label>관능 기록<textarea name="sensoryNote" rows={4} defaultValue={existing?.sensoryNote ?? ""} /></label><label>개선 메모<textarea name="reflection" rows={4} defaultValue={existing?.reflection ?? ""} /></label><button>기록 저장</button></form> : <Empty>기록할 완료 예약을 선택해 주세요.</Empty>}</div></>;
 }
 
 function SectionHeading({ eyebrow, title, text, children }: { eyebrow: string; title: string; text: string; children?: ReactNode }) { return <header className="portal-section-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{text}</p></div>{children}</header>; }

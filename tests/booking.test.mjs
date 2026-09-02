@@ -6,7 +6,6 @@ import {
   bookingDateTime,
   bookingMonthRange,
   getBookingTime,
-  normalizeMemberLoginId,
   validateBookingDateInMonth,
   validateBookingMonth,
   validateBookingTimeRange,
@@ -24,8 +23,6 @@ test("booking month and the three fixed operating times are validated", () => {
   assert.equal(getBookingTime("MORNING").start, "09:00");
   assert.equal(getBookingTime("AFTERNOON").end, "17:30");
   assert.equal(bookingDateTime("2026-09-02", "12:00"), "2026-09-02T12:00:00+09:00");
-  assert.equal(normalizeMemberLoginId(" cup-1001 "), "CUP-1001");
-  assert.throws(() => normalizeMemberLoginId("한글아이디"));
   assert.equal(validateBookingDateInMonth("2026-09-30", "2026-09"), "2026-09-30");
   assert.throws(() => validateBookingDateInMonth("2026-09-31", "2026-09"));
   assert.throws(() => validateBookingDateInMonth("2026-10-01", "2026-09"));
@@ -60,7 +57,7 @@ test("reservation storage enforces passes and concurrent confirmation conflicts"
 });
 
 test("three audience paths, public availability and private member data stay separated", async () => {
-  const [consultation, availability, loginRoute, memberAuth, memberRoute, adminRoute, database, loginMigration, worker, portal, admin, styles] = await Promise.all([
+  const [consultation, availability, loginRoute, memberAuth, memberRoute, adminRoute, database, deletionMigration, deletionIndexMigration, worker, portal, admin, styles] = await Promise.all([
     readFile(new URL("app/api/booking/public/consultations/route.ts", root), "utf8"),
     readFile(new URL("app/api/booking/public/availability/route.ts", root), "utf8"),
     readFile(new URL("app/api/member-auth/login/route.ts", root), "utf8"),
@@ -68,7 +65,8 @@ test("three audience paths, public availability and private member data stay sep
     readFile(new URL("app/api/booking/member/route.ts", root), "utf8"),
     readFile(new URL("app/api/booking/admin/route.ts", root), "utf8"),
     readFile(new URL("lib/db.ts", root), "utf8"),
-    readFile(new URL("drizzle/0013_bitter_forge.sql", root), "utf8"),
+    readFile(new URL("drizzle/0014_member_soft_delete.sql", root), "utf8"),
+    readFile(new URL("drizzle/0015_member_delete_index.sql", root), "utf8"),
     readFile(new URL("worker/index.ts", root), "utf8"),
     readFile(new URL("app/components/BookingPortal.tsx", root), "utf8"),
     readFile(new URL("app/components/BookingAdmin.tsx", root), "utf8"),
@@ -83,17 +81,20 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(availability, /booking_kakao_chat_url/);
   assert.match(availability, /consultationUrl/);
   assert.doesNotMatch(availability, /memberName|phone|email|memo|member_id/);
-  assert.match(loginRoute, /login_id = \? AND phone_hash = \?/);
-  assert.doesNotMatch(loginRoute, /WHERE name = \?/);
+  assert.match(loginRoute, /WHERE name = \? COLLATE NOCASE AND phone_hash = \?/);
+  assert.match(loginRoute, /approval_status = 'APPROVED' AND deleted_at IS NULL/);
+  assert.doesNotMatch(loginRoute, /login_id = \?/);
   assert.match(memberAuth, /approval_status = 'APPROVED'/);
-  assert.match(memberAuth, /login_id AS loginId/);
+  assert.match(memberAuth, /m\.deleted_at IS NULL/);
   assert.match(memberAuth, /HttpOnly; SameSite=Strict/);
   assert.match(memberRoute, /requireMember\(request\)/);
   assert.match(memberRoute, /WHERE r\.member_id = \?/);
   assert.doesNotMatch(memberRoute, /phone_last4|phone_hash|consultation_memo/);
   assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(adminRoute, /saveCandidate/);
-  assert.match(adminRoute, /setMemberLoginId/);
+  assert.match(adminRoute, /deleteMember/);
+  assert.match(adminRoute, /DELETE FROM member_sessions WHERE member_id = \?/);
+  assert.match(adminRoute, /deleted_at = CURRENT_TIMESTAMP/);
   assert.match(adminRoute, /validateKakaoChatUrl/);
   assert.match(adminRoute, /pf\.kakao\.com/);
   assert.match(adminRoute, /payload\.dates/);
@@ -112,14 +113,17 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(admin, /선택 일정 일괄 생성/);
   assert.match(styles, /\.booking-batch-calendar/);
   assert.match(styles, /\.booking-batch-config/);
-  assert.match(database, /ensureBookingMemberLoginIds/);
-  assert.match(database, /CUP\$\{String\(member\.id\)\.padStart/);
-  assert.match(loginMigration, /ADD `login_id` text/);
-  assert.match(loginMigration, /UNIQUE INDEX/);
+  assert.match(database, /ensureBookingMemberColumns/);
+  assert.match(database, /ALTER TABLE booking_members ADD COLUMN deleted_at TEXT/);
+  assert.match(deletionMigration, /ADD `deleted_at` text/);
+  assert.match(deletionIndexMigration, /booking_members_deleted_status_idx/);
   assert.match(worker, /X-Content-Type-Options/);
   assert.match(worker, /Permissions-Policy/);
   assert.match(portal, /수업 예정자/);
-  assert.match(portal, /수강생 ID/);
+  assert.match(portal, /승인받은 본인 이름/);
+  assert.match(portal, /input name="name" autoComplete="name"/);
+  assert.doesNotMatch(portal, /name="loginId"|CUP00001/);
+  assert.doesNotMatch(portal, /portal-evaluation|requestEvaluation/);
   assert.match(portal, /운영자 로그인/);
   assert.match(portal, /initialShowHome/);
   assert.match(portal, /스테이션 홈/);
@@ -138,6 +142,9 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(admin, /name="kakaoChatUrl"/);
   assert.match(admin, /상담·수강생 DB/);
   assert.match(admin, /권한 부여/);
+  assert.match(admin, /계정 삭제/);
+  assert.match(admin, /로그인 아이디 · \{member\.name\}/);
+  assert.doesNotMatch(admin, /ID 변경|setMemberLoginId/);
   assert.match(portal, /예약은 운영자 승인 후 확정/);
   assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);
   assert.match(styles, /Reservation portal v2/);
@@ -146,4 +153,5 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(styles, /#067647/);
   assert.match(styles, /@media \(max-width: 380px\)/);
   assert.match(styles, /background: #fff/);
+  assert.doesNotMatch(styles, /\.portal-evaluation/);
 });

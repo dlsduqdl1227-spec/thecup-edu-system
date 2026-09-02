@@ -10,7 +10,7 @@ type ConfirmedApplicantSource = {
 
 export type SyncedBookingMember = {
   id: number;
-  loginId: string;
+  name: string;
 };
 
 /**
@@ -47,6 +47,7 @@ export async function syncConfirmedApplicantToBookingMember(
          name = excluded.name,
          phone_last4 = excluded.phone_last4,
          approval_status = 'APPROVED',
+         deleted_at = NULL,
          consultation_status = 'COMPLETED',
          desired_station_type = CASE
            WHEN booking_members.desired_station_type = '' THEN excluded.desired_station_type
@@ -76,17 +77,9 @@ export async function syncConfirmedApplicantToBookingMember(
     .run();
 
   const member = await db
-    .prepare("SELECT id, login_id AS loginId FROM booking_members WHERE phone_hash = ?")
+    .prepare("SELECT id, name FROM booking_members WHERE phone_hash = ?")
     .bind(source.phoneHash)
-    .first<{ id: number; loginId: string | null }>();
+    .first<{ id: number; name: string }>();
   if (!member) throw new Error("수강생 DB 등록을 완료하지 못했습니다.");
-
-  const loginId = member.loginId || `CUP${String(member.id).padStart(5, "0")}`;
-  if (!member.loginId) {
-    await db
-      .prepare("UPDATE booking_members SET login_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-      .bind(loginId, member.id)
-      .run();
-  }
-  return { id: member.id, loginId };
+  return member;
 }

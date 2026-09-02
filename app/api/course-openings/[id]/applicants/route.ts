@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       : null;
     await audit(actor.id, "create_course_applicant", "course_applicant", String(id), `${course.name} · ${status}`);
     if (bookingMember) {
-      await audit(actor.id, "auto_register_booking_member", "booking_member", String(bookingMember.id), bookingMember.loginId);
+      await audit(actor.id, "auto_register_booking_member", "booking_member", String(bookingMember.id), bookingMember.name);
     }
     return Response.json({ id, bookingMember }, { status: 201 });
   } catch (error) {

@@ -14,6 +14,7 @@ export const bookingSchemaStatements = [
     admin_memo TEXT NOT NULL DEFAULT '',
     approved_by INTEGER REFERENCES staff(id),
     approved_at TEXT,
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
@@ -141,6 +142,7 @@ export const bookingSchemaStatements = [
     request_count INTEGER NOT NULL DEFAULT 0
   )`,
   "CREATE INDEX IF NOT EXISTS member_sessions_member_idx ON member_sessions(member_id)",
+  "CREATE INDEX IF NOT EXISTS booking_members_deleted_status_idx ON booking_members(deleted_at, approval_status)",
   "CREATE INDEX IF NOT EXISTS booking_slots_start_status_idx ON booking_slots(start_at, status)",
   "CREATE UNIQUE INDEX IF NOT EXISTS booking_slots_station_start_unique ON booking_slots(station_id, start_at)",
   "CREATE INDEX IF NOT EXISTS member_passes_member_month_idx ON member_passes(member_id, valid_month, status)",

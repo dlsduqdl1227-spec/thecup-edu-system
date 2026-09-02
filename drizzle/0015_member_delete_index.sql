@@ -1,0 +1,1 @@
+CREATE INDEX `booking_members_deleted_status_idx` ON `booking_members` (`deleted_at`,`approval_status`);

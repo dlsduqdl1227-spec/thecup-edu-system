@@ -339,8 +339,8 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(applicantDetailRoute, /status === "CONFIRMED"/);
   assert.match(memberSync, /ON CONFLICT\(phone_hash\) DO UPDATE/);
   assert.match(memberSync, /approval_status = 'APPROVED'/);
-  assert.match(memberSync, /CUP\$\{String\(member\.id\)\.padStart/);
-  assert.match(adminRoute, /LEFT JOIN booking_members m ON m\.phone_hash = a\.phone_hash/);
+  assert.match(memberSync, /deleted_at = NULL/);
+  assert.match(adminRoute, /LEFT JOIN booking_members m ON m\.phone_hash = a\.phone_hash AND m\.deleted_at IS NULL/);
   assert.match(app, /회원 DB 등록 완료/);
   assert.match(authStatusRoute, /publicPageVisible/);
   assert.match(worker, /frame-ancestors 'self' https:\/\/coffeemonthly\.creatorlink\.net https:\/\/\*\.creatorlink\.net/);

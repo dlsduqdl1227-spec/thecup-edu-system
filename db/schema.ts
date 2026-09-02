@@ -29,22 +29,27 @@ export const appSettings = sqliteTable("app_settings", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const bookingMembers = sqliteTable("booking_members", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  loginId: text("login_id").unique(),
-  name: text("name").notNull(),
-  phoneHash: text("phone_hash").notNull().unique(),
-  phoneLast4: text("phone_last4").notNull(),
-  approvalStatus: text("approval_status", { enum: ["PENDING", "APPROVED", "REVOKED"] }).notNull().default("PENDING"),
-  consultationStatus: text("consultation_status", { enum: ["REQUESTED", "COMPLETED"] }).notNull().default("REQUESTED"),
-  desiredStationType: text("desired_station_type").notNull().default(""),
-  consultationMemo: text("consultation_memo").notNull().default(""),
-  adminMemo: text("admin_memo").notNull().default(""),
-  approvedBy: integer("approved_by").references(() => staff.id),
-  approvedAt: text("approved_at"),
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+export const bookingMembers = sqliteTable(
+  "booking_members",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    loginId: text("login_id").unique(),
+    name: text("name").notNull(),
+    phoneHash: text("phone_hash").notNull().unique(),
+    phoneLast4: text("phone_last4").notNull(),
+    approvalStatus: text("approval_status", { enum: ["PENDING", "APPROVED", "REVOKED"] }).notNull().default("PENDING"),
+    consultationStatus: text("consultation_status", { enum: ["REQUESTED", "COMPLETED"] }).notNull().default("REQUESTED"),
+    desiredStationType: text("desired_station_type").notNull().default(""),
+    consultationMemo: text("consultation_memo").notNull().default(""),
+    adminMemo: text("admin_memo").notNull().default(""),
+    approvedBy: integer("approved_by").references(() => staff.id),
+    approvedAt: text("approved_at"),
+    deletedAt: text("deleted_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("booking_members_deleted_status_idx").on(table.deletedAt, table.approvalStatus)],
+);
 
 export const memberSessions = sqliteTable(
   "member_sessions",

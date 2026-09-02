@@ -1,0 +1,1 @@
+ALTER TABLE `booking_members` ADD `deleted_at` text;

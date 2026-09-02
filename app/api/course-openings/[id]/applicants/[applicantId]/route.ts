@@ -38,7 +38,7 @@ export async function PATCH(request: Request) {
       : null;
     await audit(actor.id, "update_course_applicant", "course_applicant", String(applicantId), status);
     if (bookingMember) {
-      await audit(actor.id, "auto_register_booking_member", "booking_member", String(bookingMember.id), bookingMember.loginId);
+      await audit(actor.id, "auto_register_booking_member", "booking_member", String(bookingMember.id), bookingMember.name);
     }
     return Response.json({ ok: true, bookingMember });
   } catch (error) {

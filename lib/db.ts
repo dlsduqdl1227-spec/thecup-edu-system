@@ -286,7 +286,7 @@ async function initializeDatabase(): Promise<void> {
   const db = getD1();
   await db.batch(schemaStatements.map((statement) => db.prepare(statement)));
   await db.batch(bookingSchemaStatements.map((statement) => db.prepare(statement)));
-  await ensureBookingMemberLoginIds(db);
+  await ensureBookingMemberColumns(db);
   await db.batch(bookingSeedStatements.map((statement) => db.prepare(statement)));
   await db
     .prepare(
@@ -344,12 +344,15 @@ async function initializeDatabase(): Promise<void> {
   await ensureLegacyInventory(db);
 }
 
-async function ensureBookingMemberLoginIds(db: D1Database): Promise<void> {
+async function ensureBookingMemberColumns(db: D1Database): Promise<void> {
   const columns = await db
     .prepare("PRAGMA table_info(booking_members)")
     .all<{ name: string }>();
   if (!columns.results.some((column) => column.name === "login_id")) {
     await db.prepare("ALTER TABLE booking_members ADD COLUMN login_id TEXT").run();
+  }
+  if (!columns.results.some((column) => column.name === "deleted_at")) {
+    await db.prepare("ALTER TABLE booking_members ADD COLUMN deleted_at TEXT").run();
   }
   await db
     .prepare(
@@ -357,19 +360,12 @@ async function ensureBookingMemberLoginIds(db: D1Database): Promise<void> {
        ON booking_members(login_id)`,
     )
     .run();
-  const missing = await db
+  await db
     .prepare(
-      `SELECT id FROM booking_members
-       WHERE approval_status = 'APPROVED' AND (login_id IS NULL OR login_id = '')`,
+      `CREATE INDEX IF NOT EXISTS booking_members_deleted_status_idx
+       ON booking_members(deleted_at, approval_status)`,
     )
-    .all<{ id: number }>();
-  if (missing.results.length) {
-    await db.batch(
-      missing.results.map((member) => db
-        .prepare("UPDATE booking_members SET login_id = ? WHERE id = ?")
-        .bind(`CUP${String(member.id).padStart(5, "0")}`, member.id)),
-    );
-  }
+    .run();
 }
 
 async function ensureStaffPermissionColumns(db: D1Database): Promise<void> {

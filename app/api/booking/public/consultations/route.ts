@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     await ensureDatabase();
     const payload = (await request.json()) as Record<string, unknown>;
-    const name = bookingText(payload.name, "이름", 40);
+    const name = bookingText(payload.name, "이름", 40).replace(/\s+/g, " ");
     const normalizedPhone = normalizePhone(String(payload.phone ?? ""));
     const hashedPhone = await phoneHash(normalizedPhone);
     const desiredStationType = optionalBookingText(payload.desiredStationType, 40);
@@ -69,9 +69,17 @@ export async function POST(request: Request) {
          VALUES (?, ?, ?, 'PENDING', 'REQUESTED', ?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT(phone_hash) DO UPDATE SET
            name = excluded.name,
+           phone_last4 = excluded.phone_last4,
+           approval_status = CASE
+             WHEN booking_members.deleted_at IS NOT NULL THEN 'PENDING'
+             ELSE booking_members.approval_status
+           END,
            consultation_status = 'REQUESTED',
            desired_station_type = excluded.desired_station_type,
            consultation_memo = excluded.consultation_memo,
+           approved_by = CASE WHEN booking_members.deleted_at IS NOT NULL THEN NULL ELSE booking_members.approved_by END,
+           approved_at = CASE WHEN booking_members.deleted_at IS NOT NULL THEN NULL ELSE booking_members.approved_at END,
+           deleted_at = NULL,
            updated_at = CURRENT_TIMESTAMP
          RETURNING id, approval_status AS approvalStatus`,
       )

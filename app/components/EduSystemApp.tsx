@@ -167,7 +167,6 @@ type CourseApplicant = {
   status: ApplicantStatus;
   notes: string;
   bookingMemberId: number | null;
-  memberLoginId: string | null;
   memberApprovalStatus: string | null;
   createdAt: string;
   updatedAt: string;
@@ -2879,7 +2878,7 @@ function CourseOpeningsAdminView({
     setBusy(true);
     try {
       const data = new FormData(form);
-      const result = await requestJson<{ bookingMember?: { id: number; loginId: string } | null }>(`/api/course-openings/${course.id}/applicants`, {
+      const result = await requestJson<{ bookingMember?: { id: number; name: string } | null }>(`/api/course-openings/${course.id}/applicants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(data.entries())),
@@ -2889,7 +2888,7 @@ function CourseOpeningsAdminView({
       notify({
         kind: "ok",
         message: result.bookingMember
-          ? `수강 확정과 함께 회원 DB에 등록했습니다. 수강생 ID: ${result.bookingMember.loginId}`
+          ? "수강 확정과 함께 회원 DB에 등록했습니다. 본인 이름과 등록 연락처로 바로 로그인할 수 있습니다."
           : "수강 희망자를 등록했습니다. 공개 인원이 갱신됩니다.",
       });
     } catch (error) {
@@ -2902,7 +2901,7 @@ function CourseOpeningsAdminView({
   async function updateApplicant(course: CourseOpening, applicant: CourseApplicant, status: ApplicantStatus) {
     setBusy(true);
     try {
-      const result = await requestJson<{ bookingMember?: { id: number; loginId: string } | null }>(`/api/course-openings/${course.id}/applicants/${applicant.id}`, {
+      const result = await requestJson<{ bookingMember?: { id: number; name: string } | null }>(`/api/course-openings/${course.id}/applicants/${applicant.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, notes: applicant.notes }),
@@ -2911,7 +2910,7 @@ function CourseOpeningsAdminView({
       notify({
         kind: "ok",
         message: result.bookingMember
-          ? `수강 확정과 함께 회원 DB에 등록했습니다. 수강생 ID: ${result.bookingMember.loginId}`
+          ? "수강 확정과 함께 회원 DB에 등록했습니다. 본인 이름과 등록 연락처로 바로 로그인할 수 있습니다."
           : "신청 상태를 변경했습니다. 공개 집계에도 반영됩니다.",
       });
     } catch (error) {
@@ -3116,7 +3115,7 @@ function CourseOpeningsAdminView({
                         <div className="applicant-identity">
                           <strong>{applicant.applicantName}</strong>
                           <span>연락처 끝 4자리 · {applicant.phoneLast4}</span>
-                          {applicant.memberLoginId && <small className="course-member-linked">회원 DB 등록 완료 · {applicant.memberLoginId}</small>}
+                          {applicant.bookingMemberId && <small className="course-member-linked">회원 DB 등록 완료 · 이름·연락처 로그인</small>}
                           {applicant.notes && <small>{applicant.notes}</small>}
                         </div>
                         <select

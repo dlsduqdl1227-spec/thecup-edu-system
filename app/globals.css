@@ -1524,9 +1524,10 @@ a {
 .booking-admin-member-list h3 small { color: #888; font-weight: 500; }
 .booking-admin-member-list p { margin: 0; color: #777; font-size: 11px; }
 .booking-admin-member-list .booking-member-dates { margin-top: 5px; color: #555; font-size: 10px; }
-.booking-member-id { display: flex; align-items: center; gap: 8px; margin-top: 7px !important; }
-.booking-member-id b { color: #111; font-size: 11px; letter-spacing: .05em; }
-.booking-member-id button { min-height: 26px; padding: 0 8px; }
+.booking-member-login { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 9px; margin-top: 7px !important; }
+.booking-member-login b { color: #111; font-size: 11px; }
+.booking-member-login span { color: #777; font-size: 10px; }
+.booking-member-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .member-state { padding: 3px 6px; background: #eee; color: #555; font-size: 9px; font-weight: 800; }
 .member-state.approved { background: #111; color: #fff; }
 .booking-admin-stack-form, .booking-admin-settings { display: grid; gap: 18px; }
@@ -6098,8 +6099,7 @@ td,
 .portal-intro > div:first-child > span,
 .portal-panel-copy > span,
 .portal-section-heading > div > span,
-.portal-modal > span,
-.portal-evaluation span {
+.portal-modal > span {
   color: #777;
   font-size: 10px;
   font-weight: 850;
@@ -6403,11 +6403,6 @@ td,
 .portal-practice aside p { color: #777; font-size: 10px; }
 .portal-practice form { display: grid; gap: 15px; padding: 24px; }
 .portal-practice form > button { justify-self: start; }
-.portal-evaluation { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 14px; padding: 24px; background: #111; color: #fff; }
-.portal-evaluation h2 { margin: 5px 0; }
-.portal-evaluation p { margin: 0; color: #aaa; font-size: 11px; }
-.portal-evaluation > button { min-height: 40px; padding: 0 15px; border: 1px solid #777; background: #111; color: #fff; font-size: 10px; }
-
 .portal-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 18px; overflow-y: auto; background: rgba(0,0,0,.68); }
 .portal-modal { position: relative; display: grid; gap: 15px; width: min(500px, 100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 30px; background: #fff; }
 .portal-modal .close { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; border: 0; background: #fff; font-size: 22px; }
@@ -6470,7 +6465,6 @@ td,
   .portal-reservations article > div:last-child { flex-direction: column; }
   .portal-practice { grid-template-columns: 1fr; }
   .portal-practice aside { border-right: 0; border-bottom: 1px solid #ddd; }
-  .portal-evaluation { align-items: stretch; flex-direction: column; }
   .portal-toast { right: 16px; bottom: 74px; }
   .portal-header-actions > span { display: none; }
   .portal-member-home > button { min-height: 34px; padding: 0 9px; font-size: 10px; }
