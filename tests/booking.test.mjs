@@ -49,6 +49,8 @@ test("reservation storage enforces passes and concurrent confirmation conflicts"
   assert.match(schema, /reservations_confirmed_member_time_unique/);
   assert.match(schema, /status = 'CONFIRMED'/);
   assert.match(schema, /booking_kakao_chat_url/);
+  assert.doesNotMatch(schema, /스테이션 1/);
+  assert.match(schema, /WHERE NOT EXISTS \(SELECT 1 FROM stations WHERE type/);
   assert.match(passMigration, /ADD `pass_id` integer NOT NULL REFERENCES member_passes/);
   assert.match(memberRoute, /pass\.id/);
   assert.match(adminRoute, /WHERE id = \? AND member_id = \? AND valid_month = \? AND status = 'ACTIVE'/);
@@ -98,7 +100,11 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(adminRoute, /payload\.times/);
   assert.match(adminRoute, /WHERE NOT EXISTS/);
   assert.match(adminRoute, /start_at < \? AND end_at > \?/);
+  assert.match(adminRoute, /MIN\(substr\(start_at, 1, 7\)\) AS month/);
+  assert.match(adminRoute, /scheduleMonths/);
   assert.match(admin, /월간 일정 일괄 생성/);
+  assert.match(admin, /등록된 일정/);
+  assert.match(admin, /window\.setInterval\(\(\) => void load\(\), 30_000\)/);
   assert.match(admin, /평일 전체/);
   assert.match(admin, /선택 일정 일괄 생성/);
   assert.match(styles, /\.booking-batch-calendar/);
@@ -115,6 +121,7 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /api\/booking\/public\/availability/);
   assert.match(portal, /window\.location\.assign\(availability\.consultationUrl\)/);
   assert.match(portal, /카카오톡 상담/);
+  assert.match(portal, /window\.setInterval\(\(\) => void loadAvailability\(\), 30_000\)/);
   assert.match(admin, /name="kakaoChatUrl"/);
   assert.match(portal, /예약은 운영자 승인 후 확정/);
   assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);

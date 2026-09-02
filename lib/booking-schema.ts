@@ -163,10 +163,13 @@ export const bookingSeedStatements = [
   `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_cancel_hours', '24')`,
   `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_max_active_bookings', '')`,
   `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_kakao_chat_url', '')`,
-  `INSERT OR IGNORE INTO stations (type, name, active, display_order)
-   VALUES ('ESPRESSO', '에스프레소 스테이션 1', 1, 10)`,
-  `INSERT OR IGNORE INTO stations (type, name, active, display_order)
-   VALUES ('BREWING', '브루잉 스테이션 1', 1, 20)`,
-  `INSERT OR IGNORE INTO stations (type, name, active, display_order)
-   VALUES ('ROASTING', '로스팅 스테이션 1', 1, 30)`,
+  `INSERT INTO stations (type, name, active, display_order)
+   SELECT 'ESPRESSO', '에스프레소 스테이션', 1, 10
+   WHERE NOT EXISTS (SELECT 1 FROM stations WHERE type = 'ESPRESSO')`,
+  `INSERT INTO stations (type, name, active, display_order)
+   SELECT 'BREWING', '브루잉 스테이션', 1, 20
+   WHERE NOT EXISTS (SELECT 1 FROM stations WHERE type = 'BREWING')`,
+  `INSERT INTO stations (type, name, active, display_order)
+   SELECT 'ROASTING', '로스팅 스테이션', 1, 30
+   WHERE NOT EXISTS (SELECT 1 FROM stations WHERE type = 'ROASTING')`,
 ];

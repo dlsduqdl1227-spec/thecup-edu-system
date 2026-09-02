@@ -22,6 +22,7 @@ type BookingAdminData = {
   feedback: Feedback[];
   evaluations: Evaluation[];
   candidates: Candidate[];
+  scheduleMonths: string[];
   settings: { dailyPrice: number; monthlyPrice: number; cancelHours: number; maxActiveBookings: number | null; kakaoChatUrl: string };
   bookingTimes: Array<{ key: string; start: string; end: string }>;
 };
@@ -33,23 +34,27 @@ const stationLabel: Record<string, string> = { ESPRESSO: "에스프레소", BREW
 const reservationLabel: Record<string, string> = { REQUESTED: "승인 대기", CONFIRMED: "확정", COMPLETED: "완료", CANCELLED: "취소", REJECTED: "거절", NO_SHOW: "노쇼" };
 
 export function BookingAdmin({ notify }: { notify: (message: { kind: "ok" | "error"; message: string }) => void }) {
-  const [month, setMonth] = useState(koreanMonth());
+  const [month, setMonth] = useState("");
   const [tab, setTab] = useState<AdminTab>("requests");
   const [data, setData] = useState<BookingAdminData | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setData(await requestJson<BookingAdminData>(`/api/booking/admin?month=${encodeURIComponent(month)}`));
+      const result = await requestJson<BookingAdminData>(month ? `/api/booking/admin?month=${encodeURIComponent(month)}` : "/api/booking/admin");
+      setData(result);
+      if (!month) setMonth(result.month);
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     }
   }, [month, notify]);
 
   useEffect(() => {
-    // Initial and month-dependent remote data lookup; state changes after the request resolves.
+    // Initial and month-dependent remote data lookup, plus cross-screen schedule synchronization.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
+    const refresh = window.setInterval(() => void load(), 30_000);
+    return () => window.clearInterval(refresh);
   }, [load]);
 
   async function act(body: Record<string, unknown>, success: string) {
@@ -77,6 +82,7 @@ export function BookingAdmin({ notify }: { notify: (message: { kind: "ok" | "err
         <div><span>COFFEE STATION OPERATIONS</span><h1>예약 운영</h1><p>상담 승인부터 스케줄, 예약 확정, 현장결제와 평가까지 관리합니다.</p></div>
         <label>조회 월<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
       </header>
+      {data.scheduleMonths.length > 0 && <nav className="booking-admin-month-nav" aria-label="등록된 운영 월"><span>등록된 일정</span>{data.scheduleMonths.map((value) => <button type="button" key={value} className={month === value ? "active" : ""} onClick={() => setMonth(value)}>{Number(value.slice(5))}월</button>)}</nav>}
       <div className="booking-admin-kpis"><article><span>상담 대기</span><strong>{consultations}</strong></article><article><span>예약 요청</span><strong>{pending}</strong></article><article><span>확정 예약</span><strong>{confirmed}</strong></article><article><span>운영 슬롯</span><strong>{data.slots.length}</strong></article></div>
       <nav className="booking-admin-tabs" aria-label="예약 운영 메뉴">{tabs.map(([key, label]) => <button type="button" key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}{key === "requests" && pending ? <b>{pending}</b> : null}</button>)}</nav>
       {tab === "requests" && <ReservationRequests data={data} busy={busy} act={act} />}
@@ -286,7 +292,6 @@ function SettingsAdmin({ data, busy, act }: AdminProps) {
 type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string) => Promise<void> };
 function Empty({ children }: { children: React.ReactNode }) { return <div className="booking-admin-empty">{children}</div>; }
 function rank(status: string) { return ["REQUESTED", "CONFIRMED", "COMPLETED", "NO_SHOW", "REJECTED", "CANCELLED"].indexOf(status); }
-function koreanMonth() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7); }
 function datesInMonth(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();

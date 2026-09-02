@@ -25,10 +25,16 @@ export async function GET(request: Request) {
     await ensureDatabase();
     await requireUser(request, ["admin"]);
     const url = new URL(request.url);
-    const month = validateBookingMonth(url.searchParams.get("month") ?? currentKoreanMonth());
-    const range = bookingMonthRange(month);
     const db = getD1();
-    const [members, stations, slots, reservations, passes, payments, feedback, evaluations, candidates, settings] = await Promise.all([
+    const currentMonth = currentKoreanMonth();
+    const requestedMonth = url.searchParams.get("month");
+    const nearestScheduleMonth = requestedMonth ? null : await db.prepare(
+      `SELECT MIN(substr(start_at, 1, 7)) AS month
+       FROM booking_slots WHERE start_at >= ?`,
+    ).bind(`${currentMonth}-01`).first<{ month: string | null }>();
+    const month = validateBookingMonth(requestedMonth ?? nearestScheduleMonth?.month ?? currentMonth);
+    const range = bookingMonthRange(month);
+    const [members, stations, slots, reservations, passes, payments, feedback, evaluations, candidates, settings, scheduleMonths] = await Promise.all([
       db.prepare(
         `SELECT id, login_id AS loginId, name, phone_last4 AS phoneLast4, approval_status AS approvalStatus,
                 consultation_status AS consultationStatus, desired_station_type AS desiredStationType,
@@ -110,6 +116,11 @@ export async function GET(request: Request) {
         `SELECT key, value FROM app_settings
          WHERE key IN ('booking_daily_price','booking_monthly_price','booking_cancel_hours','booking_max_active_bookings','booking_kakao_chat_url')`,
       ).all<{ key: string; value: string }>(),
+      db.prepare(
+        `SELECT DISTINCT substr(start_at, 1, 7) AS month
+         FROM booking_slots WHERE start_at >= ?
+         ORDER BY month LIMIT 12`,
+      ).bind(`${currentMonth}-01`).all<{ month: string }>(),
     ]);
     const settingMap = Object.fromEntries(settings.results.map((row) => [row.key, row.value]));
     return Response.json({
@@ -123,6 +134,7 @@ export async function GET(request: Request) {
       feedback: feedback.results,
       evaluations: evaluations.results,
       candidates: candidates.results,
+      scheduleMonths: scheduleMonths.results.map((row) => row.month),
       settings: {
         dailyPrice: Number(settingMap.booking_daily_price ?? 50000),
         monthlyPrice: Number(settingMap.booking_monthly_price ?? 500000),

@@ -104,9 +104,11 @@ export function BookingPortal() {
     void loadMemberData();
   }, [loadMemberData]);
   useEffect(() => {
-    // Public availability is safe to preload and keeps the guest calendar responsive.
+    // Public availability is safe to preload and stays synchronized with administrator changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAvailability();
+    const refresh = window.setInterval(() => void loadAvailability(), 30_000);
+    return () => window.clearInterval(refresh);
   }, [loadAvailability]);
 
   async function submitPublic(event: FormEvent<HTMLFormElement>, endpoint: string) {
