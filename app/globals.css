@@ -5968,11 +5968,14 @@ td,
   background: #fff;
 }
 
-.portal-header > button {
+.portal-header > a {
+  display: inline-flex;
   padding: 0;
   border: 0;
   background: transparent;
+  color: inherit;
   text-align: left;
+  text-decoration: none;
 }
 
 .portal-header > span {
@@ -6057,19 +6060,23 @@ td,
   color: #111;
   text-align: left;
   text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
   transition: background 150ms ease, color 150ms ease;
 }
 
 .portal-role-grid > :last-child { border-right: 0; }
 .portal-role-grid > button:hover,
 .portal-role-grid > a:hover,
-.portal-role-grid > button.active { background: #111; color: #fff; }
+.portal-role-grid > button.active,
+.portal-role-grid > a.active { background: #111; color: #fff; }
 .portal-role-grid span { color: #999; font-size: 10px; font-weight: 800; }
 .portal-role-grid h2 { margin: 28px 0 8px; font-size: clamp(23px, 2vw, 30px); }
 .portal-role-grid p { max-width: 260px; margin: 0; color: #777; font-size: 13px; }
 .portal-role-grid > button:hover p,
 .portal-role-grid > a:hover p,
-.portal-role-grid > button.active p { color: #aaa; }
+.portal-role-grid > button.active p,
+.portal-role-grid > a.active p { color: #aaa; }
 .portal-role-grid b { margin-top: auto; padding-top: 28px; font-size: 12px; }
 
 .portal-entry-panel,
@@ -6078,6 +6085,8 @@ td,
   margin: 0 auto clamp(72px, 9vw, 128px);
   border-top: 1px solid #111;
 }
+.portal-entry-panel:target,
+.portal-schedule-section:target { scroll-margin-top: 18px; }
 
 .portal-entry-panel {
   display: grid;
@@ -6142,7 +6151,11 @@ td,
 .portal-entry-panel form > button,
 .portal-modal .submit,
 .portal-practice form > button,
-.portal-guest-action > button {
+.portal-guest-action > button,
+.portal-guest-action > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 48px;
   padding: 0 20px;
   border: 1px solid #111;
@@ -6150,6 +6163,7 @@ td,
   color: #fff;
   font-size: 12px;
   font-weight: 800;
+  text-decoration: none;
 }
 
 .portal-quick-guide {

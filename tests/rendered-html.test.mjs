@@ -32,6 +32,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   ]);
 
   assert.match(page, /BookingPortal/);
+  assert.match(page, /searchParams/);
+  assert.match(page, /initialEntry/);
   assert.match(adminPage, /EduSystemApp/);
   assert.match(layout, /더컵에듀 커피 스테이션/);
   assert.match(layout, /lang="ko"/);
@@ -45,6 +47,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(bookingPortal, /수강생 로그인/);
   assert.match(bookingPortal, /운영자 로그인/);
   assert.match(bookingPortal, /portal-calendar/);
+  assert.match(bookingPortal, /href="\/\?view=visitor#portal-entry-content"/);
+  assert.match(bookingPortal, /href="\/\?view=student#portal-entry-content"/);
   assert.match(app, /복사해서 새로 만들기/);
   assert.match(app, /프로파일 복사본 만들기/);
   assert.match(app, /mode === "edit" \? "PATCH" : "POST"/);

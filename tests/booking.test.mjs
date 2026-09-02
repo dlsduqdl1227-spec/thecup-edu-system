@@ -119,7 +119,11 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /수강생 ID/);
   assert.match(portal, /운영자 로그인/);
   assert.match(portal, /api\/booking\/public\/availability/);
-  assert.match(portal, /window\.location\.assign\(availability\.consultationUrl\)/);
+  assert.match(portal, /\?view=visitor#portal-entry-content/);
+  assert.match(portal, /\?view=student#portal-entry-content/);
+  assert.match(portal, /<a href=\{availability\.consultationUrl\}>카카오톡 상담<\/a>/);
+  assert.match(portal, /<Link href="\/\?view=consultation#portal-entry-content">/);
+  assert.match(portal, /id="portal-entry-content"/);
   assert.match(portal, /카카오톡 상담/);
   assert.match(portal, /window\.setInterval\(\(\) => void loadAvailability\(\), 30_000\)/);
   assert.match(admin, /name="kakaoChatUrl"/);

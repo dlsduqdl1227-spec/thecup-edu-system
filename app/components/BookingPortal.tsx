@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 type Member = { id: number; loginId: string; name: string; approvalStatus: "APPROVED" };
@@ -54,10 +55,10 @@ const stationLabels: Record<string, string> = { ESPRESSO: "에스프레소", BRE
 const slotLabels: Record<Slot["displayStatus"], string> = { AVAILABLE: "예약 가능", REQUESTED: "승인 대기", CONFIRMED: "내 예약", RESERVED: "예약 완료", BLOCKED: "이용 불가" };
 const reservationLabels: Record<Reservation["status"], string> = { REQUESTED: "승인 대기", CONFIRMED: "예약 확정", COMPLETED: "이용 완료", CANCELLED: "취소", REJECTED: "거절", NO_SHOW: "노쇼" };
 
-export function BookingPortal() {
+export function BookingPortal({ initialEntry = null }: { initialEntry?: Entry }) {
   const [member, setMember] = useState<Member | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [entry, setEntry] = useState<Entry>(null);
+  const [entry, setEntry] = useState<Entry>(initialEntry);
   const [memberTab, setMemberTab] = useState<MemberTab>("schedule");
   const [month, setMonth] = useState(currentMonth());
   const [memberData, setMemberData] = useState<BookingData | null>(null);
@@ -183,24 +184,21 @@ export function BookingPortal() {
 
   return (
     <main className="portal-public">
-      <header className="portal-header"><button type="button" onClick={() => setEntry(null)} aria-label="처음 화면"><Brand compact /></button><span>STATION RESERVATION</span></header>
+      <header className="portal-header"><Link href="/" aria-label="처음 화면"><Brand compact /></Link><span>STATION RESERVATION</span></header>
       <section className="portal-intro">
         <div><span>THE CUP EDU · COFFEE STATION</span><h1>필요한 스테이션을<br />간단하게 확인하고 예약하세요.</h1><p>계정 유형에 따라 필요한 기능만 보여드립니다.</p></div>
         <div className="portal-role-grid">
-          <button type="button" className={entry === "visitor" ? "active" : ""} onClick={() => setEntry("visitor")}><span>01</span><h2>수업 예정자</h2><p>로그인 없이 월별로 남은 스테이션을 확인합니다.</p><b>빈자리 보기 →</b></button>
-          <button type="button" className={entry === "student" ? "active" : ""} onClick={() => setEntry("student")}><span>02</span><h2>수강생</h2><p>부여받은 수강생 ID로 로그인하고 예약합니다.</p><b>수강생 로그인 →</b></button>
-          <a href="/admin"><span>03</span><h2>운영자</h2><p>상담, 회원, 스테이션과 예약을 관리합니다.</p><b>운영자 로그인 →</b></a>
+          <Link href="/?view=visitor#portal-entry-content" className={entry === "visitor" ? "active" : ""} aria-current={entry === "visitor" ? "page" : undefined}><span>01</span><h2>수업 예정자</h2><p>로그인 없이 월별로 남은 스테이션을 확인합니다.</p><b>빈자리 보기 →</b></Link>
+          <Link href="/?view=student#portal-entry-content" className={entry === "student" ? "active" : ""} aria-current={entry === "student" ? "page" : undefined}><span>02</span><h2>수강생</h2><p>부여받은 수강생 ID로 로그인하고 예약합니다.</p><b>수강생 로그인 →</b></Link>
+          <Link href="/admin"><span>03</span><h2>운영자</h2><p>상담, 회원, 스테이션과 예약을 관리합니다.</p><b>운영자 로그인 →</b></Link>
         </div>
       </section>
 
-      {entry === "student" && <section className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>관리자가 발급한 ID와 등록된 휴대폰 번호를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>수강생 ID<input name="loginId" autoCapitalize="characters" autoComplete="username" placeholder="CUP00001" required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
+      {entry === "student" && <section id="portal-entry-content" className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>관리자가 발급한 ID와 등록된 휴대폰 번호를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>수강생 ID<input name="loginId" autoCapitalize="characters" autoComplete="username" placeholder="CUP00001" required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
 
-      {entry === "visitor" && <VisitorSchedule month={month} setMonth={setMonth} availability={availability} onConsultation={() => {
-        if (availability?.consultationUrl) window.location.assign(availability.consultationUrl);
-        else setEntry("consultation");
-      }} />}
+      {entry === "visitor" && <VisitorSchedule month={month} setMonth={setMonth} availability={availability} />}
 
-      {entry === "consultation" && <section className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 상담을 완료하면 수강생 ID가 발급됩니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
+      {entry === "consultation" && <section id="portal-entry-content" className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 상담을 완료하면 수강생 ID가 발급됩니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
 
       {!entry && <section className="portal-quick-guide"><span>운영 시간</span><strong>09:00–17:30</strong><p>09:00–11:30 · 12:00–14:30 · 15:00–17:30</p></section>}
       <footer className="portal-footer"><Brand compact /><p>예약은 운영자 승인 후 확정됩니다.</p></footer>
@@ -209,7 +207,7 @@ export function BookingPortal() {
   );
 }
 
-function VisitorSchedule({ month, setMonth, availability, onConsultation }: { month: string; setMonth: (value: string) => void; availability: PublicAvailability | null; onConsultation: () => void }) {
+function VisitorSchedule({ month, setMonth, availability }: { month: string; setMonth: (value: string) => void; availability: PublicAvailability | null }) {
   const slots = useMemo(
     () => availability?.month === month ? availability.slots : [],
     [availability, month],
@@ -217,7 +215,7 @@ function VisitorSchedule({ month, setMonth, availability, onConsultation }: { mo
   const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
   const [picked, setPicked] = useState("");
   const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
-  return <section className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 수강생 ID를 발급받으면 직접 예약할 수 있습니다."}</p></div><button onClick={onConsultation}>{availability?.consultationUrl ? "카카오톡 상담" : "이용 상담 신청"}</button></div></section>;
+  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 수강생 ID를 발급받으면 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
 }
 
 function MemberSchedule({ data, month, setMonth, reload, notify }: { data: BookingData; month: string; setMonth: (value: string) => void; reload: () => Promise<void>; notify: Notify }) {
