@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   type FormEvent,
   useCallback,
@@ -165,6 +166,9 @@ type CourseApplicant = {
   phoneLast4: string;
   status: ApplicantStatus;
   notes: string;
+  bookingMemberId: number | null;
+  memberLoginId: string | null;
+  memberApprovalStatus: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -434,7 +438,8 @@ export function EduSystemApp() {
         <div className="sidebar-rule" />
         <nav className="sidebar-actions" aria-label="화면 이동">
           <button type="button" onClick={goBack} disabled={navigationHistory.length === 0}>← 이전</button>
-          <button type="button" onClick={goHome} disabled={activeTab === homeTab}>홈</button>
+          <button type="button" onClick={goHome} disabled={activeTab === homeTab}>관리 홈</button>
+          <Link href="/?home=1">스테이션 홈</Link>
         </nav>
         <nav className="side-nav" aria-label="주요 메뉴">
           {allowedNav.map((item, index) => (
@@ -470,7 +475,8 @@ export function EduSystemApp() {
           </div>
           <nav className="mobile-history-nav" aria-label="화면 이동">
             <button type="button" onClick={goBack} disabled={navigationHistory.length === 0}>← 이전</button>
-            <button type="button" onClick={goHome} disabled={activeTab === homeTab}>홈</button>
+            <button type="button" onClick={goHome} disabled={activeTab === homeTab}>관리 홈</button>
+            <Link href="/?home=1">스테이션 홈</Link>
           </nav>
         </header>
 
@@ -648,6 +654,7 @@ function AuthScreen({
       </section>
       <section className="auth-panel">
         <div className="auth-card">
+          <Link className="station-home-link" href="/?home=1">← 스테이션 예약 홈</Link>
           <span className="eyebrow">{bootstrapRequired ? "초기 설정" : "직원 로그인"}</span>
           <h2>{bootstrapRequired ? "초기 관리자 등록" : "직원 로그인"}</h2>
           <p>
@@ -2872,14 +2879,19 @@ function CourseOpeningsAdminView({
     setBusy(true);
     try {
       const data = new FormData(form);
-      await requestJson(`/api/course-openings/${course.id}/applicants`, {
+      const result = await requestJson<{ bookingMember?: { id: number; loginId: string } | null }>(`/api/course-openings/${course.id}/applicants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(data.entries())),
       });
       form.reset();
       await load(month, course.id);
-      notify({ kind: "ok", message: "수강 희망자를 등록했습니다. 공개 인원이 갱신됩니다." });
+      notify({
+        kind: "ok",
+        message: result.bookingMember
+          ? `수강 확정과 함께 회원 DB에 등록했습니다. 수강생 ID: ${result.bookingMember.loginId}`
+          : "수강 희망자를 등록했습니다. 공개 인원이 갱신됩니다.",
+      });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
@@ -2890,13 +2902,18 @@ function CourseOpeningsAdminView({
   async function updateApplicant(course: CourseOpening, applicant: CourseApplicant, status: ApplicantStatus) {
     setBusy(true);
     try {
-      await requestJson(`/api/course-openings/${course.id}/applicants/${applicant.id}`, {
+      const result = await requestJson<{ bookingMember?: { id: number; loginId: string } | null }>(`/api/course-openings/${course.id}/applicants/${applicant.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, notes: applicant.notes }),
       });
       await load(month, course.id);
-      notify({ kind: "ok", message: "신청 상태를 변경했습니다. 공개 집계에도 반영됩니다." });
+      notify({
+        kind: "ok",
+        message: result.bookingMember
+          ? `수강 확정과 함께 회원 DB에 등록했습니다. 수강생 ID: ${result.bookingMember.loginId}`
+          : "신청 상태를 변경했습니다. 공개 집계에도 반영됩니다.",
+      });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
@@ -3099,6 +3116,7 @@ function CourseOpeningsAdminView({
                         <div className="applicant-identity">
                           <strong>{applicant.applicantName}</strong>
                           <span>연락처 끝 4자리 · {applicant.phoneLast4}</span>
+                          {applicant.memberLoginId && <small className="course-member-linked">회원 DB 등록 완료 · {applicant.memberLoginId}</small>}
                           {applicant.notes && <small>{applicant.notes}</small>}
                         </div>
                         <select

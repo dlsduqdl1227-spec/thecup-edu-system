@@ -121,6 +121,11 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /수업 예정자/);
   assert.match(portal, /수강생 ID/);
   assert.match(portal, /운영자 로그인/);
+  assert.match(portal, /initialShowHome/);
+  assert.match(portal, /스테이션 홈/);
+  assert.match(portal, /내 수강 화면/);
+  assert.match(portal, /portal-availability-summary/);
+  assert.match(portal, /has-availability/);
   assert.match(portal, /api\/booking\/public\/availability/);
   assert.match(portal, /\?view=visitor#portal-entry-content/);
   assert.match(portal, /\?view=student#portal-entry-content/);
@@ -131,10 +136,14 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /카카오톡 상담/);
   assert.match(portal, /window\.setInterval\(\(\) => void loadAvailability\(\), 30_000\)/);
   assert.match(admin, /name="kakaoChatUrl"/);
+  assert.match(admin, /상담·수강생 DB/);
+  assert.match(admin, /권한 부여/);
   assert.match(portal, /예약은 운영자 승인 후 확정/);
   assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);
   assert.match(styles, /Reservation portal v2/);
   assert.match(styles, /\.portal-mobile-nav/);
+  assert.match(styles, /\.portal-slot\.available/);
+  assert.match(styles, /#067647/);
   assert.match(styles, /@media \(max-width: 380px\)/);
   assert.match(styles, /background: #fff/);
 });

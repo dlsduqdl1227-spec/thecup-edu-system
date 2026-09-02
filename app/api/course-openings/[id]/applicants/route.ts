@@ -1,4 +1,5 @@
 import { normalizePhone, phoneHash, requireUser } from "../../../../../lib/auth";
+import { syncConfirmedApplicantToBookingMember } from "../../../../../lib/booking-members";
 import { applicantStatuses, type ApplicantStatus } from "../../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../../lib/db";
 import { assertSameOrigin, jsonError, optionalText, textValue } from "../../../../../lib/http";
@@ -34,8 +35,14 @@ export async function POST(request: Request) {
       .bind(courseId, applicantName, await phoneHash(phone), phone.slice(-4), status, notes, actor.id)
       .run();
     const id = Number(result.meta.last_row_id);
+    const bookingMember = status === "CONFIRMED"
+      ? await syncConfirmedApplicantToBookingMember(actor.id, courseId, id)
+      : null;
     await audit(actor.id, "create_course_applicant", "course_applicant", String(id), `${course.name} · ${status}`);
-    return Response.json({ id }, { status: 201 });
+    if (bookingMember) {
+      await audit(actor.id, "auto_register_booking_member", "booking_member", String(bookingMember.id), bookingMember.loginId);
+    }
+    return Response.json({ id, bookingMember }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (/UNIQUE|idx_course_applicants_course_phone/i.test(message)) {

@@ -68,9 +68,12 @@ export async function GET(request: Request) {
         .prepare(
           `SELECT a.id, a.course_id AS courseId, a.applicant_name AS applicantName,
                   a.phone_last4 AS phoneLast4, a.status, a.notes,
-                  a.created_at AS createdAt, a.updated_at AS updatedAt
+                  a.created_at AS createdAt, a.updated_at AS updatedAt,
+                  m.id AS bookingMemberId, m.login_id AS memberLoginId,
+                  m.approval_status AS memberApprovalStatus
            FROM course_applicants a
            JOIN course_openings c ON c.id = a.course_id
+           LEFT JOIN booking_members m ON m.phone_hash = a.phone_hash
            WHERE c.course_month = ?
            ORDER BY a.id DESC`,
         )

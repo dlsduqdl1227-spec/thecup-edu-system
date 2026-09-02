@@ -1,4 +1,5 @@
 import { requireUser } from "../../../../../../lib/auth";
+import { syncConfirmedApplicantToBookingMember } from "../../../../../../lib/booking-members";
 import { applicantStatuses, type ApplicantStatus } from "../../../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../../../lib/db";
 import { assertSameOrigin, jsonError, optionalText } from "../../../../../../lib/http";
@@ -32,8 +33,14 @@ export async function PATCH(request: Request) {
       .bind(status, notes, applicantId, courseId)
       .run();
     if (!result.meta.changes) return Response.json({ error: "신청자를 찾을 수 없습니다." }, { status: 404 });
+    const bookingMember = status === "CONFIRMED"
+      ? await syncConfirmedApplicantToBookingMember(actor.id, courseId, applicantId)
+      : null;
     await audit(actor.id, "update_course_applicant", "course_applicant", String(applicantId), status);
-    return Response.json({ ok: true });
+    if (bookingMember) {
+      await audit(actor.id, "auto_register_booking_member", "booking_member", String(bookingMember.id), bookingMember.loginId);
+    }
+    return Response.json({ ok: true, bookingMember });
   } catch (error) {
     return jsonError(error);
   }

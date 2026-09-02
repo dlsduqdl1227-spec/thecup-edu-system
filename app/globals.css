@@ -248,6 +248,20 @@ a {
   width: min(430px, 100%);
 }
 
+.station-home-link {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 24px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.station-home-link:hover {
+  text-decoration: underline;
+}
+
 .auth-card h2 {
   margin: 14px 0 10px;
   font-family: Georgia, "Times New Roman", serif;
@@ -471,16 +485,26 @@ a {
   margin: -13px 0 20px;
 }
 
-.sidebar-actions button {
+.sidebar-actions button,
+.sidebar-actions a {
+  display: grid;
+  place-items: center;
   min-height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
   color: rgba(255, 255, 255, 0.66);
   font-size: 12px;
   font-weight: 700;
+  text-align: center;
+  text-decoration: none;
 }
 
-.sidebar-actions button:not(:disabled):hover {
+.sidebar-actions a {
+  grid-column: 1 / -1;
+}
+
+.sidebar-actions button:not(:disabled):hover,
+.sidebar-actions a:hover {
   border-color: rgba(255, 255, 255, 0.38);
   color: var(--white);
 }
@@ -1483,13 +1507,23 @@ a {
 .booking-admin-split > section { min-width: 0; padding: 22px; border: 1px solid #d3d3d0; background: #fff; }
 .booking-admin-section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
 .booking-admin-section-title h2 { margin: 5px 0 0; font-size: 22px; }
+.booking-admin-section-title p { margin: 5px 0 0; color: #666; font-size: 11px; }
 .booking-admin-section-title > b { font-size: 28px; }
+.booking-member-db-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 10px; border: 1px solid #111; }
+.booking-member-db-summary > div { display: grid; gap: 5px; border-right: 1px solid #ddd; padding: 12px; }
+.booking-member-db-summary > div:last-child { border-right: 0; }
+.booking-member-db-summary span { color: #666; font-size: 9px; font-weight: 800; }
+.booking-member-db-summary strong { font-size: 20px; }
+.booking-member-filters { display: flex; gap: 6px; margin-bottom: 12px; }
+.booking-member-filters button { min-height: 34px; }
+.booking-member-filters button.active { border-color: #111; background: #111; color: #fff; }
 .booking-admin-member-list, .booking-admin-table { display: grid; gap: 8px; }
 .booking-admin-member-list article, .booking-admin-table article { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; padding: 15px; border: 1px solid #ddd; }
 .booking-admin-member-list article > div, .booking-admin-table article > div { min-width: 0; }
 .booking-admin-member-list h3 { margin: 5px 0; font-size: 16px; }
 .booking-admin-member-list h3 small { color: #888; font-weight: 500; }
 .booking-admin-member-list p { margin: 0; color: #777; font-size: 11px; }
+.booking-admin-member-list .booking-member-dates { margin-top: 5px; color: #555; font-size: 10px; }
 .booking-member-id { display: flex; align-items: center; gap: 8px; margin-top: 7px !important; }
 .booking-member-id b { color: #111; font-size: 11px; letter-spacing: .05em; }
 .booking-member-id button { min-height: 26px; padding: 0 8px; }
@@ -1590,6 +1624,9 @@ a {
   .booking-batch-summary > strong { grid-row: auto; grid-column: auto; }
   .booking-admin-stations form { grid-template-columns: 1fr; }
   .booking-admin-schedule section > div { grid-template-columns: 1fr; }
+  .booking-member-db-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .booking-member-db-summary > div:nth-child(2) { border-right: 0; }
+  .booking-member-db-summary > div:nth-child(-n+2) { border-bottom: 1px solid #ddd; }
   .booking-admin-member-list article, .booking-admin-table article { align-items: stretch; flex-direction: column; }
   .booking-admin-candidate form, .booking-admin-settings { grid-template-columns: 1fr; }
   .booking-admin-settings > *, .booking-admin-settings > div, .booking-admin-settings > button { grid-column: auto; }
@@ -1899,6 +1936,15 @@ a {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.applicant-identity .course-member-linked {
+  width: fit-content;
+  margin-top: 4px;
+  background: #111;
+  color: #fff;
+  padding: 4px 7px;
+  font-weight: 800;
 }
 
 .course-opening-form {
@@ -4960,17 +5006,22 @@ td,
   .mobile-history-nav {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 7px;
   }
 
-  .mobile-history-nav button {
+  .mobile-history-nav button,
+  .mobile-history-nav a {
+    display: grid;
     min-height: 34px;
+    place-items: center;
     border: 1px solid var(--line);
     background: rgba(255, 255, 255, 0.75);
     color: var(--ink-soft);
     font-size: 11px;
     font-weight: 750;
+    text-align: center;
+    text-decoration: none;
   }
 
   .mobile-history-nav button:disabled {
@@ -5985,6 +6036,36 @@ td,
   letter-spacing: .18em;
 }
 
+.portal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.portal-header-actions > span {
+  color: #777;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.portal-header-actions > button,
+.portal-member-home > button {
+  min-height: 36px;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.portal-header-actions > button:hover,
+.portal-member-home > button:hover {
+  background: #111;
+  color: #fff;
+}
+
 .portal-brand {
   display: inline-flex;
   flex-direction: column;
@@ -6209,23 +6290,59 @@ td,
 .portal-calendar .days > span { min-width: 0; aspect-ratio: 1.18; padding: 11px; border: 0; border-right: 1px solid #eee; border-bottom: 1px solid #eee; background: #fff; text-align: left; }
 .portal-calendar .days > button { display: flex; flex-direction: column; justify-content: space-between; }
 .portal-calendar .days > button:hover { background: #f2f2f2; }
+.portal-calendar .days > button.has-availability:not(.active) { background: #eaf7f0; box-shadow: inset 0 0 0 2px #16835a; }
 .portal-calendar .days > button.active { background: #111; color: #fff; }
-.portal-calendar .days b { font-size: 12px; }
-.portal-calendar .days small { color: #777; font-size: 9px; }
-.portal-calendar .days button.active small { color: #aaa; }
+.portal-calendar .days b { font-size: 15px; }
+.portal-calendar .days small { color: #067647; font-size: 11px; font-weight: 850; }
+.portal-calendar .days button.active small { color: #fff; }
+
+.portal-availability-summary {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #bbb;
+  border-left: 5px solid #777;
+  background: #f1f1f1;
+  padding: 15px 18px;
+}
+
+.portal-availability-summary.has-availability {
+  border-color: #16835a;
+  border-left-color: #067647;
+  background: #eaf7f0;
+}
+
+.portal-availability-summary span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.portal-availability-summary strong {
+  color: #067647;
+  font-size: 20px;
+}
+
+.portal-availability-summary small {
+  color: #374151;
+  font-size: 12px;
+}
 
 .portal-day-panel { min-width: 0; padding: 24px; }
 .portal-day-panel > header { padding-bottom: 18px; border-bottom: 1px solid #ddd; }
-.portal-day-panel > header span { color: #888; font-size: 9px; font-weight: 800; }
-.portal-day-panel > header h2 { margin: 5px 0 0; font-size: 20px; }
+.portal-day-panel > header span { color: #555; font-size: 11px; font-weight: 850; }
+.portal-day-panel > header h2 { margin: 5px 0 0; font-size: 23px; }
 .portal-day-panel > div { display: grid; }
 .portal-slot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px 16px; align-items: center; min-width: 0; padding: 17px 0; border-bottom: 1px solid #e5e5e5; }
 .portal-slot > div { min-width: 0; }
-.portal-slot span { color: #777; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
-.portal-slot h3 { margin: 2px 0; overflow-wrap: anywhere; font-size: 15px; }
-.portal-slot p { margin: 0; color: #666; font-size: 11px; }
-.portal-slot > b { color: #666; font-size: 10px; }
-.portal-slot > button { grid-column: 1 / -1; min-height: 37px; border: 1px solid #111; background: #111; color: #fff; font-size: 11px; font-weight: 800; }
+.portal-slot span { color: #555; font-size: 11px; font-weight: 850; letter-spacing: .08em; }
+.portal-slot h3 { margin: 3px 0; overflow-wrap: anywhere; font-size: 18px; }
+.portal-slot p { margin: 0; color: #333; font-size: 14px; }
+.portal-slot > b { color: #333; font-size: 12px; }
+.portal-slot.available { margin: 9px 0; border: 1px solid #16835a; border-left: 5px solid #067647; background: #eaf7f0; padding: 16px; }
+.portal-slot.available > b { align-self: start; background: #067647; color: #fff; padding: 7px 9px; font-size: 12px; }
+.portal-slot > button { grid-column: 1 / -1; min-height: 48px; border: 1px solid #111; background: #111; color: #fff; font-size: 14px; font-weight: 850; }
 .portal-slot > button:disabled { border-color: #ccc; background: #eee; color: #888; }
 .portal-slot.reserved,
 .portal-slot.blocked { opacity: .52; }
@@ -6246,6 +6363,7 @@ td,
 
 .portal-member { padding-bottom: 0; }
 .portal-member-header { position: sticky; z-index: 30; top: 0; }
+.portal-member-home { display: flex; align-items: center; gap: 14px; }
 .portal-member-header nav { display: flex; align-self: stretch; }
 .portal-member-header nav button { padding: 0 24px; border: 0; border-bottom: 2px solid transparent; background: #fff; color: #777; font-size: 12px; font-weight: 800; }
 .portal-member-header nav button.active { border-color: #111; color: #111; }
@@ -6334,16 +6452,18 @@ td,
   .portal-calendar-layout { grid-template-columns: 1fr; border: 0; }
   .portal-day-panel { padding: 18px; border: 1px solid #d2d2d2; }
   .portal-mobile-dates { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 7px; }
-  .portal-mobile-dates button { flex: 0 0 54px; display: grid; gap: 1px; min-height: 55px; place-content: center; border: 1px solid #ccc; background: #fff; text-align: center; }
+  .portal-mobile-dates button { flex: 0 0 64px; display: grid; gap: 2px; min-height: 66px; place-content: center; border: 1px solid #aaa; background: #fff; text-align: center; }
+  .portal-mobile-dates button.has-availability:not(.active) { border-color: #16835a; background: #eaf7f0; color: #064e3b; }
   .portal-mobile-dates button.active { background: #111; color: #fff; }
   .portal-mobile-dates b { font-size: 14px; }
-  .portal-mobile-dates span { font-size: 9px; }
+  .portal-mobile-dates span { font-size: 10px; }
+  .portal-mobile-dates small { color: inherit; font-size: 10px; font-weight: 850; }
   .portal-guest-action { align-items: stretch; flex-direction: column; }
   .portal-member-header nav { display: none; }
   .portal-member-account > span { display: none; }
   .portal-member-main { padding: 38px 0 88px; }
-  .portal-mobile-nav { position: fixed; z-index: 40; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(3, 1fr); min-height: 60px; border-top: 1px solid #ccc; background: #fff; }
-  .portal-mobile-nav button { border: 0; border-top: 2px solid transparent; background: #fff; color: #777; font-size: 10px; font-weight: 800; }
+  .portal-mobile-nav { position: fixed; z-index: 40; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(4, 1fr); min-height: 60px; border-top: 1px solid #ccc; background: #fff; }
+  .portal-mobile-nav button { border: 0; border-top: 2px solid transparent; background: #fff; color: #555; font-size: 11px; font-weight: 850; }
   .portal-mobile-nav button.active { border-color: #111; color: #111; }
   .portal-schedule-toolbar { align-items: flex-start; flex-direction: column; }
   .portal-reservations > article { align-items: stretch; flex-direction: column; }
@@ -6352,6 +6472,10 @@ td,
   .portal-practice aside { border-right: 0; border-bottom: 1px solid #ddd; }
   .portal-evaluation { align-items: stretch; flex-direction: column; }
   .portal-toast { right: 16px; bottom: 74px; }
+  .portal-header-actions > span { display: none; }
+  .portal-member-home > button { min-height: 34px; padding: 0 9px; font-size: 10px; }
+  .portal-availability-summary { grid-template-columns: auto 1fr; }
+  .portal-availability-summary small { grid-column: 1 / -1; line-height: 1.45; }
 }
 
 @media (max-width: 380px) {

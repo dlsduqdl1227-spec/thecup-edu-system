@@ -34,6 +34,7 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(page, /BookingPortal/);
   assert.match(page, /searchParams/);
   assert.match(page, /initialEntry/);
+  assert.match(page, /initialShowHome/);
   assert.match(adminPage, /EduSystemApp/);
   assert.match(layout, /더컵에듀 커피 스테이션/);
   assert.match(layout, /lang="ko"/);
@@ -111,7 +112,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /compareInventoryItems/);
   assert.match(app, /formatInventoryAmount/);
   assert.match(app, /← 이전/);
-  assert.match(app, />홈</);
+  assert.match(app, />관리 홈</);
+  assert.match(app, />스테이션 홈</);
   assert.match(app, /시간강사\(남부\)/);
   assert.match(app, /직원 삭제/);
   assert.doesNotMatch(app, /더컵 볶은 원두/);
@@ -275,7 +277,7 @@ test("migration covers identity, finance, inventory, receipts and roasting", asy
 });
 
 test("public course openings are read-only, privacy-safe and iframe-ready", async () => {
-  const [app, publicPage, publicComponent, publicRoute, adminRoute, adminDetailRoute, applicantRoute, authStatusRoute, worker, styles, database, migration, visibilityMigration] = await Promise.all([
+  const [app, publicPage, publicComponent, publicRoute, adminRoute, adminDetailRoute, applicantRoute, applicantDetailRoute, memberSync, authStatusRoute, worker, styles, database, migration, visibilityMigration] = await Promise.all([
     readFile(new URL("app/components/EduSystemApp.tsx", root), "utf8"),
     readFile(new URL("app/embed/course-openings/page.tsx", root), "utf8"),
     readFile(new URL("app/components/PublicCourseOpenings.tsx", root), "utf8"),
@@ -283,6 +285,8 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
     readFile(new URL("app/api/course-openings/route.ts", root), "utf8"),
     readFile(new URL("app/api/course-openings/[id]/route.ts", root), "utf8"),
     readFile(new URL("app/api/course-openings/[id]/applicants/route.ts", root), "utf8"),
+    readFile(new URL("app/api/course-openings/[id]/applicants/[applicantId]/route.ts", root), "utf8"),
+    readFile(new URL("lib/booking-members.ts", root), "utf8"),
     readFile(new URL("app/api/auth/status/route.ts", root), "utf8"),
     readFile(new URL("worker/index.ts", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
@@ -331,6 +335,13 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(adminRoute, /private, no-store/);
   assert.match(adminDetailRoute, /DELETE FROM course_openings WHERE id = \?/);
   assert.match(applicantRoute, /requireUser\(request, \["admin"\]\)/);
+  assert.match(applicantRoute, /syncConfirmedApplicantToBookingMember/);
+  assert.match(applicantDetailRoute, /status === "CONFIRMED"/);
+  assert.match(memberSync, /ON CONFLICT\(phone_hash\) DO UPDATE/);
+  assert.match(memberSync, /approval_status = 'APPROVED'/);
+  assert.match(memberSync, /CUP\$\{String\(member\.id\)\.padStart/);
+  assert.match(adminRoute, /LEFT JOIN booking_members m ON m\.phone_hash = a\.phone_hash/);
+  assert.match(app, /회원 DB 등록 완료/);
   assert.match(authStatusRoute, /publicPageVisible/);
   assert.match(worker, /frame-ancestors 'self' https:\/\/coffeemonthly\.creatorlink\.net https:\/\/\*\.creatorlink\.net/);
   assert.match(worker, /headers\.delete\("X-Frame-Options"\)/);
