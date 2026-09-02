@@ -1,4 +1,5 @@
 import { requireUser } from "../../../lib/auth";
+import { bookingMonthRange } from "../../../lib/booking";
 import { buildCoursePublicId, parseCoursePayload } from "../../../lib/course-admin";
 import { currentKoreanMonth, validateCourseMonth } from "../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../lib/db";
@@ -24,14 +25,30 @@ type AdminCourseRow = {
   updatedAt: string;
 };
 
+type ScheduleMonthRow = {
+  month: string;
+  totalSlots: number;
+  operationDays: number;
+  openSlots: number;
+  blockedSlots: number;
+};
+
+type ScheduleDayRow = {
+  date: string;
+  totalSlots: number;
+  openSlots: number;
+  blockedSlots: number;
+};
+
 export async function GET(request: Request) {
   try {
     await ensureDatabase();
     await requireUser(request, ["admin"]);
     const url = new URL(request.url);
     const month = validateCourseMonth(url.searchParams.get("month") ?? currentKoreanMonth());
+    const range = bookingMonthRange(month);
     const db = getD1();
-    const [coursesResult, applicantsResult, visibilitySetting] = await Promise.all([
+    const [coursesResult, applicantsResult, visibilitySetting, scheduleMonthsResult, scheduleDaysResult] = await Promise.all([
       db
         .prepare(
           `SELECT id, public_id AS publicId, name, category, course_month AS courseMonth,
@@ -62,6 +79,34 @@ export async function GET(request: Request) {
       db
         .prepare("SELECT value FROM app_settings WHERE key = 'public_course_openings_visible'")
         .first<{ value: string }>(),
+      db
+        .prepare(
+          `SELECT substr(start_at, 1, 7) AS month,
+                  COUNT(*) AS totalSlots,
+                  COUNT(DISTINCT substr(start_at, 1, 10)) AS operationDays,
+                  SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openSlots,
+                  SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) AS blockedSlots
+           FROM booking_slots
+           WHERE substr(start_at, 1, 7) >= ?
+           GROUP BY substr(start_at, 1, 7)
+           ORDER BY month
+           LIMIT 18`,
+        )
+        .bind(currentKoreanMonth())
+        .all<ScheduleMonthRow>(),
+      db
+        .prepare(
+          `SELECT substr(start_at, 1, 10) AS date,
+                  COUNT(*) AS totalSlots,
+                  SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openSlots,
+                  SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) AS blockedSlots
+           FROM booking_slots
+           WHERE start_at >= ? AND start_at < ?
+           GROUP BY substr(start_at, 1, 10)
+           ORDER BY date`,
+        )
+        .bind(range.start, range.end)
+        .all<ScheduleDayRow>(),
     ]);
 
     const applicants = applicantsResult.results as Array<Record<string, unknown> & { courseId: number; status: string }>;
@@ -72,11 +117,16 @@ export async function GET(request: Request) {
       ).length;
       return { ...course, currentApplicants, applicants: courseApplicants };
     });
-    return Response.json({
-      month,
-      publicPageVisible: visibilitySetting?.value === "1",
-      courses,
-    });
+    return Response.json(
+      {
+        month,
+        publicPageVisible: visibilitySetting?.value === "1",
+        courses,
+        scheduleMonths: scheduleMonthsResult.results,
+        scheduleDays: scheduleDaysResult.results,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch (error) {
     return jsonError(error);
   }

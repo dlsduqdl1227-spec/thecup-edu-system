@@ -88,6 +88,11 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /입고 등록/);
   assert.match(app, /새 프로파일 바로 입력/);
   assert.match(app, /roast-form-shortcuts/);
+  assert.match(app, /financeCategoryOptions/);
+  assert.match(app, /PresetOrCustomField/);
+  assert.match(app, /기타 분류명을 입력하세요/);
+  assert.match(app, /roastOriginOptions/);
+  assert.match(app, /inventoryUnitOptions/);
   assert.match(app, /생두 재고/);
   assert.match(app, /원두 재고/);
   assert.match(app, /생두 출고와 완성 원두 입고를 함께 반영/);
@@ -263,12 +268,13 @@ test("migration covers identity, finance, inventory, receipts and roasting", asy
 });
 
 test("public course openings are read-only, privacy-safe and iframe-ready", async () => {
-  const [app, publicPage, publicComponent, publicRoute, adminRoute, applicantRoute, authStatusRoute, worker, styles, database, migration, visibilityMigration] = await Promise.all([
+  const [app, publicPage, publicComponent, publicRoute, adminRoute, adminDetailRoute, applicantRoute, authStatusRoute, worker, styles, database, migration, visibilityMigration] = await Promise.all([
     readFile(new URL("app/components/EduSystemApp.tsx", root), "utf8"),
     readFile(new URL("app/embed/course-openings/page.tsx", root), "utf8"),
     readFile(new URL("app/components/PublicCourseOpenings.tsx", root), "utf8"),
     readFile(new URL("app/api/public/course-openings/route.ts", root), "utf8"),
     readFile(new URL("app/api/course-openings/route.ts", root), "utf8"),
+    readFile(new URL("app/api/course-openings/[id]/route.ts", root), "utf8"),
     readFile(new URL("app/api/course-openings/[id]/applicants/route.ts", root), "utf8"),
     readFile(new URL("app/api/auth/status/route.ts", root), "utf8"),
     readFile(new URL("worker/index.ts", root), "utf8"),
@@ -281,6 +287,8 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(app, /개강 관리/);
   assert.match(app, /로그인 없이 실시간 개강 현황 보기/);
   assert.match(app, /대기·확정 상태만 공개 인원에 포함/);
+  assert.match(app, /예약 운영과 자동 동기화/);
+  assert.match(app, /등록된 스테이션 일정/);
   assert.match(app, /외부 공개 페이지 전체 노출/);
   assert.match(app, /페이지 숨기기/);
   assert.match(app, /publicPageVisible &&/);
@@ -310,6 +318,11 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(adminRoute, /export async function PATCH/);
   assert.match(adminRoute, /ON CONFLICT\(key\) DO UPDATE/);
+  assert.match(adminRoute, /FROM booking_slots/);
+  assert.match(adminRoute, /scheduleMonths/);
+  assert.match(adminRoute, /scheduleDays/);
+  assert.match(adminRoute, /private, no-store/);
+  assert.match(adminDetailRoute, /DELETE FROM course_openings WHERE id = \?/);
   assert.match(applicantRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(authStatusRoute, /publicPageVisible/);
   assert.match(worker, /frame-ancestors 'self' https:\/\/coffeemonthly\.creatorlink\.net https:\/\/\*\.creatorlink\.net/);
@@ -322,7 +335,7 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   assert.match(database, /CREATE TABLE IF NOT EXISTS course_applicants/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS app_settings/);
   assert.match(database, /public_course_openings_visible', '0'/);
-  assert.match(database, /q-grader-\$\{courseMonth\}/);
+  assert.doesNotMatch(database, /q-grader-\$\{courseMonth\}/);
   assert.match(migration, /idx_course_applicants_course_phone/);
   assert.match(migration, /idx_course_openings_public_month/);
   assert.match(visibilityMigration, /CREATE TABLE `app_settings`/);

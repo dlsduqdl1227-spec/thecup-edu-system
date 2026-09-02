@@ -3,7 +3,6 @@ import {
   summarizeLegacyInventory,
   type LegacyInventoryEntry,
 } from "./legacy-inventory";
-import { currentKoreanMonth } from "./course-openings";
 import { bookingSchemaStatements, bookingSeedStatements } from "./booking-schema";
 
 export type StaffRole = "admin" | "employee" | "instructor";
@@ -341,17 +340,6 @@ async function initializeDatabase(): Promise<void> {
     )
     .run();
   await db.batch([...financeSeedStatements, ...inventorySeedStatements]);
-  const courseMonth = currentKoreanMonth();
-  await db
-    .prepare(
-      `INSERT INTO course_openings
-        (public_id, name, category, course_month, opening_minimum, capacity,
-         is_public, status_override, display_order, duration_hours, tuition, fee_note)
-       SELECT ?, 'Q Grader', 'Q_GRADER', ?, 6, NULL, 1, 'AUTO', 0, 48, 1500000, '시험비 별도'
-       WHERE NOT EXISTS (SELECT 1 FROM course_openings)`,
-    )
-    .bind(`q-grader-${courseMonth}`, courseMonth)
-    .run();
   await db.prepare("PRAGMA optimize").run();
   await ensureLegacyInventory(db);
 }

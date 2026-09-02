@@ -189,6 +189,21 @@ type CourseOpening = {
   applicants: CourseApplicant[];
 };
 
+type ScheduleMonthSummary = {
+  month: string;
+  totalSlots: number;
+  operationDays: number;
+  openSlots: number;
+  blockedSlots: number;
+};
+
+type ScheduleDaySummary = {
+  date: string;
+  totalSlots: number;
+  openSlots: number;
+  blockedSlots: number;
+};
+
 const today = currentKoreanDate();
 const won = new Intl.NumberFormat("ko-KR", {
   style: "currency",
@@ -218,6 +233,14 @@ const movementLabel: Record<string, string> = {
   roast_in: "원두 입고 · 로스팅",
   roast_out: "생두 출고 · 로스팅",
 };
+
+const financeCategoryOptions = {
+  income: ["수강료", "스테이션 이용료", "교육 · 세미나", "원두 · 상품 판매", "시험 · 평가비"],
+  expense: ["생두 · 원두", "우유 · 식자재", "교육 · 세미나 운영", "장비 · 소모품", "광고 · 홍보", "임차 · 관리비", "교통 · 출장", "수수료 · 세금"],
+} as const;
+const roastOriginOptions = ["", "에티오피아", "콜롬비아", "브라질", "과테말라", "케냐", "코스타리카", "인도네시아", "블렌드"] as const;
+const coffeeProcessOptions = ["", "Washed", "Natural", "Honey", "Anaerobic", "Wet Hulled", "Blend"] as const;
+const inventoryUnitOptions = ["kg", "g", "팩", "개", "병", "박스"] as const;
 
 type PermissionField = "canFinance" | "canInventory" | "canRoasting";
 
@@ -1176,6 +1199,7 @@ function InventoryView({
   const [itemBusy, setItemBusy] = useState(false);
   const [inventoryTab, setInventoryTab] = useState<"overview" | "movement" | "history">("movement");
   const [entryMode, setEntryMode] = useState<"existing" | "new">("existing");
+  const [newItemCategory, setNewItemCategory] = useState<InventoryItem["category"]>("green");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "green" | "beans" | "support">("all");
   const [inventorySort, setInventorySort] = useState<InventorySort>("expiry");
   const [movementItemId, setMovementItemId] = useState(data.inventory[0]?.id ?? 0);
@@ -1536,13 +1560,13 @@ function InventoryView({
                 <Field label="품목명"><input name="name" required placeholder="에티오피아 구지 워시드" /></Field>
                 <div className="two-columns">
                   <Field label="LOT (선택)"><input name="lot" placeholder="26.07.24" /></Field>
-                  <Field label="가공 방식 (선택)"><input name="process" placeholder="워시드" /></Field>
+                  <PresetOrCustomField name="process" label="가공 방식" options={coffeeProcessOptions} customPlaceholder="가공 방식을 입력하세요" />
                 </div>
                 <div className="two-columns">
                   <Field label="분류">
-                    <select name="category"><option value="green">생두</option><option value="roasted">원두 · 자체 로스팅</option><option value="gusto">원두 · 구스토</option><option value="milk">우유</option><option value="other">기타</option></select>
+                    <select name="category" value={newItemCategory} onChange={(event) => setNewItemCategory(event.target.value as InventoryItem["category"])}><option value="green">생두</option><option value="roasted">원두 · 자체 로스팅</option><option value="gusto">원두 · 구스토</option><option value="milk">우유</option><option value="other">기타</option></select>
                   </Field>
-                  <Field label="단위"><input name="unit" required placeholder="kg / g / 팩" /></Field>
+                  <PresetOrCustomField key={newItemCategory} name="unit" label="단위" options={inventoryUnitOptions} initialValue={newItemCategory === "milk" ? "팩" : newItemCategory === "other" ? "개" : "kg"} required customPlaceholder="사용할 단위를 입력하세요" />
                 </div>
                 <div className="two-columns">
                   <Field label="입고 수량"><input name="initialQuantity" type="number" min="0.01" step="0.01" required /></Field>
@@ -1645,7 +1669,13 @@ function FinanceView({
   const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<"income" | "expense">("income");
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
+  const [editingKind, setEditingKind] = useState<"income" | "expense">("income");
   const [busyTransactionId, setBusyTransactionId] = useState<number | null>(null);
+
+  function startEditingTransaction(entry: FinanceTransaction) {
+    setEditingKind(entry.kind);
+    setEditingTransaction(entry);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1726,10 +1756,8 @@ function FinanceView({
               <label className={kind === "income" ? "active" : ""}><input type="radio" name="kind" value="income" checked={kind === "income"} onChange={() => setKind("income")} />매출</label>
               <label className={kind === "expense" ? "active" : ""}><input type="radio" name="kind" value="expense" checked={kind === "expense"} onChange={() => setKind("expense")} />지출</label>
             </div>
-            <div className="two-columns">
-              <Field label="날짜"><input name="transactionDate" type="date" defaultValue={today} required /></Field>
-              <Field label="분류"><input name="category" placeholder={kind === "income" ? "수강료 / 판매" : "재료비 / 광고비"} required /></Field>
-            </div>
+            <Field label="날짜"><input name="transactionDate" type="date" defaultValue={today} required /></Field>
+            <PresetOrCustomField key={kind} name="category" label={`${kind === "income" ? "매출" : "지출"} 분류`} options={financeCategoryOptions[kind]} initialValue={financeCategoryOptions[kind][0]} required customPlaceholder="기타 분류명을 입력하세요" />
             <Field label="금액"><div className="input-suffix"><input name="amount" type="number" min="1" step="1" required /><span>원</span></div></Field>
             <Field label="설명"><textarea name="description" rows={3} placeholder="거래 내용을 간단히 기록하세요." /></Field>
             <button className="primary-button" disabled={busy}>{busy ? "반영 중…" : "장부에 반영"}</button>
@@ -1756,7 +1784,7 @@ function FinanceView({
                     {data.user.role === "admin" && (
                       <td>
                         <div className="record-actions">
-                          <button type="button" onClick={() => setEditingTransaction(entry)}>수정</button>
+                          <button type="button" onClick={() => startEditingTransaction(entry)}>수정</button>
                           <button type="button" className="danger" disabled={busyTransactionId === entry.id} onClick={() => void deleteTransaction(entry)}>
                             {busyTransactionId === entry.id ? "처리 중" : "삭제"}
                           </button>
@@ -1785,11 +1813,11 @@ function FinanceView({
                 <Field label="구분">
                   {editingTransaction.inventoryMovementId
                     ? <><input type="hidden" name="kind" value="expense" /><input value="지출 (우유 구매 연결)" disabled /></>
-                    : <select name="kind" defaultValue={editingTransaction.kind}><option value="income">매출</option><option value="expense">지출</option></select>}
+                    : <select name="kind" value={editingKind} onChange={(event) => setEditingKind(event.target.value as "income" | "expense")}><option value="income">매출</option><option value="expense">지출</option></select>}
                 </Field>
                 <Field label="날짜"><input name="transactionDate" type="date" defaultValue={editingTransaction.transactionDate} required /></Field>
               </div>
-              <Field label="분류"><input name="category" defaultValue={editingTransaction.category} maxLength={50} required /></Field>
+              <PresetOrCustomField key={`${editingTransaction.id}-${editingKind}`} name="category" label="분류" options={financeCategoryOptions[editingKind]} initialValue={editingKind === editingTransaction.kind ? editingTransaction.category : financeCategoryOptions[editingKind][0]} required customPlaceholder="기타 분류명을 입력하세요" />
               <Field label="금액"><div className="input-suffix"><input name="amount" type="number" min="1" step="1" defaultValue={editingTransaction.amount} required /><span>원</span></div></Field>
               <Field label="설명"><textarea name="description" rows={3} defaultValue={editingTransaction.description} maxLength={300} /></Field>
               {editingTransaction.inventoryMovementId && <p className="linked-record-note">우유 구매 기록과 연결되어 있습니다. 날짜·금액 수정 시 재고 기록에도 함께 반영됩니다.</p>}
@@ -2470,11 +2498,11 @@ function RoastProfileForm({
         )}
         <div id="roast-basic" className="roast-form-section">
           <span className="section-index">01 / 원두 정보</span>
-          <div className="roast-bean-grid">
+          <div className="roast-bean-grid standardized">
             <Field label="원두명"><input name="beanName" defaultValue={mode === "copy" && initial ? `${initial.beanName} 복사본` : initial?.beanName} autoFocus required /></Field>
-            <Field label="산지"><input name="origin" defaultValue={initial?.origin} placeholder="Ethiopia Guji" /></Field>
-            <Field label="프로세스"><input name="process" defaultValue={initial?.process} placeholder="Washed" /></Field>
             <Field label="배치 중량 (kg)"><input name="batchWeight" type="number" min="0.01" step="0.01" defaultValue={initial?.batchWeight ?? 1} required /></Field>
+            <PresetOrCustomField name="origin" label="산지" options={roastOriginOptions} initialValue={initial?.origin ?? ""} customPlaceholder="예: 에티오피아 구지" />
+            <PresetOrCustomField name="process" label="프로세스" options={coffeeProcessOptions} initialValue={initial?.process ?? ""} customPlaceholder="프로세스를 입력하세요" />
           </div>
         </div>
         <div id="roast-flow" className="roast-form-section">
@@ -2682,6 +2710,8 @@ function CourseOpeningsAdminView({
 }) {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [courses, setCourses] = useState<CourseOpening[]>([]);
+  const [scheduleMonths, setScheduleMonths] = useState<ScheduleMonthSummary[]>([]);
+  const [scheduleDays, setScheduleDays] = useState<ScheduleDaySummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editor, setEditor] = useState<"create" | CourseOpening | null>(null);
   const [publicPageVisible, setPublicPageVisible] = useState(false);
@@ -2694,10 +2724,14 @@ function CourseOpeningsAdminView({
       const result = await requestJson<{
         publicPageVisible: boolean;
         courses: CourseOpening[];
+        scheduleMonths: ScheduleMonthSummary[];
+        scheduleDays: ScheduleDaySummary[];
       }>(
         `/api/course-openings?month=${encodeURIComponent(targetMonth)}`,
       );
       setCourses(result.courses);
+      setScheduleMonths(result.scheduleMonths);
+      setScheduleDays(result.scheduleDays);
       setPublicPageVisible(result.publicPageVisible);
       setSelectedId((current) => {
         if (preferredId && result.courses.some((course) => course.id === preferredId)) return preferredId;
@@ -2718,6 +2752,7 @@ function CourseOpeningsAdminView({
   }, [load]);
 
   const selected = courses.find((course) => course.id === selectedId) ?? null;
+  const scheduleForMonth = scheduleMonths.find((summary) => summary.month === month) ?? null;
 
   async function saveCourse(payload: Record<string, unknown>, course?: CourseOpening) {
     setBusy(true);
@@ -2873,6 +2908,13 @@ function CourseOpeningsAdminView({
         </a>
       </div>
 
+      {scheduleMonths.length > 0 && (
+        <nav className="opening-schedule-months" aria-label="등록된 스테이션 운영 월">
+          <span>등록된 스테이션 일정</span>
+          <div>{scheduleMonths.map((summary) => <button type="button" className={summary.month === month ? "active" : ""} key={summary.month} onClick={() => { setMonth(summary.month); setSelectedId(null); }}><b>{Number(summary.month.slice(5))}월</b><small>{summary.operationDays}일 · {summary.totalSlots}개</small></button>)}</div>
+        </nav>
+      )}
+
       <div className={publicPageVisible ? "opening-visibility-control panel is-visible" : "opening-visibility-control panel is-hidden"}>
         <div>
           <span className="eyebrow">외부 공개 페이지 전체 노출</span>
@@ -2893,6 +2935,26 @@ function CourseOpeningsAdminView({
           {busy ? "변경 중…" : publicPageVisible ? "페이지 숨기기" : "페이지 공개하기"}
         </button>
       </div>
+
+      <section className="opening-schedule-sync panel">
+        <div className="opening-schedule-sync-heading">
+          <div><span className="eyebrow">예약 운영과 자동 동기화</span><h3>{month} 스테이션 운영 일정</h3><p>예약 운영에서 만든 날짜와 시간대를 이 화면에서도 함께 확인합니다.</p></div>
+          <button type="button" className="ghost-button" onClick={() => setEditor("create")}>{month} 모집 과정 추가</button>
+        </div>
+        {scheduleForMonth ? (
+          <>
+            <div className="opening-schedule-kpis">
+              <div><span>운영 날짜</span><strong>{scheduleForMonth.operationDays}일</strong></div>
+              <div><span>전체 시간대</span><strong>{scheduleForMonth.totalSlots}개</strong></div>
+              <div><span>예약 가능</span><strong>{scheduleForMonth.openSlots}개</strong></div>
+              <div><span>휴강 · 차단</span><strong>{scheduleForMonth.blockedSlots}개</strong></div>
+            </div>
+            <div className="opening-schedule-days" aria-label={`${month} 날짜별 스테이션 일정`}>
+              {scheduleDays.map((day) => <article key={day.date} className={day.openSlots ? "open" : "blocked"}><strong>{Number(day.date.slice(8))}일</strong><span>예약 가능 {day.openSlots}</span>{day.blockedSlots > 0 && <small>휴강 {day.blockedSlots}</small>}</article>)}
+            </div>
+          </>
+        ) : <div className="opening-schedule-empty">이 달에는 등록된 스테이션 운영 일정이 없습니다.</div>}
+      </section>
 
       {loading ? <div className="panel empty-state">개강 정보를 불러오는 중입니다.</div> : courses.length ? (
         <div className="opening-admin-layout">
@@ -3000,7 +3062,7 @@ function CourseOpeningsAdminView({
       ) : (
         <div className="panel empty-state">
           <strong>{month}에 등록된 과정이 없습니다.</strong>
-          <span>‘새 과정’을 눌러 첫 모집 과정을 등록하세요.</span>
+          <span>{scheduleForMonth ? "스테이션 일정은 정상 등록되어 있습니다. 모집 과정을 추가하면 개강 현황에도 함께 표시됩니다." : "‘새 과정’을 눌러 첫 모집 과정을 등록하세요."}</span>
         </div>
       )}
     </section>
@@ -3461,6 +3523,41 @@ function Metric({ label, value, accent = false }: { label: string; value: string
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="field"><span>{label}</span>{children}</label>;
+}
+
+function PresetOrCustomField({
+  name,
+  label,
+  options,
+  initialValue = "",
+  required = false,
+  customPlaceholder,
+}: {
+  name: string;
+  label: string;
+  options: readonly string[];
+  initialValue?: string;
+  required?: boolean;
+  customPlaceholder: string;
+}) {
+  const customKey = "__custom__";
+  const matched = options.includes(initialValue);
+  const [choice, setChoice] = useState(matched ? initialValue : initialValue ? customKey : options[0] ?? customKey);
+  const [customValue, setCustomValue] = useState(matched ? "" : initialValue);
+  const value = choice === customKey ? customValue.trim() : choice;
+
+  return (
+    <Field label={label}>
+      <input type="hidden" name={name} value={value} />
+      <div className="preset-options" role="radiogroup" aria-label={`${label} 선택`}>
+        {options.map((option) => (
+          <button type="button" role="radio" aria-checked={choice === option} className={choice === option ? "active" : ""} key={option || "blank"} onClick={() => setChoice(option)}>{option || "미지정"}</button>
+        ))}
+        <button type="button" role="radio" aria-checked={choice === customKey} className={choice === customKey ? "active" : ""} onClick={() => setChoice(customKey)}>기타</button>
+      </div>
+      {choice === customKey && <input className="preset-custom-input" value={customValue} onChange={(event) => setCustomValue(event.target.value)} placeholder={customPlaceholder} required={required} autoFocus />}
+    </Field>
+  );
 }
 
 function Toast({ toast }: { toast: { kind: "ok" | "error"; message: string } }) {
