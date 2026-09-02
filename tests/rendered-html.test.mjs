@@ -41,8 +41,11 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /brand\/monthly-coffee\.png/);
   assert.match(app, /수업 사용 기록/);
   assert.match(app, /로스팅 프로파일/);
-  assert.match(app, /예약 운영/);
+  assert.match(app, /운영 · 개강 관리/);
   assert.match(app, /BookingAdmin/);
+  assert.match(app, /OperationsHub/);
+  assert.match(app, /예약 · 스케줄/);
+  assert.match(app, /개강 · 모집/);
   assert.match(bookingPortal, /수업 예정자/);
   assert.match(bookingPortal, /수강생 로그인/);
   assert.match(bookingPortal, /운영자 로그인/);
@@ -81,6 +84,10 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /create_item_with_stock/);
   assert.match(app, /재고 작업 선택/);
   assert.match(app, /재고 현황/);
+  assert.match(app, /QUICK ENTRY/);
+  assert.match(app, /입고 등록/);
+  assert.match(app, /새 프로파일 바로 입력/);
+  assert.match(app, /roast-form-shortcuts/);
   assert.match(app, /생두 재고/);
   assert.match(app, /원두 재고/);
   assert.match(app, /생두 출고와 완성 원두 입고를 함께 반영/);

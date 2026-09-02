@@ -233,8 +233,7 @@ const navItems: Array<{
   { key: "inventory", label: "재고 관리", short: "재고", permission: "canInventory" },
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
   { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
-  { key: "booking", label: "예약 운영", short: "예약", adminOnly: true },
-  { key: "openings", label: "개강 관리", short: "개강", adminOnly: true },
+  { key: "booking", label: "운영 · 개강 관리", short: "운영", adminOnly: true },
   { key: "staff", label: "직원 · 권한", short: "직원", adminOnly: true },
 ];
 
@@ -485,10 +484,7 @@ export function EduSystemApp() {
               <RoastingView user={user} notify={setToast} />
             )}
             {activeTab === "booking" && (
-              <BookingAdmin notify={setToast} />
-            )}
-            {activeTab === "openings" && (
-              <CourseOpeningsAdminView notify={setToast} />
+              <OperationsHub notify={setToast} />
             )}
             {activeTab === "staff" && (
               <StaffView currentUserId={user.id} notify={setToast} />
@@ -510,6 +506,27 @@ export function EduSystemApp() {
         ))}
       </nav>
       {toast && <Toast toast={toast} />}
+    </div>
+  );
+}
+
+function OperationsHub({ notify }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void }) {
+  const [workspace, setWorkspace] = useState<"booking" | "openings">("booking");
+
+  return (
+    <div className="operations-hub">
+      <section className="operations-hub-switcher" aria-label="운영 업무 선택">
+        <div>
+          <span>OPERATIONS CENTER</span>
+          <strong>운영과 개강을 한곳에서 관리합니다.</strong>
+          <p>예약·스케줄과 과정 모집 사이를 이동해도 현재 작업 흐름이 끊기지 않습니다.</p>
+        </div>
+        <nav role="tablist" aria-label="운영 관리 화면">
+          <button type="button" role="tab" aria-selected={workspace === "booking"} className={workspace === "booking" ? "active" : ""} onClick={() => setWorkspace("booking")}><small>01</small><b>예약 · 스케줄</b><span>상담, 회원, 예약 운영</span></button>
+          <button type="button" role="tab" aria-selected={workspace === "openings"} className={workspace === "openings" ? "active" : ""} onClick={() => setWorkspace("openings")}><small>02</small><b>개강 · 모집</b><span>과정, 희망자, 공개 현황</span></button>
+        </nav>
+      </section>
+      {workspace === "booking" ? <BookingAdmin notify={notify} /> : <CourseOpeningsAdminView notify={notify} />}
     </div>
   );
 }
@@ -1157,13 +1174,14 @@ function InventoryView({
   const [busy, setBusy] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [itemBusy, setItemBusy] = useState(false);
-  const [inventoryTab, setInventoryTab] = useState<"overview" | "movement" | "history">("overview");
+  const [inventoryTab, setInventoryTab] = useState<"overview" | "movement" | "history">("movement");
   const [entryMode, setEntryMode] = useState<"existing" | "new">("existing");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "green" | "beans" | "support">("all");
   const [inventorySort, setInventorySort] = useState<InventorySort>("expiry");
   const [movementItemId, setMovementItemId] = useState(data.inventory[0]?.id ?? 0);
   const [movementType, setMovementType] = useState<"in" | "out" | "adjust">("in");
   const [roastedOutputItemId, setRoastedOutputItemId] = useState(roastedItems[0]?.id ?? 0);
+  const inventoryEntryRef = useRef<HTMLElement>(null);
   const movementItem = data.inventory.find((item) => item.id === movementItemId) ?? data.inventory[0];
   const roastedOutputItem = roastedItems.find((item) => item.id === roastedOutputItemId) ?? roastedItems[0];
   const isGreenRoast = movementItem?.category === "green" && movementType === "out";
@@ -1199,9 +1217,9 @@ function InventoryView({
     },
   ].filter((section) => section.items.length > 0);
   const inventoryTabs = [
+    { key: "movement", label: "빠른 입력" },
     { key: "overview", label: "재고 현황" },
-    { key: "movement", label: "입출고" },
-    { key: "history", label: "기록" },
+    { key: "history", label: "입출고 기록" },
   ] as const;
   const categoryFilters = [
     { key: "all", label: "전체" },
@@ -1209,6 +1227,17 @@ function InventoryView({
     { key: "beans", label: "원두" },
     { key: "support", label: "우유 · 기타" },
   ] as const;
+
+  function openInventoryEntry(mode: "existing" | "new", type: "in" | "out" | "adjust" = "in") {
+    setInventoryTab("movement");
+    setEntryMode(mode);
+    setMovementType(type);
+    window.requestAnimationFrame(() => {
+      inventoryEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const selector = mode === "new" ? 'input[name="name"]' : 'select[name="itemId"]';
+      inventoryEntryRef.current?.querySelector<HTMLElement>(selector)?.focus();
+    });
+  }
 
   async function submitJson(event: FormEvent<HTMLFormElement>, endpoint: string, success: string) {
     event.preventDefault();
@@ -1328,11 +1357,27 @@ function InventoryView({
   return (
     <section className="page-section">
       <PageHeader
-        eyebrow="재고 현황"
+        eyebrow="빠른 재고 업무"
         title="재고 관리"
-        description="생두와 원두를 구분해 확인하고, 모든 입고와 출고를 한 화면에서 기록합니다."
+        description="자주 쓰는 입고·출고·실사 조정을 먼저 선택하고 필요한 값만 바로 입력하세요."
         action={<a className="export-button" href="/api/exports/inventory">전체 재고 Excel</a>}
       />
+
+      <section className="inventory-command-bar" aria-label="재고 빠른 입력">
+        <header><span>QUICK ENTRY</span><strong>어떤 작업을 할까요?</strong><p>선택하면 입력칸으로 바로 이동합니다.</p></header>
+        <div>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "in" ? "active" : ""} onClick={() => openInventoryEntry("existing", "in")}><small>01</small><b>입고 등록</b><span>수량을 더합니다</span></button>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "out" ? "active" : ""} onClick={() => openInventoryEntry("existing", "out")}><small>02</small><b>출고 · 사용</b><span>수업·로스팅 사용</span></button>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "adjust" ? "active" : ""} onClick={() => openInventoryEntry("existing", "adjust")}><small>03</small><b>실사 조정</b><span>현재 수량으로 맞춤</span></button>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "new" ? "active" : ""} onClick={() => openInventoryEntry("new")}><small>04</small><b>새 품목</b><span>등록과 입고를 한 번에</span></button>
+        </div>
+      </section>
+
+      <div className="inventory-summary inventory-summary-always">
+        <div><span>생두 품목</span><strong>{greenItems.length}<small>개</small></strong></div>
+        <div><span>원두 품목</span><strong>{beanItems.length}<small>개</small></strong></div>
+        <div className={data.inventory.some((item) => item.lowStock) ? "attention" : ""}><span>확인 필요</span><strong>{data.inventory.filter((item) => item.lowStock).length}<small>개</small></strong></div>
+      </div>
 
       <div className="inventory-tabs" role="tablist" aria-label="재고 작업 선택">
         {inventoryTabs.map((tab) => (
@@ -1351,11 +1396,6 @@ function InventoryView({
 
       {inventoryTab === "overview" && (
         <div role="tabpanel">
-          <div className="inventory-summary">
-            <div><span>생두 품목</span><strong>{greenItems.length}<small>개</small></strong></div>
-            <div><span>원두 품목</span><strong>{beanItems.length}<small>개</small></strong></div>
-            <div className={data.inventory.some((item) => item.lowStock) ? "attention" : ""}><span>확인 필요</span><strong>{data.inventory.filter((item) => item.lowStock).length}<small>개</small></strong></div>
-          </div>
           <div className="inventory-overview-controls">
             <div className="inventory-filter" role="group" aria-label="재고 분류 필터">
               {categoryFilters.map((filter) => (
@@ -1427,7 +1467,7 @@ function InventoryView({
       )}
 
       {inventoryTab === "movement" && (
-        <article className="panel compact-form-panel inventory-workspace-panel" role="tabpanel">
+        <article ref={inventoryEntryRef} id="inventory-quick-entry" className="panel compact-form-panel inventory-workspace-panel" role="tabpanel">
           <div className="inventory-entry-switch segmented" role="group" aria-label="입출고 대상 선택">
             <label className={entryMode === "existing" ? "active" : ""}>
               <input type="radio" checked={entryMode === "existing"} onChange={() => setEntryMode("existing")} />기존 품목
@@ -1440,6 +1480,10 @@ function InventoryView({
           {entryMode === "existing" ? (
             <>
               <div className="form-title"><div><h3>기존 품목 입출고</h3><p>생두 출고를 선택하면 로스팅된 원두 입고까지 한 번에 기록됩니다.</p></div></div>
+              {movementItem && (() => {
+                const amount = inventoryItemAmount(movementItem);
+                return <div className="inventory-selected-item"><div><span>선택된 품목</span><strong>{movementItem.name}</strong></div><p>{categoryLabel[movementItem.category]}</p><b>{amount.value}<small>{amount.unit}</small></b></div>;
+              })()}
               <form onSubmit={submitMovement}>
                 <Field label="품목">
                   <select name="itemId" required value={movementItemId} onChange={(event) => setMovementItemId(Number(event.target.value))}>
@@ -1869,8 +1913,17 @@ function RoastingView({
         eyebrow="로스팅 기록"
         title="로스팅 프로파일"
         description="온도, bar 기준 가스 압력, 1차 크랙과 배출 시점을 기록하고 구간별 평균 ROR을 확인합니다."
-        action={user.role === "admin" ? <button className="primary-button small" onClick={() => setEditor({ mode: "create" })}>새 프로파일</button> : undefined}
       />
+
+      {user.role === "admin" && (
+        <section className="roast-quick-start">
+          <div><span>QUICK PROFILE</span><h2>새 로스팅 기록을 바로 입력하세요.</h2><p>빈 양식으로 시작하거나 선택한 프로파일을 복사해 달라진 값만 수정할 수 있습니다.</p></div>
+          <div className="roast-quick-actions">
+            <button className="primary-button" onClick={() => setEditor({ mode: "create" })}>새 프로파일 바로 입력</button>
+            <button className="ghost-button" disabled={!selected} onClick={() => selected && setEditor({ mode: "copy", profile: selected })}>선택값 복사해 입력</button>
+          </div>
+        </section>
+      )}
 
       {loading ? <div className="panel empty-state">프로파일을 불러오는 중입니다.</div> : profiles.length ? (
         <div className="roast-layout">
@@ -2404,22 +2457,27 @@ function RoastProfileForm({
         action={<button className="ghost-button" onClick={onCancel}>목록으로</button>}
       />
       <form className="panel roast-form" onSubmit={submit}>
+        <nav className="roast-form-shortcuts" aria-label="프로파일 입력 단계">
+          <button type="button" onClick={() => document.getElementById("roast-basic")?.scrollIntoView({ behavior: "smooth", block: "start" })}><b>01</b><span>원두 정보</span></button>
+          <button type="button" onClick={() => document.getElementById("roast-flow")?.scrollIntoView({ behavior: "smooth", block: "start" })}><b>02</b><span>시간 · 온도 · 가스</span></button>
+          <button type="button" onClick={() => document.getElementById("roast-notes")?.scrollIntoView({ behavior: "smooth", block: "start" })}><b>03</b><span>노트와 저장</span></button>
+        </nav>
         {mode === "copy" && initial && (
           <div className="copy-profile-notice">
             <div><span>복사한 원본</span><strong>{initial.beanName}</strong></div>
             <p>원본은 그대로 보관됩니다. 새 원두명과 달라진 디벨롭·온도·가스 값만 확인한 뒤 저장하세요.</p>
           </div>
         )}
-        <div className="roast-form-section">
+        <div id="roast-basic" className="roast-form-section">
           <span className="section-index">01 / 원두 정보</span>
           <div className="roast-bean-grid">
-            <Field label="원두명"><input name="beanName" defaultValue={mode === "copy" && initial ? `${initial.beanName} 복사본` : initial?.beanName} autoFocus={mode === "copy"} required /></Field>
+            <Field label="원두명"><input name="beanName" defaultValue={mode === "copy" && initial ? `${initial.beanName} 복사본` : initial?.beanName} autoFocus required /></Field>
             <Field label="산지"><input name="origin" defaultValue={initial?.origin} placeholder="Ethiopia Guji" /></Field>
             <Field label="프로세스"><input name="process" defaultValue={initial?.process} placeholder="Washed" /></Field>
             <Field label="배치 중량 (kg)"><input name="batchWeight" type="number" min="0.01" step="0.01" defaultValue={initial?.batchWeight ?? 1} required /></Field>
           </div>
         </div>
-        <div className="roast-form-section">
+        <div id="roast-flow" className="roast-form-section">
           <div className="section-heading roast-flow-section-heading">
             <div><span className="section-index">02 / 로스팅 흐름</span><p>실제 로스팅 순서대로 시간·온도·가스를 한 번씩만 입력하세요.</p></div>
             <div className="live-development">
@@ -2446,14 +2504,14 @@ function RoastProfileForm({
             ))}
           </div>
         </div>
-        <div className="roast-form-section">
+        <div id="roast-notes" className="roast-form-section">
           <span className="section-index">03 / 따라 하기 노트</span>
           <div className="two-columns">
             <Field label="가스 운용 메모"><textarea name="gasNotes" rows={5} defaultValue={initial?.gasNotes} placeholder="예: 터닝 후 1.2bar 유지, 1차 크랙 30초 전 1.0bar" /></Field>
             <Field label="컵 노트 · 주의사항"><textarea name="notes" rows={5} defaultValue={initial?.notes} placeholder="배출 기준, 향미, 다음 배치 보정 사항" /></Field>
           </div>
         </div>
-        <div className="form-actions">
+        <div className="form-actions roast-form-actions">
           <button type="button" className="ghost-button" onClick={onCancel}>취소</button>
           <button className="primary-button" disabled={busy || Boolean(flowError)}>{busy ? "계산·저장 중…" : mode === "copy" ? "새 프로파일로 저장" : "프로파일 저장"}</button>
         </div>

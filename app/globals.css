@@ -6363,3 +6363,411 @@ td,
   .portal-modal { padding: 26px 17px 18px; }
   .portal-section-heading h1 { font-size: 32px; }
 }
+
+/* Streamlined administrator workspaces */
+.operations-hub {
+  min-width: 0;
+}
+
+.operations-hub > .page-section {
+  padding-top: 26px;
+}
+
+.operations-hub-switcher {
+  display: grid;
+  grid-template-columns: minmax(240px, .8fr) minmax(460px, 1.2fr);
+  gap: 28px;
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  padding: 42px clamp(28px, 4vw, 68px) 0;
+}
+
+.operations-hub-switcher > div {
+  align-self: center;
+}
+
+.operations-hub-switcher > div > span,
+.inventory-command-bar header > span,
+.roast-quick-start > div > span {
+  color: #777;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .13em;
+}
+
+.operations-hub-switcher > div > strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+.operations-hub-switcher > div > p {
+  margin: 7px 0 0;
+  color: #777;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.operations-hub-switcher nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid #111;
+}
+
+.operations-hub-switcher nav button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  min-height: 92px;
+  border: 0;
+  border-right: 1px solid #111;
+  background: #fff;
+  color: #111;
+  padding: 17px;
+  text-align: left;
+}
+
+.operations-hub-switcher nav button:last-child {
+  border-right: 0;
+}
+
+.operations-hub-switcher nav button small {
+  grid-row: 1 / span 2;
+  color: #999;
+  font-size: 9px;
+}
+
+.operations-hub-switcher nav button b {
+  font-size: 14px;
+}
+
+.operations-hub-switcher nav button span {
+  color: #777;
+  font-size: 10px;
+}
+
+.operations-hub-switcher nav button.active {
+  background: #111;
+  color: #fff;
+}
+
+.operations-hub-switcher nav button.active span {
+  color: #aaa;
+}
+
+.inventory-command-bar {
+  display: grid;
+  grid-template-columns: minmax(180px, .55fr) minmax(0, 1.45fr);
+  border: 1px solid #111;
+  background: #fff;
+  margin-bottom: 12px;
+}
+
+.inventory-command-bar header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid #111;
+  padding: 20px;
+}
+
+.inventory-command-bar header strong {
+  margin-top: 8px;
+  font-size: 17px;
+}
+
+.inventory-command-bar header p {
+  margin: 5px 0 0;
+  color: #777;
+  font-size: 10px;
+}
+
+.inventory-command-bar > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.inventory-command-bar button {
+  display: flex;
+  min-width: 0;
+  min-height: 104px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  border: 0;
+  border-right: 1px solid #ddd;
+  background: #fff;
+  color: #111;
+  padding: 16px;
+  text-align: left;
+}
+
+.inventory-command-bar button:last-child {
+  border-right: 0;
+}
+
+.inventory-command-bar button small {
+  color: #999;
+  font-size: 9px;
+}
+
+.inventory-command-bar button b {
+  font-size: 13px;
+}
+
+.inventory-command-bar button span {
+  color: #777;
+  font-size: 9px;
+}
+
+.inventory-command-bar button:hover,
+.inventory-command-bar button.active {
+  background: #111;
+  color: #fff;
+}
+
+.inventory-command-bar button:hover span,
+.inventory-command-bar button.active span {
+  color: #aaa;
+}
+
+.inventory-summary-always {
+  margin-bottom: 12px;
+}
+
+.inventory-tabs {
+  margin-top: 0;
+}
+
+.inventory-workspace-panel {
+  width: min(900px, 100%);
+  scroll-margin-top: 18px;
+}
+
+.inventory-selected-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  border: 1px solid #d5d5d5;
+  background: #f1f1f1;
+  padding: 13px 15px;
+}
+
+.inventory-selected-item div {
+  display: grid;
+  gap: 3px;
+}
+
+.inventory-selected-item span,
+.inventory-selected-item p {
+  margin: 0;
+  color: #777;
+  font-size: 9px;
+}
+
+.inventory-selected-item strong {
+  font-size: 13px;
+}
+
+.inventory-selected-item > b {
+  font-size: 21px;
+}
+
+.inventory-selected-item > b small {
+  margin-left: 3px;
+  color: #777;
+  font-size: 10px;
+}
+
+.roast-quick-start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 18px;
+  border: 1px solid #111;
+  border-top-width: 4px;
+  background: #f1f1f1;
+  padding: 22px 24px;
+}
+
+.roast-quick-start h2 {
+  margin: 7px 0 5px;
+  font-size: 20px;
+}
+
+.roast-quick-start p {
+  margin: 0;
+  color: #777;
+  font-size: 11px;
+}
+
+.roast-quick-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.roast-quick-actions button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.roast-form-shortcuts {
+  position: sticky;
+  z-index: 8;
+  top: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid #111;
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(12px);
+}
+
+.roast-form-shortcuts button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  border: 0;
+  border-right: 1px solid #ddd;
+  background: transparent;
+  color: #111;
+  padding: 0 15px;
+  text-align: left;
+}
+
+.roast-form-shortcuts button:last-child {
+  border-right: 0;
+}
+
+.roast-form-shortcuts button:hover {
+  background: #111;
+  color: #fff;
+}
+
+.roast-form-shortcuts b {
+  color: #999;
+  font-size: 9px;
+}
+
+.roast-form-shortcuts span {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+#roast-basic,
+#roast-flow,
+#roast-notes {
+  scroll-margin-top: 58px;
+}
+
+.roast-form-actions {
+  position: sticky;
+  z-index: 7;
+  bottom: 0;
+  margin: 0 -28px -28px;
+  border-top: 1px solid #111;
+  background: rgba(255, 255, 255, .96);
+  padding: 14px 28px;
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 980px) {
+  .operations-hub-switcher {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .inventory-command-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-command-bar header {
+    border-right: 0;
+    border-bottom: 1px solid #111;
+  }
+
+  .roast-quick-start {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .operations-hub-switcher {
+    padding: 24px 16px 0;
+  }
+
+  .operations-hub > .page-section {
+    padding-top: 20px;
+  }
+
+  .operations-hub-switcher nav {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-hub-switcher nav button {
+    min-height: 72px;
+    border-right: 0;
+    border-bottom: 1px solid #111;
+  }
+
+  .operations-hub-switcher nav button:last-child {
+    border-bottom: 0;
+  }
+
+  .inventory-command-bar header {
+    padding: 16px;
+  }
+
+  .inventory-command-bar > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventory-command-bar button {
+    min-height: 92px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .inventory-command-bar button:nth-child(2) {
+    border-right: 0;
+  }
+
+  .inventory-command-bar button:nth-child(n+3) {
+    border-bottom: 0;
+  }
+
+  .inventory-selected-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .inventory-selected-item > p {
+    display: none;
+  }
+
+  .roast-quick-start {
+    padding: 18px;
+  }
+
+  .roast-quick-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .roast-form-shortcuts button {
+    justify-content: center;
+    padding: 0 8px;
+  }
+
+  .roast-form-shortcuts button span {
+    font-size: 10px;
+  }
+
+  .roast-form-actions {
+    margin-right: -18px;
+    margin-left: -18px;
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+}
