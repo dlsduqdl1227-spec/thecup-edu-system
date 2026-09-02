@@ -46,7 +46,7 @@ type BookingData = {
   evaluations: Evaluation[];
   settings: { dailyPrice: number; monthlyPrice: number; cancelHours: number; maxActiveBookings: number | null };
 };
-type PublicAvailability = { month: string; updatedAt: string; slots: PublicSlot[] };
+type PublicAvailability = { month: string; updatedAt: string; slots: PublicSlot[]; consultationUrl: string };
 type Entry = "student" | "visitor" | "consultation" | null;
 type MemberTab = "schedule" | "reservations" | "practice";
 
@@ -193,7 +193,10 @@ export function BookingPortal() {
 
       {entry === "student" && <section className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>관리자가 발급한 ID와 등록된 휴대폰 번호를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>수강생 ID<input name="loginId" autoCapitalize="characters" autoComplete="username" placeholder="CUP00001" required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
 
-      {entry === "visitor" && <VisitorSchedule month={month} setMonth={setMonth} availability={availability} onConsultation={() => setEntry("consultation")} />}
+      {entry === "visitor" && <VisitorSchedule month={month} setMonth={setMonth} availability={availability} onConsultation={() => {
+        if (availability?.consultationUrl) window.location.assign(availability.consultationUrl);
+        else setEntry("consultation");
+      }} />}
 
       {entry === "consultation" && <section className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 상담을 완료하면 수강생 ID가 발급됩니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
 
@@ -212,7 +215,7 @@ function VisitorSchedule({ month, setMonth, availability, onConsultation }: { mo
   const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
   const [picked, setPicked] = useState("");
   const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
-  return <section className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>상담 후 수강생 ID를 발급받으면 직접 예약할 수 있습니다.</p></div><button onClick={onConsultation}>이용 상담 신청</button></div></section>;
+  return <section className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 수강생 ID를 발급받으면 직접 예약할 수 있습니다."}</p></div><button onClick={onConsultation}>{availability?.consultationUrl ? "카카오톡 상담" : "이용 상담 신청"}</button></div></section>;
 }
 
 function MemberSchedule({ data, month, setMonth, reload, notify }: { data: BookingData; month: string; setMonth: (value: string) => void; reload: () => Promise<void>; notify: Notify }) {

@@ -22,7 +22,7 @@ type BookingAdminData = {
   feedback: Feedback[];
   evaluations: Evaluation[];
   candidates: Candidate[];
-  settings: { dailyPrice: number; monthlyPrice: number; cancelHours: number; maxActiveBookings: number | null };
+  settings: { dailyPrice: number; monthlyPrice: number; cancelHours: number; maxActiveBookings: number | null; kakaoChatUrl: string };
   bookingTimes: Array<{ key: string; start: string; end: string }>;
 };
 
@@ -280,7 +280,7 @@ function GrowthAdmin({ data, busy, act }: AdminProps) {
 
 function SettingsAdmin({ data, busy, act }: AdminProps) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); await act({ action: "updateSettings", ...Object.fromEntries(new FormData(event.currentTarget).entries()) }, "예약 운영 설정을 저장했습니다."); }
-  return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>이용권·예약 정책</h2><p>변경한 가격은 새로 발급하는 이용권과 공개 상담 화면에 반영됩니다.</p></div><label>1회 이용권 가격<input name="dailyPrice" type="number" min="1" defaultValue={data.settings.dailyPrice} required /></label><label>월 이용권 가격<input name="monthlyPrice" type="number" min="1" defaultValue={data.settings.monthlyPrice} required /></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label>동시 확정 예약 제한<input name="maxActiveBookings" type="number" min="1" defaultValue={data.settings.maxActiveBookings ?? ""} placeholder="제한 없음" /><small>비워두면 제한하지 않습니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
+  return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>이용권·예약 정책</h2><p>변경한 가격과 카카오톡 상담 링크는 공개 예약 화면에 반영됩니다.</p></div><label>1회 이용권 가격<input name="dailyPrice" type="number" min="1" defaultValue={data.settings.dailyPrice} required /></label><label>월 이용권 가격<input name="monthlyPrice" type="number" min="1" defaultValue={data.settings.monthlyPrice} required /></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label>동시 확정 예약 제한<input name="maxActiveBookings" type="number" min="1" defaultValue={data.settings.maxActiveBookings ?? ""} placeholder="제한 없음" /><small>비워두면 제한하지 않습니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>수업 예정자가 상담 신청을 누르면 이 주소로 바로 이동합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
 }
 
 type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string) => Promise<void> };

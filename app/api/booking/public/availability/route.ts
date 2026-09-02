@@ -16,8 +16,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const month = validateBookingMonth(url.searchParams.get("month") ?? currentKoreanMonth());
     const range = bookingMonthRange(month);
-    const slots = await getD1()
-      .prepare(
+    const [slots, kakaoSetting] = await Promise.all([
+      getD1().prepare(
         `SELECT st.type AS stationType, st.name AS stationName,
                 sl.start_at AS startAt, sl.end_at AS endAt
          FROM booking_slots sl
@@ -32,12 +32,15 @@ export async function GET(request: Request) {
          ORDER BY sl.start_at, st.display_order, st.id`,
       )
       .bind(range.start, range.end)
-      .all<PublicSlotRow>();
+      .all<PublicSlotRow>(),
+      getD1().prepare("SELECT value FROM app_settings WHERE key = 'booking_kakao_chat_url'").first<{ value: string }>(),
+    ]);
     return Response.json(
       {
         month,
         updatedAt: new Date().toISOString(),
         slots: slots.results,
+        consultationUrl: kakaoSetting?.value ?? "",
       },
       { headers: { "Cache-Control": "public, max-age=30" } },
     );

@@ -162,6 +162,7 @@ export const bookingSeedStatements = [
   `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_monthly_price', '500000')`,
   `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_cancel_hours', '24')`,
   `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_max_active_bookings', '')`,
+  `INSERT OR IGNORE INTO app_settings (key, value) VALUES ('booking_kakao_chat_url', '')`,
   `INSERT OR IGNORE INTO stations (type, name, active, display_order)
    VALUES ('ESPRESSO', '에스프레소 스테이션 1', 1, 10)`,
   `INSERT OR IGNORE INTO stations (type, name, active, display_order)

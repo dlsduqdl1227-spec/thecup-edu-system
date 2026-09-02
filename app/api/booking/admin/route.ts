@@ -108,7 +108,7 @@ export async function GET(request: Request) {
       ).all(),
       db.prepare(
         `SELECT key, value FROM app_settings
-         WHERE key IN ('booking_daily_price','booking_monthly_price','booking_cancel_hours','booking_max_active_bookings')`,
+         WHERE key IN ('booking_daily_price','booking_monthly_price','booking_cancel_hours','booking_max_active_bookings','booking_kakao_chat_url')`,
       ).all<{ key: string; value: string }>(),
     ]);
     const settingMap = Object.fromEntries(settings.results.map((row) => [row.key, row.value]));
@@ -130,6 +130,7 @@ export async function GET(request: Request) {
         maxActiveBookings: settingMap.booking_max_active_bookings === ""
           ? null
           : Number(settingMap.booking_max_active_bookings),
+        kakaoChatUrl: settingMap.booking_kakao_chat_url ?? "",
       },
       bookingTimes,
     });
@@ -550,18 +551,36 @@ async function updateSettings(actorId: number, payload: Record<string, unknown>)
   const maxActive = payload.maxActiveBookings === null || payload.maxActiveBookings === ""
     ? ""
     : String(positiveBookingInteger(payload.maxActiveBookings, "동시 예약 제한"));
+  const kakaoChatUrl = validateKakaoChatUrl(payload.kakaoChatUrl);
   const rows = [
     ["booking_daily_price", String(dailyPrice)],
     ["booking_monthly_price", String(monthlyPrice)],
     ["booking_cancel_hours", String(cancelHours)],
     ["booking_max_active_bookings", maxActive],
+    ["booking_kakao_chat_url", kakaoChatUrl],
   ];
   await getD1().batch(rows.map(([key, value]) => getD1().prepare(
     `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP`,
   ).bind(key, value, actorId)));
-  await audit(actorId, "update_booking_settings", "app_setting", "booking", `${dailyPrice}/${monthlyPrice}`);
+  await audit(actorId, "update_booking_settings", "app_setting", "booking", `${dailyPrice}/${monthlyPrice} · 카카오 상담 ${kakaoChatUrl ? "연결" : "미연결"}`);
   return Response.json({ ok: true });
+}
+
+function validateKakaoChatUrl(value: unknown): string {
+  const raw = optionalBookingText(value, 300);
+  if (!raw) return "";
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("카카오톡 채널 링크 형식이 올바르지 않습니다.");
+  }
+  const allowedHosts = new Set(["pf.kakao.com", "open.kakao.com"]);
+  if (url.protocol !== "https:" || !allowedHosts.has(url.hostname)) {
+    throw new Error("pf.kakao.com 또는 open.kakao.com의 HTTPS 링크를 입력해 주세요.");
+  }
+  return url.toString();
 }
 
 async function answerFeedback(actorId: number, payload: Record<string, unknown>) {

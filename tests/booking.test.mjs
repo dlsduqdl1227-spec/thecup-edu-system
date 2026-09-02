@@ -48,6 +48,7 @@ test("reservation storage enforces passes and concurrent confirmation conflicts"
   assert.match(schema, /reservations_confirmed_slot_unique/);
   assert.match(schema, /reservations_confirmed_member_time_unique/);
   assert.match(schema, /status = 'CONFIRMED'/);
+  assert.match(schema, /booking_kakao_chat_url/);
   assert.match(passMigration, /ADD `pass_id` integer NOT NULL REFERENCES member_passes/);
   assert.match(memberRoute, /pass\.id/);
   assert.match(adminRoute, /WHERE id = \? AND member_id = \? AND valid_month = \? AND status = 'ACTIVE'/);
@@ -77,6 +78,8 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(availability, /NOT EXISTS/);
   assert.match(availability, /r\.status = 'CONFIRMED'/);
   assert.match(availability, /Cache-Control.*public, max-age=30/s);
+  assert.match(availability, /booking_kakao_chat_url/);
+  assert.match(availability, /consultationUrl/);
   assert.doesNotMatch(availability, /memberName|phone|email|memo|member_id/);
   assert.match(loginRoute, /login_id = \? AND phone_hash = \?/);
   assert.doesNotMatch(loginRoute, /WHERE name = \?/);
@@ -89,6 +92,8 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(adminRoute, /saveCandidate/);
   assert.match(adminRoute, /setMemberLoginId/);
+  assert.match(adminRoute, /validateKakaoChatUrl/);
+  assert.match(adminRoute, /pf\.kakao\.com/);
   assert.match(adminRoute, /payload\.dates/);
   assert.match(adminRoute, /payload\.times/);
   assert.match(adminRoute, /WHERE NOT EXISTS/);
@@ -108,6 +113,9 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /수강생 ID/);
   assert.match(portal, /운영자 로그인/);
   assert.match(portal, /api\/booking\/public\/availability/);
+  assert.match(portal, /window\.location\.assign\(availability\.consultationUrl\)/);
+  assert.match(portal, /카카오톡 상담/);
+  assert.match(admin, /name="kakaoChatUrl"/);
   assert.match(portal, /예약은 운영자 승인 후 확정/);
   assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);
   assert.match(styles, /Reservation portal v2/);
