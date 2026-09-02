@@ -16,9 +16,10 @@ import {
   kilogramsToInventoryQuantity,
 } from "../../lib/quantity";
 import { compareInventoryItems, type InventorySort } from "../../lib/inventory-sort";
+import { BookingAdmin } from "./BookingAdmin";
 
 type Role = "admin" | "employee" | "instructor";
-type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "openings" | "staff";
+type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "staff";
 
 type User = {
   id: number;
@@ -232,6 +233,7 @@ const navItems: Array<{
   { key: "inventory", label: "재고 관리", short: "재고", permission: "canInventory" },
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
   { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
+  { key: "booking", label: "예약 운영", short: "예약", adminOnly: true },
   { key: "openings", label: "개강 관리", short: "개강", adminOnly: true },
   { key: "staff", label: "직원 · 권한", short: "직원", adminOnly: true },
 ];
@@ -481,6 +483,9 @@ export function EduSystemApp() {
             )}
             {activeTab === "roasting" && (
               <RoastingView user={user} notify={setToast} />
+            )}
+            {activeTab === "booking" && (
+              <BookingAdmin notify={setToast} />
             )}
             {activeTab === "openings" && (
               <CourseOpeningsAdminView notify={setToast} />

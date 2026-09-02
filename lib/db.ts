@@ -4,6 +4,7 @@ import {
   type LegacyInventoryEntry,
 } from "./legacy-inventory";
 import { currentKoreanMonth } from "./course-openings";
+import { bookingSchemaStatements, bookingSeedStatements } from "./booking-schema";
 
 export type StaffRole = "admin" | "employee" | "instructor";
 export type StaffPermission = "finance" | "inventory" | "roasting";
@@ -285,6 +286,8 @@ export async function ensureDatabase(): Promise<void> {
 async function initializeDatabase(): Promise<void> {
   const db = getD1();
   await db.batch(schemaStatements.map((statement) => db.prepare(statement)));
+  await db.batch(bookingSchemaStatements.map((statement) => db.prepare(statement)));
+  await db.batch(bookingSeedStatements.map((statement) => db.prepare(statement)));
   await db
     .prepare(
       `INSERT OR IGNORE INTO app_settings (key, value)

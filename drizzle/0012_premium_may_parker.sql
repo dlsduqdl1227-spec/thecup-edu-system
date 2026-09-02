@@ -1,0 +1,1 @@
+ALTER TABLE `reservations` ADD `pass_id` integer NOT NULL REFERENCES member_passes(id);

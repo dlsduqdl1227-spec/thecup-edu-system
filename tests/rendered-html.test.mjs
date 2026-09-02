@@ -4,11 +4,13 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("ships the branded monochrome application instead of the starter preview", async () => {
+test("ships the branded reservation portal and preserves the monochrome admin application", async () => {
   const [
     page,
+    adminPage,
     layout,
     app,
+    bookingPortal,
     styles,
     hosting,
     packageJson,
@@ -17,8 +19,10 @@ test("ships the branded monochrome application instead of the starter preview", 
     coffeeLogo,
   ] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
+    readFile(new URL("app/admin/page.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("app/components/EduSystemApp.tsx", root), "utf8"),
+    readFile(new URL("app/components/BookingPortal.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL(".openai/hosting.json", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
@@ -27,13 +31,17 @@ test("ships the branded monochrome application instead of the starter preview", 
     readFile(new URL("public/brand/monthly-coffee.png", root)),
   ]);
 
-  assert.match(page, /EduSystemApp/);
-  assert.match(layout, /더컵에듀 시스템/);
+  assert.match(page, /BookingPortal/);
+  assert.match(adminPage, /EduSystemApp/);
+  assert.match(layout, /더컵에듀 커피 스테이션/);
   assert.match(layout, /lang="ko"/);
   assert.match(app, /brand\/thecup-edu\.jpg/);
   assert.match(app, /brand\/monthly-coffee\.png/);
   assert.match(app, /수업 사용 기록/);
   assert.match(app, /로스팅 프로파일/);
+  assert.match(app, /예약 운영/);
+  assert.match(bookingPortal, /상담 후 승인된 회원만 스케줄을 확인/);
+  assert.match(bookingPortal, /member-calendar/);
   assert.match(app, /복사해서 새로 만들기/);
   assert.match(app, /프로파일 복사본 만들기/);
   assert.match(app, /mode === "edit" \? "PATCH" : "POST"/);
@@ -157,7 +165,7 @@ test("ships the branded monochrome application instead of the starter preview", 
   assert.match(styles, /\.mobile-history-nav/);
   assert.match(styles, /\.staff-delete-button/);
   assert.doesNotMatch(styles, /#17483b|#d9613e|#f3f0e7/i);
-  assert.doesNotMatch(`${page}\n${layout}\n${app}`, /codex-preview|Your site is taking shape|SkeletonPreview/i);
+  assert.doesNotMatch(`${page}\n${adminPage}\n${layout}\n${app}\n${bookingPortal}`, /codex-preview|Your site is taking shape|SkeletonPreview/i);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(packageJson, /"fflate": "0\.8\.3"/);
   assert.equal(socialImage.readUInt32BE(16), 1536);

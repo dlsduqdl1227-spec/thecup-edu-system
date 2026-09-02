@@ -29,6 +29,201 @@ export const appSettings = sqliteTable("app_settings", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const bookingMembers = sqliteTable("booking_members", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  phoneHash: text("phone_hash").notNull().unique(),
+  phoneLast4: text("phone_last4").notNull(),
+  approvalStatus: text("approval_status", { enum: ["PENDING", "APPROVED", "REVOKED"] }).notNull().default("PENDING"),
+  consultationStatus: text("consultation_status", { enum: ["REQUESTED", "COMPLETED"] }).notNull().default("REQUESTED"),
+  desiredStationType: text("desired_station_type").notNull().default(""),
+  consultationMemo: text("consultation_memo").notNull().default(""),
+  adminMemo: text("admin_memo").notNull().default(""),
+  approvedBy: integer("approved_by").references(() => staff.id),
+  approvedAt: text("approved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const memberSessions = sqliteTable(
+  "member_sessions",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    memberId: integer("member_id").notNull().references(() => bookingMembers.id, { onDelete: "cascade" }),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("member_sessions_member_idx").on(table.memberId)],
+);
+
+export const stations = sqliteTable(
+  "stations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    type: text("type").notNull(),
+    name: text("name").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    displayOrder: integer("display_order").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("stations_name_unique").on(table.name)],
+);
+
+export const bookingSlots = sqliteTable(
+  "booking_slots",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    stationId: integer("station_id").notNull().references(() => stations.id),
+    startAt: text("start_at").notNull(),
+    endAt: text("end_at").notNull(),
+    status: text("status", { enum: ["OPEN", "BLOCKED"] }).notNull().default("OPEN"),
+    blockReason: text("block_reason").notNull().default(""),
+    createdBy: integer("created_by").notNull().references(() => staff.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("booking_slots_station_start_unique").on(table.stationId, table.startAt),
+    index("booking_slots_start_status_idx").on(table.startAt, table.status),
+  ],
+);
+
+export const memberPasses = sqliteTable(
+  "member_passes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+    type: text("type", { enum: ["DAILY", "MONTHLY"] }).notNull(),
+    validMonth: text("valid_month").notNull(),
+    price: integer("price").notNull(),
+    status: text("status", { enum: ["ACTIVE", "EXPIRED", "CANCELLED"] }).notNull().default("ACTIVE"),
+    maxActiveBookings: integer("max_active_bookings"),
+    createdBy: integer("created_by").notNull().references(() => staff.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("member_passes_member_month_idx").on(table.memberId, table.validMonth, table.status)],
+);
+
+export const reservations = sqliteTable(
+  "reservations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+    slotId: integer("slot_id").notNull().references(() => bookingSlots.id),
+    passId: integer("pass_id").notNull().references(() => memberPasses.id),
+    slotStartAt: text("slot_start_at").notNull(),
+    status: text("status", { enum: ["REQUESTED", "CONFIRMED", "COMPLETED", "CANCELLED", "REJECTED", "NO_SHOW"] }).notNull().default("REQUESTED"),
+    purpose: text("purpose").notNull(),
+    materialPlan: text("material_plan").notNull(),
+    openToPeerPractice: integer("open_to_peer_practice", { mode: "boolean" }).notNull().default(false),
+    userMemo: text("user_memo").notNull().default(""),
+    adminMemo: text("admin_memo").notNull().default(""),
+    rejectionReason: text("rejection_reason").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    confirmedAt: text("confirmed_at"),
+    cancelledAt: text("cancelled_at"),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("reservations_member_created_idx").on(table.memberId, table.createdAt),
+    index("reservations_slot_status_idx").on(table.slotId, table.status),
+    uniqueIndex("reservations_active_member_slot_unique")
+      .on(table.memberId, table.slotId)
+      .where(sql`status IN ('REQUESTED', 'CONFIRMED')`),
+    uniqueIndex("reservations_confirmed_slot_unique")
+      .on(table.slotId)
+      .where(sql`status = 'CONFIRMED'`),
+    uniqueIndex("reservations_confirmed_member_time_unique")
+      .on(table.memberId, table.slotStartAt)
+      .where(sql`status = 'CONFIRMED'`),
+  ],
+);
+
+export const bookingPayments = sqliteTable(
+  "booking_payments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+    reservationId: integer("reservation_id").references(() => reservations.id),
+    passId: integer("pass_id").references(() => memberPasses.id),
+    amount: integer("amount").notNull(),
+    method: text("method", { enum: ["CARD", "CASH"] }).notNull(),
+    status: text("status", { enum: ["UNPAID", "PAID", "REFUNDED"] }).notNull().default("UNPAID"),
+    paidAt: text("paid_at"),
+    recordedBy: integer("recorded_by").notNull().references(() => staff.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("booking_payments_member_idx").on(table.memberId, table.createdAt)],
+);
+
+export const bookingFeedback = sqliteTable("booking_feedback", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+  reservationId: integer("reservation_id").references(() => reservations.id),
+  message: text("message").notNull(),
+  status: text("status", { enum: ["REQUESTED", "ANSWERED", "CLOSED"] }).notNull().default("REQUESTED"),
+  adminReply: text("admin_reply").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const practiceLogs = sqliteTable(
+  "practice_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+    reservationId: integer("reservation_id").notNull().references(() => reservations.id),
+    stationType: text("station_type").notNull(),
+    recipeData: text("recipe_data").notNull().default(""),
+    sensoryNote: text("sensory_note").notNull().default(""),
+    reflection: text("reflection").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("practice_logs_member_reservation_unique").on(table.memberId, table.reservationId)],
+);
+
+export const internalEvaluations = sqliteTable("internal_evaluations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+  evaluatorId: integer("evaluator_id").references(() => staff.id),
+  status: text("status", { enum: ["PREPARING", "REQUESTED", "COMPLETED"] }).notNull().default("REQUESTED"),
+  technicalScore: integer("technical_score"),
+  consistencyScore: integer("consistency_score"),
+  sensoryScore: integer("sensory_score"),
+  ruleScore: integer("rule_score"),
+  ethicsStatus: text("ethics_status").notNull().default("PENDING"),
+  result: text("result").notNull().default("PENDING"),
+  note: text("note").notNull().default(""),
+  requestedAt: text("requested_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  evaluatedAt: text("evaluated_at"),
+});
+
+export const opportunityCandidates = sqliteTable(
+  "opportunity_candidates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    memberId: integer("member_id").notNull().references(() => bookingMembers.id),
+    type: text("type", { enum: ["MONTHLY_COFFEE_CONTENT", "KCL_JUDGE"] }).notNull(),
+    status: text("status", { enum: ["TRAINING", "ELIGIBLE", "UNDER_REVIEW", "SELECTED", "NOT_SELECTED", "SUSPENDED"] }).notNull().default("TRAINING"),
+    conflictNote: text("conflict_note").notNull().default(""),
+    finalDecisionBy: integer("final_decision_by").references(() => staff.id),
+    decidedAt: text("decided_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("opportunity_candidates_member_type_unique").on(table.memberId, table.type)],
+);
+
+export const publicRequestLimits = sqliteTable("public_request_limits", {
+  identifierHash: text("identifier_hash").primaryKey(),
+  windowStart: text("window_start").notNull(),
+  requestCount: integer("request_count").notNull().default(0),
+});
+
 export const sessions = sqliteTable("sessions", {
   tokenHash: text("token_hash").primaryKey(),
   staffId: integer("staff_id").notNull().references(() => staff.id),

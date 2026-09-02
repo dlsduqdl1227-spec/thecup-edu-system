@@ -1,7 +1,7 @@
-import { EduSystemApp } from "./components/EduSystemApp";
+import { BookingPortal } from "./components/BookingPortal";
 
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  return <EduSystemApp />;
+  return <BookingPortal />;
 }

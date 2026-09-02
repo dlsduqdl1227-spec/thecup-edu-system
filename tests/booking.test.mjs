@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import {
+  bookingDateTime,
+  bookingMonthRange,
+  getBookingTime,
+  validateBookingMonth,
+} from "../lib/booking.ts";
+
+const root = new URL("../", import.meta.url);
+
+test("booking month and the three fixed operating times are validated", () => {
+  assert.equal(validateBookingMonth("2026-09"), "2026-09");
+  assert.throws(() => validateBookingMonth("2026-13"));
+  assert.deepEqual(bookingMonthRange("2026-12"), {
+    start: "2026-12-01T00:00:00+09:00",
+    end: "2027-01-01T00:00:00+09:00",
+  });
+  assert.equal(getBookingTime("MORNING").start, "09:00");
+  assert.equal(getBookingTime("AFTERNOON").end, "17:30");
+  assert.equal(bookingDateTime("2026-09-02", "12:00"), "2026-09-02T12:00:00+09:00");
+});
+
+test("reservation storage enforces passes and concurrent confirmation conflicts", async () => {
+  const [schema, migration, passMigration, adminRoute, memberRoute] = await Promise.all([
+    readFile(new URL("lib/booking-schema.ts", root), "utf8"),
+    readFile(new URL("drizzle/0011_mute_deathbird.sql", root), "utf8"),
+    readFile(new URL("drizzle/0012_premium_may_parker.sql", root), "utf8"),
+    readFile(new URL("app/api/booking/admin/route.ts", root), "utf8"),
+    readFile(new URL("app/api/booking/member/route.ts", root), "utf8"),
+  ]);
+  for (const table of ["booking_members", "stations", "booking_slots", "member_passes", "reservations", "booking_payments", "practice_logs", "internal_evaluations", "opportunity_candidates"]) {
+    assert.match(`${schema}\n${migration}`, new RegExp(table));
+  }
+  assert.match(schema, /reservations_confirmed_slot_unique/);
+  assert.match(schema, /reservations_confirmed_member_time_unique/);
+  assert.match(schema, /status = 'CONFIRMED'/);
+  assert.match(passMigration, /ADD `pass_id` integer NOT NULL REFERENCES member_passes/);
+  assert.match(memberRoute, /pass\.id/);
+  assert.match(adminRoute, /WHERE id = \? AND member_id = \? AND valid_month = \? AND status = 'ACTIVE'/);
+  assert.match(adminRoute, /월 이용권은 하루에 한 타임만 확정/);
+  assert.match(adminRoute, /WHERE pass_id = \?/);
+  assert.match(adminRoute, /다른 관리자가 먼저 처리/);
+});
+
+test("public consultation, member privacy and admin authorization stay separated", async () => {
+  const [consultation, memberAuth, memberRoute, adminRoute, worker, portal, admin, styles] = await Promise.all([
+    readFile(new URL("app/api/booking/public/consultations/route.ts", root), "utf8"),
+    readFile(new URL("lib/member-auth.ts", root), "utf8"),
+    readFile(new URL("app/api/booking/member/route.ts", root), "utf8"),
+    readFile(new URL("app/api/booking/admin/route.ts", root), "utf8"),
+    readFile(new URL("worker/index.ts", root), "utf8"),
+    readFile(new URL("app/components/BookingPortal.tsx", root), "utf8"),
+    readFile(new URL("app/components/BookingAdmin.tsx", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+  ]);
+  assert.match(consultation, /MAX_REQUESTS = 3/);
+  assert.match(consultation, /phoneHash/);
+  assert.match(consultation, /Cache-Control.*public, max-age=30/s);
+  assert.match(memberAuth, /approval_status = 'APPROVED'/);
+  assert.match(memberAuth, /HttpOnly; SameSite=Strict/);
+  assert.match(memberRoute, /requireMember\(request\)/);
+  assert.match(memberRoute, /WHERE r\.member_id = \?/);
+  assert.doesNotMatch(memberRoute, /phone_last4|phone_hash|consultation_memo/);
+  assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
+  assert.match(adminRoute, /saveCandidate/);
+  assert.match(worker, /X-Content-Type-Options/);
+  assert.match(worker, /Permissions-Policy/);
+  assert.match(portal, /상담 신청/);
+  assert.match(portal, /승인 회원 로그인/);
+  assert.match(portal, /관리자 승인 후 예약이 확정/);
+  assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);
+  assert.match(styles, /@media \(max-width: 390px\)/);
+  assert.match(styles, /\.member-mobile-nav/);
+});

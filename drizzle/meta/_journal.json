@@ -78,6 +78,20 @@
       "when": 1788247597951,
       "tag": "0010_optimal_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1788323415557,
+      "tag": "0011_mute_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1788323581180,
+      "tag": "0012_premium_may_parker",
+      "breakpoints": true
     }
   ]
 }

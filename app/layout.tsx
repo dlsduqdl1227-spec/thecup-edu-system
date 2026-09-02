@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 
-const title = "더컵에듀 시스템";
-const description = "더컵에듀의 재고, 매출, 영수증, 로스팅 프로파일을 연결한 통합 운영 시스템";
+const title = "더컵에듀 커피 스테이션";
+const description = "상담 승인 회원을 위한 에스프레소·브루잉·로스팅 스테이션 예약과 실습 기록 서비스";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       locale: "ko_KR",
-      images: [{ url: imageUrl, width: 1536, height: 1024, alt: "더컵에듀 시스템 — 재고 · 매출 · 로스팅" }],
+      images: [{ url: imageUrl, width: 1536, height: 1024, alt: "더컵에듀 커피 스테이션" }],
     },
     twitter: {
       card: "summary_large_image",
