@@ -78,6 +78,38 @@ export function bookingDateTime(date: string, time: string): string {
   return `${date}T${time}:00+09:00`;
 }
 
+export function validateBookingDateInMonth(value: unknown, month: string): string {
+  const date = typeof value === "string" ? value.trim() : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !date.startsWith(`${validateBookingMonth(month)}-`)) {
+    throw new Error("선택한 월에 포함된 날짜만 생성할 수 있습니다.");
+  }
+  const [year, monthNumber, day] = date.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, monthNumber - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== monthNumber - 1
+    || parsed.getUTCDate() !== day
+  ) {
+    throw new Error("운영 날짜가 올바르지 않습니다.");
+  }
+  return date;
+}
+
+export function validateBookingTimeRange(startValue: unknown, endValue: unknown): { start: string; end: string } {
+  const start = typeof startValue === "string" ? startValue.trim() : "";
+  const end = typeof endValue === "string" ? endValue.trim() : "";
+  const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+  if (!timePattern.test(start) || !timePattern.test(end)) {
+    throw new Error("운영 시간 형식이 올바르지 않습니다.");
+  }
+  const minutes = (value: string) => {
+    const [hour, minute] = value.split(":").map(Number);
+    return hour * 60 + minute;
+  };
+  if (minutes(start) >= minutes(end)) throw new Error("종료 시간은 시작 시간보다 늦어야 합니다.");
+  return { start, end };
+}
+
 export function getBookingTime(key: unknown) {
   const found = bookingTimes.find((time) => time.key === key);
   if (!found) throw new Error("예약 회차를 선택해 주세요.");

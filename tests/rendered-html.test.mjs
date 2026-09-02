@@ -40,6 +40,7 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /수업 사용 기록/);
   assert.match(app, /로스팅 프로파일/);
   assert.match(app, /예약 운영/);
+  assert.match(app, /BookingAdmin/);
   assert.match(bookingPortal, /수업 예정자/);
   assert.match(bookingPortal, /수강생 로그인/);
   assert.match(bookingPortal, /운영자 로그인/);
@@ -136,6 +137,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(styles, /\.month-tabs/);
   assert.match(styles, /\.monthly-summary-grid/);
   assert.match(styles, /\.monthly-transaction-list/);
+  assert.match(styles, /\.booking-batch-builder/);
+  assert.match(styles, /\.booking-batch-calendar/);
   assert.match(styles, /\.csv-expense-entry/);
   assert.match(styles, /\.inventory-sections/);
   assert.match(styles, /\.inventory-section-heading/);

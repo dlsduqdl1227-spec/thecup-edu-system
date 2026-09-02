@@ -12,7 +12,9 @@ import {
   positiveBookingInteger,
   slotDate,
   slotMonth,
+  validateBookingDateInMonth,
   validateBookingMonth,
+  validateBookingTimeRange,
 } from "../../../../lib/booking";
 import { currentKoreanMonth } from "../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
@@ -231,44 +233,79 @@ async function saveStation(actorId: number, payload: Record<string, unknown>) {
 
 async function generateSlots(actorId: number, payload: Record<string, unknown>) {
   const month = validateBookingMonth(payload.month);
-  const weekdayValues = Array.isArray(payload.weekdays) ? payload.weekdays.map(Number) : [1, 2, 3, 4, 5];
-  const weekdays = new Set(weekdayValues.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6));
-  if (!weekdays.size) throw new Error("운영 요일을 선택해 주세요.");
+  const requestedDates = Array.isArray(payload.dates)
+    ? [...new Set(payload.dates.map((date) => validateBookingDateInMonth(date, month)))].sort()
+    : [];
+  if (Array.isArray(payload.dates) && !requestedDates.length) throw new Error("운영 날짜를 한 개 이상 선택해 주세요.");
+  if (requestedDates.length > 31) throw new Error("한 번에 선택할 수 있는 날짜는 31일까지입니다.");
+
+  const customTimes = Array.isArray(payload.times)
+    ? payload.times.map((value) => {
+        if (!value || typeof value !== "object") throw new Error("운영 시간대를 확인해 주세요.");
+        const row = value as Record<string, unknown>;
+        return validateBookingTimeRange(row.start, row.end);
+      })
+    : [];
+  if (Array.isArray(payload.times) && !customTimes.length) throw new Error("운영 시간대를 한 개 이상 입력해 주세요.");
+  if (customTimes.length > 12) throw new Error("한 번에 생성할 수 있는 시간대는 12개까지입니다.");
   const timeKeys = Array.isArray(payload.timeKeys) ? payload.timeKeys : bookingTimes.map((time) => time.key);
-  const times = timeKeys.map(getBookingTime);
+  const times = customTimes.length ? customTimes : timeKeys.map(getBookingTime);
+  const sortedTimes = [...times].sort((a, b) => a.start.localeCompare(b.start));
+  for (let index = 1; index < sortedTimes.length; index += 1) {
+    if (sortedTimes[index].start < sortedTimes[index - 1].end) {
+      throw new Error("서로 겹치지 않는 시간대를 입력해 주세요.");
+    }
+  }
+
   const requestedStationIds = Array.isArray(payload.stationIds)
     ? payload.stationIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)
     : [];
+  if (requestedStationIds.length > 50) throw new Error("한 번에 선택할 수 있는 스테이션은 50개까지입니다.");
   const stationRows = requestedStationIds.length
     ? await placeholdersQuery("SELECT id FROM stations WHERE active = 1 AND id IN", requestedStationIds)
     : (await getD1().prepare("SELECT id FROM stations WHERE active = 1 ORDER BY display_order, id").all<{ id: number }>()).results;
   if (!stationRows.length) throw new Error("활성 스테이션이 없습니다.");
-  const [year, monthNumber] = month.split("-").map(Number);
-  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  let dates = requestedDates;
+  if (!dates.length) {
+    const weekdayValues = Array.isArray(payload.weekdays) ? payload.weekdays.map(Number) : [1, 2, 3, 4, 5];
+    const weekdays = new Set(weekdayValues.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6));
+    if (!weekdays.size) throw new Error("운영 요일을 선택해 주세요.");
+    const [year, monthNumber] = month.split("-").map(Number);
+    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    dates = Array.from({ length: lastDay }, (_, index) => index + 1)
+      .filter((day) => weekdays.has(new Date(Date.UTC(year, monthNumber - 1, day)).getUTCDay()))
+      .map((day) => `${month}-${String(day).padStart(2, "0")}`);
+  }
   const statements = [];
-  for (let day = 1; day <= lastDay; day += 1) {
-    const date = `${month}-${String(day).padStart(2, "0")}`;
-    const weekday = new Date(Date.UTC(year, monthNumber - 1, day)).getUTCDay();
-    if (!weekdays.has(weekday)) continue;
+  for (const date of dates) {
     for (const station of stationRows) {
       for (const time of times) {
+        const startAt = bookingDateTime(date, time.start);
+        const endAt = bookingDateTime(date, time.end);
         statements.push(
           getD1()
             .prepare(
-              `INSERT OR IGNORE INTO booking_slots
+              `INSERT INTO booking_slots
                 (station_id, start_at, end_at, status, created_by)
-               VALUES (?, ?, ?, 'OPEN', ?)`,
+               SELECT ?, ?, ?, 'OPEN', ?
+               WHERE NOT EXISTS (
+                 SELECT 1 FROM booking_slots
+                 WHERE station_id = ? AND start_at < ? AND end_at > ?
+               )`,
             )
-            .bind(station.id, bookingDateTime(date, time.start), bookingDateTime(date, time.end), actorId),
+            .bind(station.id, startAt, endAt, actorId, station.id, endAt, startAt),
         );
       }
     }
   }
+  let created = 0;
   for (let index = 0; index < statements.length; index += 50) {
-    await getD1().batch(statements.slice(index, index + 50));
+    const results = await getD1().batch(statements.slice(index, index + 50));
+    created += results.reduce((total, result) => total + Number(result.meta.changes ?? 0), 0);
   }
-  await audit(actorId, "generate_booking_slots", "booking_slot", month, `${statements.length}개 생성 시도`);
-  return Response.json({ ok: true, attempted: statements.length });
+  const skipped = statements.length - created;
+  await audit(actorId, "generate_booking_slots", "booking_slot", month, `${created}개 생성 · ${skipped}개 중복/겹침 제외`);
+  return Response.json({ ok: true, attempted: statements.length, created, skipped });
 }
 
 async function copyDate(actorId: number, payload: Record<string, unknown>) {

@@ -7,7 +7,9 @@ import {
   bookingMonthRange,
   getBookingTime,
   normalizeMemberLoginId,
+  validateBookingDateInMonth,
   validateBookingMonth,
+  validateBookingTimeRange,
 } from "../lib/booking.ts";
 
 const root = new URL("../", import.meta.url);
@@ -24,6 +26,12 @@ test("booking month and the three fixed operating times are validated", () => {
   assert.equal(bookingDateTime("2026-09-02", "12:00"), "2026-09-02T12:00:00+09:00");
   assert.equal(normalizeMemberLoginId(" cup-1001 "), "CUP-1001");
   assert.throws(() => normalizeMemberLoginId("한글아이디"));
+  assert.equal(validateBookingDateInMonth("2026-09-30", "2026-09"), "2026-09-30");
+  assert.throws(() => validateBookingDateInMonth("2026-09-31", "2026-09"));
+  assert.throws(() => validateBookingDateInMonth("2026-10-01", "2026-09"));
+  assert.deepEqual(validateBookingTimeRange("09:30", "12:00"), { start: "09:30", end: "12:00" });
+  assert.throws(() => validateBookingTimeRange("12:00", "09:30"));
+  assert.throws(() => validateBookingTimeRange("24:00", "25:00"));
 });
 
 test("reservation storage enforces passes and concurrent confirmation conflicts", async () => {
@@ -81,6 +89,15 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(adminRoute, /saveCandidate/);
   assert.match(adminRoute, /setMemberLoginId/);
+  assert.match(adminRoute, /payload\.dates/);
+  assert.match(adminRoute, /payload\.times/);
+  assert.match(adminRoute, /WHERE NOT EXISTS/);
+  assert.match(adminRoute, /start_at < \? AND end_at > \?/);
+  assert.match(admin, /월간 일정 일괄 생성/);
+  assert.match(admin, /평일 전체/);
+  assert.match(admin, /선택 일정 일괄 생성/);
+  assert.match(styles, /\.booking-batch-calendar/);
+  assert.match(styles, /\.booking-batch-config/);
   assert.match(database, /ensureBookingMemberLoginIds/);
   assert.match(database, /CUP\$\{String\(member\.id\)\.padStart/);
   assert.match(loginMigration, /ADD `login_id` text/);

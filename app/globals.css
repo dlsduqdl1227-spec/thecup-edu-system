@@ -1393,7 +1393,58 @@ a {
 .booking-admin-page button, .booking-admin-page .solid { min-height: 38px; padding: 0 13px; border: 1px solid #aaa; background: #fff; color: #111; font-size: 11px; font-weight: 750; }
 .booking-admin-page button.solid, .booking-admin-page .solid { border-color: #111; background: #111; color: #fff; }
 .booking-admin-page button.danger { border-color: #9a6060; color: #7d2626; }
+.booking-batch-builder { margin-top: 22px; border: 1px solid #cfcfcb; background: #fff; }
+.booking-batch-builder > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 24px; border-bottom: 1px solid #dededb; }
+.booking-batch-builder > header span { color: #777; font-size: 10px; font-weight: 850; letter-spacing: .14em; }
+.booking-batch-builder > header h2 { margin: 6px 0 5px; font-size: 25px; }
+.booking-batch-builder > header p { margin: 0; color: #707070; font-size: 12px; }
+.booking-batch-builder > header > strong { display: grid; min-width: 72px; font-size: 32px; line-height: 1; text-align: right; }
+.booking-batch-builder > header > strong small { margin-top: 7px; color: #777; font-size: 9px; font-weight: 700; }
+.booking-batch-quick { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 24px; border-bottom: 1px solid #e3e3e0; background: #f7f7f5; }
+.booking-batch-quick > span { color: #666; font-size: 10px; font-weight: 800; }
+.booking-batch-quick > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.booking-batch-quick button { min-height: 30px; padding: 0 10px; border-color: #c5c5c1; background: #fff; }
+.booking-batch-layout { display: grid; grid-template-columns: minmax(360px, .92fr) minmax(420px, 1.08fr); min-width: 0; }
+.booking-batch-calendar { min-width: 0; padding: 22px; border-right: 1px solid #dededb; }
+.booking-batch-calendar .weekdays, .booking-batch-calendar .days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.booking-batch-calendar .weekdays span { padding: 7px 0 10px; color: #8a8a86; font-size: 9px; font-weight: 800; text-align: center; }
+.booking-batch-calendar .days > span, .booking-batch-calendar .days > button { min-width: 0; min-height: 62px; border: 0; border-top: 1px solid #e2e2df; border-left: 1px solid #e2e2df; }
+.booking-batch-calendar .days > :nth-child(7n) { border-right: 1px solid #e2e2df; }
+.booking-batch-calendar .days > :nth-last-child(-n+7) { border-bottom: 1px solid #e2e2df; }
+.booking-batch-calendar .days > span { background: #fafaf9; }
+.booking-batch-calendar .days > button { display: flex; align-items: flex-start; justify-content: space-between; flex-direction: column; padding: 8px; background: #fff; text-align: left; }
+.booking-batch-calendar .days > button:hover { background: #f1f1ef; }
+.booking-batch-calendar .days > button.selected { background: #111; color: #fff; }
+.booking-batch-calendar .days button b { font-size: 12px; }
+.booking-batch-calendar .days button small { color: #888; font-size: 8px; font-weight: 700; }
+.booking-batch-calendar .days button.selected small { color: #bbb; }
+.booking-batch-config { display: grid; align-content: start; gap: 18px; min-width: 0; padding: 24px; }
+.booking-batch-config fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.booking-batch-config legend { margin-bottom: 10px; font-size: 11px; font-weight: 850; }
+.booking-time-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.booking-time-presets button { display: grid; justify-items: start; gap: 3px; min-width: 0; min-height: 52px; padding: 9px 10px; text-align: left; }
+.booking-time-presets button.active { border-color: #111; background: #111; color: #fff; }
+.booking-time-presets b { font-size: 10px; white-space: nowrap; }
+.booking-time-presets small { color: #888; font-size: 8px; }
+.booking-time-presets button.active small { color: #bbb; }
+.booking-time-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 8px; margin-top: 9px; }
+.booking-time-inputs label { display: grid; gap: 5px; color: #777; font-size: 9px; font-weight: 800; }
+.booking-time-inputs input { width: 100%; min-width: 0; }
+.booking-time-inputs > span { padding-bottom: 11px; color: #888; }
+.booking-batch-stations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.booking-batch-stations label { position: relative; display: grid; gap: 3px; min-width: 0; padding: 11px 12px 11px 34px; border: 1px solid #ccc; cursor: pointer; }
+.booking-batch-stations label.selected { border-color: #111; background: #111; color: #fff; }
+.booking-batch-stations input { position: absolute; top: 13px; left: 12px; width: 12px; min-height: 12px; accent-color: #111; }
+.booking-batch-stations span { color: #888; font-size: 8px; font-weight: 800; }
+.booking-batch-stations label.selected span { color: #bbb; }
+.booking-batch-stations b { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.booking-batch-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 14px; background: #f1f1ef; }
+.booking-batch-summary p { margin: 0; color: #666; font-size: 10px; }
+.booking-batch-summary > strong { grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: 16px; }
+.booking-batch-summary > small { color: #777; font-size: 9px; }
+.booking-batch-submit { width: 100%; min-height: 48px !important; }
 .booking-admin-tools { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin-top: 22px; }
+.booking-admin-tools.single { grid-template-columns: 1fr; }
 .booking-admin-tools form { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 18px; border: 1px solid #d3d3d0; background: #fff; }
 .booking-admin-tools form > div { margin-right: auto; }
 .booking-admin-tools strong, .booking-admin-tools small { display: block; }
@@ -1467,6 +1518,8 @@ a {
   .member-kpi-grid article:nth-child(-n+2) { border-bottom: 1px solid #d4d4d0; }
   .member-schedule-layout { grid-template-columns: 1fr; }
   .booking-admin-tools, .booking-admin-split { grid-template-columns: 1fr; }
+  .booking-batch-layout { grid-template-columns: 1fr; }
+  .booking-batch-calendar { border-right: 0; border-bottom: 1px solid #dededb; }
   .booking-admin-candidate form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -1516,6 +1569,18 @@ a {
   .booking-admin-actions { grid-column: 1 / -1; justify-content: start; max-width: none; }
   .booking-admin-tools form { align-items: stretch; flex-direction: column; }
   .booking-admin-tools fieldset { margin: 4px 0; }
+  .booking-batch-builder > header { padding: 20px 16px; }
+  .booking-batch-builder > header h2 { font-size: 22px; }
+  .booking-batch-quick { align-items: flex-start; flex-direction: column; padding: 12px 16px; }
+  .booking-batch-quick > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .booking-batch-calendar, .booking-batch-config { padding: 16px; }
+  .booking-batch-calendar .days > span, .booking-batch-calendar .days > button { min-height: 54px; }
+  .booking-batch-calendar .days > button { padding: 6px; }
+  .booking-time-presets { grid-template-columns: 1fr; }
+  .booking-time-presets button { align-items: center; grid-template-columns: 1fr auto; min-height: 42px; }
+  .booking-batch-stations { grid-template-columns: 1fr; }
+  .booking-batch-summary { grid-template-columns: 1fr; }
+  .booking-batch-summary > strong { grid-row: auto; grid-column: auto; }
   .booking-admin-stations form { grid-template-columns: 1fr; }
   .booking-admin-schedule section > div { grid-template-columns: 1fr; }
   .booking-admin-member-list article, .booking-admin-table article { align-items: stretch; flex-direction: column; }
@@ -1535,6 +1600,10 @@ a {
   .booking-admin-kpis article { padding: 16px; }
   .booking-admin-request { grid-template-columns: 1fr; }
   .booking-admin-actions { grid-column: auto; }
+  .booking-batch-builder > header > strong { min-width: 54px; font-size: 27px; }
+  .booking-batch-calendar, .booking-batch-config { padding: 12px; }
+  .booking-batch-calendar .days > span, .booking-batch-calendar .days > button { min-height: 48px; }
+  .booking-batch-calendar .days button small { font-size: 7px; }
 }
 
 /* Public course opening embed and private administration */

@@ -80,7 +80,7 @@ export function BookingAdmin({ notify }: { notify: (message: { kind: "ok" | "err
       <div className="booking-admin-kpis"><article><span>상담 대기</span><strong>{consultations}</strong></article><article><span>예약 요청</span><strong>{pending}</strong></article><article><span>확정 예약</span><strong>{confirmed}</strong></article><article><span>운영 슬롯</span><strong>{data.slots.length}</strong></article></div>
       <nav className="booking-admin-tabs" aria-label="예약 운영 메뉴">{tabs.map(([key, label]) => <button type="button" key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}{key === "requests" && pending ? <b>{pending}</b> : null}</button>)}</nav>
       {tab === "requests" && <ReservationRequests data={data} busy={busy} act={act} />}
-      {tab === "schedule" && <ScheduleAdmin data={data} month={month} busy={busy} act={act} />}
+      {tab === "schedule" && <ScheduleAdmin key={month} data={data} month={month} busy={busy} act={act} />}
       {tab === "members" && <MemberAdmin data={data} month={month} busy={busy} act={act} />}
       {tab === "payments" && <PaymentAdmin data={data} busy={busy} act={act} />}
       {tab === "growth" && <GrowthAdmin data={data} busy={busy} act={act} />}
@@ -102,6 +102,14 @@ function ReservationRequests({ data, busy, act }: AdminProps) {
 }
 
 function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string }) {
+  const monthDates = useMemo(() => datesInMonth(month), [month]);
+  const firstWeekday = monthDates.length ? utcWeekday(monthDates[0]) : 0;
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(() => new Set());
+  const [selectedStations, setSelectedStations] = useState<Set<number>>(
+    () => new Set(data.stations.filter((station) => station.active).map((station) => station.id)),
+  );
+  const [startTime, setStartTime] = useState(data.bookingTimes[0]?.start ?? "09:00");
+  const [endTime, setEndTime] = useState(data.bookingTimes[0]?.end ?? "11:30");
   const groups = useMemo(() => {
     const grouped = new Map<string, Slot[]>();
     data.slots.forEach((slot) => {
@@ -110,10 +118,59 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
     });
     return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [data.slots]);
+  const slotCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    data.slots.forEach((slot) => {
+      const date = slot.startAt.slice(0, 10);
+      counts.set(date, (counts.get(date) ?? 0) + 1);
+    });
+    return counts;
+  }, [data.slots]);
+
+  function toggleDateSelection(date: string) {
+    setSelectedDates((current) => {
+      const next = new Set(current);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
+
+  function selectDatePattern(pattern: "ALL" | "WEEKDAY" | "WEEKEND" | "CLEAR") {
+    if (pattern === "CLEAR") return setSelectedDates(new Set());
+    setSelectedDates(new Set(monthDates.filter((date) => {
+      const weekday = utcWeekday(date);
+      if (pattern === "WEEKDAY") return weekday >= 1 && weekday <= 5;
+      if (pattern === "WEEKEND") return weekday === 0 || weekday === 6;
+      return true;
+    })));
+  }
+
+  function toggleStationSelection(stationId: number) {
+    setSelectedStations((current) => {
+      const next = new Set(current);
+      if (next.has(stationId)) next.delete(stationId);
+      else next.add(stationId);
+      return next;
+    });
+  }
+
+  function applyTimePreset(start: string, end: string) {
+    setStartTime(start);
+    setEndTime(end);
+  }
+
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const values = new FormData(event.currentTarget);
-    await act({ action: "generateSlots", month, weekdays: values.getAll("weekdays").map(Number), timeKeys: data.bookingTimes.map((time) => time.key), stationIds: data.stations.filter((station) => station.active).map((station) => station.id) }, "기본 운영 스케줄을 생성했습니다.");
+    if (!selectedDates.size) return void window.alert("일정을 생성할 날짜를 선택해 주세요.");
+    if (!selectedStations.size) return void window.alert("예약을 받을 스테이션을 선택해 주세요.");
+    await act({
+      action: "generateSlots",
+      month,
+      dates: [...selectedDates].sort(),
+      times: [{ start: startTime, end: endTime }],
+      stationIds: [...selectedStations],
+    }, "선택한 날짜에 예약 가능 일정을 생성했습니다. 중복되거나 겹치는 시간은 자동으로 제외했습니다.");
   }
   async function copy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -140,7 +197,43 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
   function toggleStation(station: Station) {
     void act({ action: "saveStation", id: station.id, type: station.type, name: station.name, displayOrder: station.displayOrder, active: !Boolean(station.active) }, station.active ? "스테이션을 운영 중지했습니다." : "스테이션을 다시 활성화했습니다.");
   }
-  return <><div className="booking-admin-tools"><form onSubmit={generate}><div><strong>월 기본 스케줄 생성</strong><small>활성 스테이션에 3개 기본 타임을 생성합니다.</small></div><fieldset>{[[1,"월"],[2,"화"],[3,"수"],[4,"목"],[5,"금"],[6,"토"],[0,"일"]].map(([value,label]) => <label key={value}><input type="checkbox" name="weekdays" value={value} defaultChecked={Number(value) >= 1 && Number(value) <= 5} />{label}</label>)}</fieldset><button className="solid" disabled={busy}>생성</button></form><form onSubmit={copy}><div><strong>하루 스케줄 복사</strong><small>차단 상태와 사유도 함께 복사합니다.</small></div><input name="sourceDate" type="date" required /><span>→</span><input name="targetDate" type="date" required /><button disabled={busy}>복사</button></form></div><section className="booking-admin-stations"><div><strong>스테이션 관리</strong><span>같은 유형의 장비를 여러 대 등록할 수 있습니다.</span></div><form onSubmit={createStation}><select name="type" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option></select><input name="name" required maxLength={80} placeholder="예: 에스프레소 Station 2" /><input name="displayOrder" type="number" min="0" defaultValue="0" aria-label="표시 순서" /><button className="solid" disabled={busy}>추가</button></form><div>{data.stations.map((station) => <button type="button" key={station.id} className={station.active ? "active" : ""} onClick={() => toggleStation(station)} disabled={busy}><b>{station.name}</b><small>{station.active ? "운영 중 · 클릭하여 중지" : "운영 중지 · 클릭하여 활성화"}</small></button>)}</div></section><div className="booking-admin-schedule">{groups.length ? groups.map(([date, slots]) => <section key={date}><header><strong>{fullDate(date)}</strong><div><span>{slots.length}개 슬롯</span><button type="button" disabled={busy || slots.some((slot) => Boolean(slot.hasConfirmed))} onClick={() => toggleDate(date, slots)}>{slots.every((slot) => slot.status === "BLOCKED") ? "날짜 열기" : "날짜 차단"}</button></div></header><div>{slots.map((slot) => <article key={slot.id} className={slot.status === "BLOCKED" ? "blocked" : slot.hasConfirmed ? "confirmed" : ""}><span>{slot.startAt.slice(11,16)}–{slot.endAt.slice(11,16)}</span><strong>{slot.stationName}</strong><small>{slot.status === "BLOCKED" ? slot.blockReason || "이용 불가" : slot.hasConfirmed ? "예약 확정" : slot.requestCount ? `요청 ${slot.requestCount}건` : "예약 가능"}</small><button type="button" disabled={busy || Boolean(slot.hasConfirmed)} onClick={() => toggle(slot)}>{slot.status === "BLOCKED" ? "차단 해제" : "차단"}</button></article>)}</div></section>) : <Empty>생성된 스케줄이 없습니다. 위에서 운영 요일을 선택해 생성하세요.</Empty>}</div></>;
+  const calendarCells: Array<string | null> = [...Array.from({ length: firstWeekday }, () => null), ...monthDates];
+  const activeStations = data.stations.filter((station) => station.active);
+  const totalToCreate = selectedDates.size * selectedStations.size;
+  return <>
+    <form className="booking-batch-builder" onSubmit={generate}>
+      <header>
+        <div><span>MONTHLY BATCH</span><h2>월간 일정 일괄 생성</h2><p>날짜를 여러 개 고른 뒤 동일한 시간대의 예약 가능 일정을 한 번에 만듭니다.</p></div>
+        <strong>{selectedDates.size}<small>일 선택</small></strong>
+      </header>
+      <div className="booking-batch-quick">
+        <span>빠른 날짜 선택</span>
+        <div><button type="button" onClick={() => selectDatePattern("WEEKDAY")}>평일 전체</button><button type="button" onClick={() => selectDatePattern("WEEKEND")}>주말 전체</button><button type="button" onClick={() => selectDatePattern("ALL")}>이달 전체</button><button type="button" onClick={() => selectDatePattern("CLEAR")}>선택 해제</button></div>
+      </div>
+      <div className="booking-batch-layout">
+        <section className="booking-batch-calendar" aria-label={`${month} 일정 선택 달력`}>
+          <div className="weekdays">{["일","월","화","수","목","금","토"].map((day) => <span key={day}>{day}</span>)}</div>
+          <div className="days">{calendarCells.map((date, index) => date ? <button type="button" key={date} className={selectedDates.has(date) ? "selected" : ""} aria-pressed={selectedDates.has(date)} onClick={() => toggleDateSelection(date)}><b>{Number(date.slice(8))}</b>{slotCounts.has(date) && <small>기존 {slotCounts.get(date)}</small>}</button> : <span key={`empty-${index}`} />)}</div>
+        </section>
+        <section className="booking-batch-config">
+          <fieldset>
+            <legend>1. 시간대 선택</legend>
+            <div className="booking-time-presets">{data.bookingTimes.map((time) => <button type="button" key={time.key} className={startTime === time.start && endTime === time.end ? "active" : ""} onClick={() => applyTimePreset(time.start, time.end)}><b>{time.start}–{time.end}</b><small>{time.key === "MORNING" ? "오전" : time.key === "MIDDAY" ? "낮" : "오후"}</small></button>)}</div>
+            <div className="booking-time-inputs"><label>시작<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required /></label><span>→</span><label>종료<input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required /></label></div>
+          </fieldset>
+          <fieldset>
+            <legend>2. 스테이션 선택</legend>
+            <div className="booking-batch-stations">{activeStations.map((station) => <label key={station.id} className={selectedStations.has(station.id) ? "selected" : ""}><input type="checkbox" checked={selectedStations.has(station.id)} onChange={() => toggleStationSelection(station.id)} /><span>{stationLabel[station.type] ?? station.type}</span><b>{station.name}</b></label>)}</div>
+          </fieldset>
+          <div className="booking-batch-summary"><p><b>{selectedDates.size}일</b> × <b>{selectedStations.size}개 스테이션</b></p><strong>최대 {totalToCreate}개 일정</strong><small>이미 등록됐거나 기존 일정과 겹치는 시간은 생성하지 않습니다.</small></div>
+          <button className="solid booking-batch-submit" disabled={busy || !selectedDates.size || !selectedStations.size}>{busy ? "생성 중…" : "선택 일정 일괄 생성"}</button>
+        </section>
+      </div>
+    </form>
+    <div className="booking-admin-tools single"><form onSubmit={copy}><div><strong>하루 스케줄 복사</strong><small>특정 날짜의 스케줄과 차단 상태를 다른 날짜로 복사합니다.</small></div><input name="sourceDate" type="date" required /><span>→</span><input name="targetDate" type="date" required /><button disabled={busy}>복사</button></form></div>
+    <section className="booking-admin-stations"><div><strong>스테이션 관리</strong><span>같은 유형의 장비를 여러 대 등록할 수 있습니다.</span></div><form onSubmit={createStation}><select name="type" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option></select><input name="name" required maxLength={80} placeholder="예: 에스프레소 Station 2" /><input name="displayOrder" type="number" min="0" defaultValue="0" aria-label="표시 순서" /><button className="solid" disabled={busy}>추가</button></form><div>{data.stations.map((station) => <button type="button" key={station.id} className={station.active ? "active" : ""} onClick={() => toggleStation(station)} disabled={busy}><b>{station.name}</b><small>{station.active ? "운영 중 · 클릭하여 중지" : "운영 중지 · 클릭하여 활성화"}</small></button>)}</div></section>
+    <div className="booking-admin-schedule">{groups.length ? groups.map(([date, slots]) => <section key={date}><header><strong>{fullDate(date)}</strong><div><span>{slots.length}개 슬롯</span><button type="button" disabled={busy || slots.some((slot) => Boolean(slot.hasConfirmed))} onClick={() => toggleDate(date, slots)}>{slots.every((slot) => slot.status === "BLOCKED") ? "날짜 열기" : "날짜 차단"}</button></div></header><div>{slots.map((slot) => <article key={slot.id} className={slot.status === "BLOCKED" ? "blocked" : slot.hasConfirmed ? "confirmed" : ""}><span>{slot.startAt.slice(11,16)}–{slot.endAt.slice(11,16)}</span><strong>{slot.stationName}</strong><small>{slot.status === "BLOCKED" ? slot.blockReason || "이용 불가" : slot.hasConfirmed ? "예약 확정" : slot.requestCount ? `요청 ${slot.requestCount}건` : "예약 가능"}</small><button type="button" disabled={busy || Boolean(slot.hasConfirmed)} onClick={() => toggle(slot)}>{slot.status === "BLOCKED" ? "차단 해제" : "차단"}</button></article>)}</div></section>) : <Empty>생성된 스케줄이 없습니다. 위에서 날짜와 시간대를 선택해 일괄 생성하세요.</Empty>}</div>
+  </>;
 }
 
 function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string }) {
@@ -194,6 +287,15 @@ type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<st
 function Empty({ children }: { children: React.ReactNode }) { return <div className="booking-admin-empty">{children}</div>; }
 function rank(status: string) { return ["REQUESTED", "CONFIRMED", "COMPLETED", "NO_SHOW", "REJECTED", "CANCELLED"].indexOf(status); }
 function koreanMonth() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7); }
+function datesInMonth(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  return Array.from({ length: lastDay }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
+}
+function utcWeekday(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
 function dateTime(value: string) { return `${value.slice(5, 10).replace("-", ".")} ${value.slice(11, 16)}`; }
 function fullDate(date: string) { const parts = date.split("-"); return `${Number(parts[1])}월 ${Number(parts[2])}일 ${["일","월","화","수","목","금","토"][new Date(`${date}T00:00:00+09:00`).getDay()]}요일`; }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : "요청을 처리하지 못했습니다."; }
