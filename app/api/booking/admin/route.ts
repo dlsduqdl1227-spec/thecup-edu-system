@@ -7,6 +7,7 @@ import {
   getBookingTime,
   isFutureSlot,
   nonNegativeBookingInteger,
+  normalizeMemberLoginId,
   optionalBookingText,
   positiveBookingInteger,
   slotDate,
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     const db = getD1();
     const [members, stations, slots, reservations, passes, payments, feedback, evaluations, candidates, settings] = await Promise.all([
       db.prepare(
-        `SELECT id, name, phone_last4 AS phoneLast4, approval_status AS approvalStatus,
+        `SELECT id, login_id AS loginId, name, phone_last4 AS phoneLast4, approval_status AS approvalStatus,
                 consultation_status AS consultationStatus, desired_station_type AS desiredStationType,
                 consultation_memo AS consultationMemo, admin_memo AS adminMemo,
                 approved_at AS approvedAt, created_at AS createdAt
@@ -143,6 +144,7 @@ export async function POST(request: Request) {
     const payload = (await request.json()) as Record<string, unknown>;
     const action = bookingText(payload.action, "작업", 50);
     if (action === "approveMember") return approveMember(actor.id, payload);
+    if (action === "setMemberLoginId") return setMemberLoginId(actor.id, payload);
     if (action === "saveStation") return saveStation(actor.id, payload);
     if (action === "generateSlots") return generateSlots(actor.id, payload);
     if (action === "copyDate") return copyDate(actor.id, payload);
@@ -168,11 +170,13 @@ async function approveMember(actorId: number, payload: Record<string, unknown>) 
   const result = await getD1()
     .prepare(
       `UPDATE booking_members SET approval_status = ?, consultation_status = 'COMPLETED',
+              login_id = CASE WHEN ? AND (login_id IS NULL OR login_id = '')
+                              THEN 'CUP' || printf('%05d', id) ELSE login_id END,
               admin_memo = ?, approved_by = ?, approved_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE approved_at END,
               updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
     )
-    .bind(approved ? "APPROVED" : "REVOKED", adminMemo, actorId, approved ? 1 : 0, memberId)
+    .bind(approved ? "APPROVED" : "REVOKED", approved ? 1 : 0, adminMemo, actorId, approved ? 1 : 0, memberId)
     .run();
   if (!Number(result.meta.changes)) throw new Error("회원을 찾을 수 없습니다.");
   if (!approved) {
@@ -180,6 +184,27 @@ async function approveMember(actorId: number, payload: Record<string, unknown>) 
   }
   await audit(actorId, "approve_booking_member", "booking_member", String(memberId), approved ? "회원 승인" : "권한 회수");
   return Response.json({ ok: true });
+}
+
+async function setMemberLoginId(actorId: number, payload: Record<string, unknown>) {
+  const memberId = positiveBookingInteger(payload.memberId, "회원");
+  const loginId = normalizeMemberLoginId(payload.loginId);
+  try {
+    const result = await getD1()
+      .prepare(
+        `UPDATE booking_members SET login_id = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND approval_status = 'APPROVED'`,
+      )
+      .bind(loginId, memberId)
+      .run();
+    if (!Number(result.meta.changes)) throw new Error("승인된 회원을 찾을 수 없습니다.");
+  } catch (error) {
+    if (String(error).includes("UNIQUE")) throw new AuthError("이미 사용 중인 수강생 ID입니다.", 409);
+    throw error;
+  }
+  await getD1().prepare("DELETE FROM member_sessions WHERE member_id = ?").bind(memberId).run();
+  await audit(actorId, "update_member_login_id", "booking_member", String(memberId), loginId);
+  return Response.json({ ok: true, loginId });
 }
 
 async function saveStation(actorId: number, payload: Record<string, unknown>) {

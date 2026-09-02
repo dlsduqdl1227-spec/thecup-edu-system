@@ -92,6 +92,13 @@
       "when": 1788323581180,
       "tag": "0012_premium_may_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1788325397989,
+      "tag": "0013_bitter_forge",
+      "breakpoints": true
     }
   ]
 }

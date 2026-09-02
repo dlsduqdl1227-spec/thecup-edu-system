@@ -40,8 +40,10 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /수업 사용 기록/);
   assert.match(app, /로스팅 프로파일/);
   assert.match(app, /예약 운영/);
-  assert.match(bookingPortal, /상담 후 승인된 회원만 스케줄을 확인/);
-  assert.match(bookingPortal, /member-calendar/);
+  assert.match(bookingPortal, /수업 예정자/);
+  assert.match(bookingPortal, /수강생 로그인/);
+  assert.match(bookingPortal, /운영자 로그인/);
+  assert.match(bookingPortal, /portal-calendar/);
   assert.match(app, /복사해서 새로 만들기/);
   assert.match(app, /프로파일 복사본 만들기/);
   assert.match(app, /mode === "edit" \? "PATCH" : "POST"/);

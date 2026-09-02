@@ -31,6 +31,7 @@ export const appSettings = sqliteTable("app_settings", {
 
 export const bookingMembers = sqliteTable("booking_members", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  loginId: text("login_id").unique(),
   name: text("name").notNull(),
   phoneHash: text("phone_hash").notNull().unique(),
   phoneLast4: text("phone_last4").notNull(),

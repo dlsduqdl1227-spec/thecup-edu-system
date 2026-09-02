@@ -6,6 +6,7 @@ import {
   bookingDateTime,
   bookingMonthRange,
   getBookingTime,
+  normalizeMemberLoginId,
   validateBookingMonth,
 } from "../lib/booking.ts";
 
@@ -21,6 +22,8 @@ test("booking month and the three fixed operating times are validated", () => {
   assert.equal(getBookingTime("MORNING").start, "09:00");
   assert.equal(getBookingTime("AFTERNOON").end, "17:30");
   assert.equal(bookingDateTime("2026-09-02", "12:00"), "2026-09-02T12:00:00+09:00");
+  assert.equal(normalizeMemberLoginId(" cup-1001 "), "CUP-1001");
+  assert.throws(() => normalizeMemberLoginId("한글아이디"));
 });
 
 test("reservation storage enforces passes and concurrent confirmation conflicts", async () => {
@@ -45,12 +48,16 @@ test("reservation storage enforces passes and concurrent confirmation conflicts"
   assert.match(adminRoute, /다른 관리자가 먼저 처리/);
 });
 
-test("public consultation, member privacy and admin authorization stay separated", async () => {
-  const [consultation, memberAuth, memberRoute, adminRoute, worker, portal, admin, styles] = await Promise.all([
+test("three audience paths, public availability and private member data stay separated", async () => {
+  const [consultation, availability, loginRoute, memberAuth, memberRoute, adminRoute, database, loginMigration, worker, portal, admin, styles] = await Promise.all([
     readFile(new URL("app/api/booking/public/consultations/route.ts", root), "utf8"),
+    readFile(new URL("app/api/booking/public/availability/route.ts", root), "utf8"),
+    readFile(new URL("app/api/member-auth/login/route.ts", root), "utf8"),
     readFile(new URL("lib/member-auth.ts", root), "utf8"),
     readFile(new URL("app/api/booking/member/route.ts", root), "utf8"),
     readFile(new URL("app/api/booking/admin/route.ts", root), "utf8"),
+    readFile(new URL("lib/db.ts", root), "utf8"),
+    readFile(new URL("drizzle/0013_bitter_forge.sql", root), "utf8"),
     readFile(new URL("worker/index.ts", root), "utf8"),
     readFile(new URL("app/components/BookingPortal.tsx", root), "utf8"),
     readFile(new URL("app/components/BookingAdmin.tsx", root), "utf8"),
@@ -59,19 +66,35 @@ test("public consultation, member privacy and admin authorization stay separated
   assert.match(consultation, /MAX_REQUESTS = 3/);
   assert.match(consultation, /phoneHash/);
   assert.match(consultation, /Cache-Control.*public, max-age=30/s);
+  assert.match(availability, /NOT EXISTS/);
+  assert.match(availability, /r\.status = 'CONFIRMED'/);
+  assert.match(availability, /Cache-Control.*public, max-age=30/s);
+  assert.doesNotMatch(availability, /memberName|phone|email|memo|member_id/);
+  assert.match(loginRoute, /login_id = \? AND phone_hash = \?/);
+  assert.doesNotMatch(loginRoute, /WHERE name = \?/);
   assert.match(memberAuth, /approval_status = 'APPROVED'/);
+  assert.match(memberAuth, /login_id AS loginId/);
   assert.match(memberAuth, /HttpOnly; SameSite=Strict/);
   assert.match(memberRoute, /requireMember\(request\)/);
   assert.match(memberRoute, /WHERE r\.member_id = \?/);
   assert.doesNotMatch(memberRoute, /phone_last4|phone_hash|consultation_memo/);
   assert.match(adminRoute, /requireUser\(request, \["admin"\]\)/);
   assert.match(adminRoute, /saveCandidate/);
+  assert.match(adminRoute, /setMemberLoginId/);
+  assert.match(database, /ensureBookingMemberLoginIds/);
+  assert.match(database, /CUP\$\{String\(member\.id\)\.padStart/);
+  assert.match(loginMigration, /ADD `login_id` text/);
+  assert.match(loginMigration, /UNIQUE INDEX/);
   assert.match(worker, /X-Content-Type-Options/);
   assert.match(worker, /Permissions-Policy/);
-  assert.match(portal, /상담 신청/);
-  assert.match(portal, /승인 회원 로그인/);
-  assert.match(portal, /관리자 승인 후 예약이 확정/);
+  assert.match(portal, /수업 예정자/);
+  assert.match(portal, /수강생 ID/);
+  assert.match(portal, /운영자 로그인/);
+  assert.match(portal, /api\/booking\/public\/availability/);
+  assert.match(portal, /예약은 운영자 승인 후 확정/);
   assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);
-  assert.match(styles, /@media \(max-width: 390px\)/);
-  assert.match(styles, /\.member-mobile-nav/);
+  assert.match(styles, /Reservation portal v2/);
+  assert.match(styles, /\.portal-mobile-nav/);
+  assert.match(styles, /@media \(max-width: 380px\)/);
+  assert.match(styles, /background: #fff/);
 });

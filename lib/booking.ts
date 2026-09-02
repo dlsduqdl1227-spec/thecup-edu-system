@@ -15,9 +15,18 @@ export type ReservationStatus =
 
 export type MemberSession = {
   id: number;
+  loginId: string;
   name: string;
   approvalStatus: "APPROVED";
 };
+
+export function normalizeMemberLoginId(value: unknown): string {
+  const loginId = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (!/^[A-Z0-9-]{4,20}$/.test(loginId)) {
+    throw new Error("수강생 ID는 영문 대문자, 숫자, 하이픈 4~20자로 입력해 주세요.");
+  }
+  return loginId;
+}
 
 export function validateBookingMonth(value: unknown): string {
   const month = typeof value === "string" ? value.trim() : "";

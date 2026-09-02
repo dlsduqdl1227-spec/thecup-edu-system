@@ -28,7 +28,7 @@ export async function getMemberSession(request: Request): Promise<MemberSession 
   if (!token) return null;
   const row = await getD1()
     .prepare(
-      `SELECT m.id, m.name, m.approval_status AS approvalStatus
+      `SELECT m.id, m.login_id AS loginId, m.name, m.approval_status AS approvalStatus
        FROM member_sessions s
        JOIN booking_members m ON m.id = s.member_id
        WHERE s.token_hash = ? AND s.expires_at > ?

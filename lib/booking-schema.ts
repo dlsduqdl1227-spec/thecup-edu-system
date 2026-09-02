@@ -1,6 +1,7 @@
 export const bookingSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS booking_members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login_id TEXT,
     name TEXT NOT NULL,
     phone_hash TEXT NOT NULL UNIQUE,
     phone_last4 TEXT NOT NULL,
