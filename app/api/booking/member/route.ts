@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     const month = validateBookingMonth(url.searchParams.get("month") ?? currentKoreanMonth());
     const range = bookingMonthRange(month);
     const db = getD1();
-    const [slotsResult, reservationsResult, passesResult, paymentsResult, feedbackResult, practiceResult, evaluationsResult, settingsResult] = await Promise.all([
+    const [slotsResult, reservationsResult, paymentsResult, feedbackResult, practiceResult, evaluationsResult, settingsResult] = await Promise.all([
       db
         .prepare(
           `SELECT sl.id, sl.station_id AS stationId, st.type AS stationType,
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
         .all<SlotRow>(),
       db
         .prepare(
-          `SELECT r.id, r.slot_id AS slotId, r.pass_id AS passId, r.status, r.purpose,
+          `SELECT r.id, r.slot_id AS slotId, r.status, r.purpose,
                   r.material_plan AS materialPlan, r.open_to_peer_practice AS openToPeerPractice,
                   r.user_memo AS userMemo, r.admin_memo AS adminMemo,
                   r.rejection_reason AS rejectionReason, r.created_at AS createdAt,
@@ -72,16 +72,7 @@ export async function GET(request: Request) {
         .all(),
       db
         .prepare(
-          `SELECT id, type, valid_month AS validMonth, price, status,
-                  max_active_bookings AS maxActiveBookings, created_at AS createdAt
-           FROM member_passes WHERE member_id = ?
-           ORDER BY valid_month DESC, id DESC`,
-        )
-        .bind(member.id)
-        .all(),
-      db
-        .prepare(
-          `SELECT id, reservation_id AS reservationId, pass_id AS passId,
+          `SELECT id, reservation_id AS reservationId,
                   amount, method, status, paid_at AS paidAt, created_at AS createdAt
            FROM booking_payments WHERE member_id = ? ORDER BY id DESC`,
         )
@@ -115,7 +106,7 @@ export async function GET(request: Request) {
       db
         .prepare(
           `SELECT key, value FROM app_settings
-           WHERE key IN ('booking_daily_price','booking_monthly_price','booking_cancel_hours','booking_max_active_bookings')`,
+           WHERE key = 'booking_cancel_hours'`,
         )
         .all<{ key: string; value: string }>(),
     ]);
@@ -143,18 +134,12 @@ export async function GET(request: Request) {
       month,
       slots,
       reservations: reservationsResult.results,
-      passes: passesResult.results,
       payments: paymentsResult.results,
       feedback: feedbackResult.results,
       practiceLogs: practiceResult.results,
       evaluations: evaluationsResult.results,
       settings: {
-        dailyPrice: Number(settings.booking_daily_price ?? 50000),
-        monthlyPrice: Number(settings.booking_monthly_price ?? 500000),
         cancelHours: Number(settings.booking_cancel_hours ?? 24),
-        maxActiveBookings: settings.booking_max_active_bookings === ""
-          ? null
-          : Number(settings.booking_max_active_bookings),
       },
     });
   } catch (error) {
@@ -183,7 +168,8 @@ export async function POST(request: Request) {
 async function requestReservation(memberId: number, payload: Record<string, unknown>) {
   const slotId = positiveBookingInteger(payload.slotId, "예약 시간");
   const purpose = bookingText(payload.purpose, "실습 목적", 40);
-  const materialPlan = bookingText(payload.materialPlan, "재료 준비", 40);
+  const materialPlan = bookingText(payload.materialPlan, "재료 사용", 40).toUpperCase();
+  if (!["SELF", "CENTER"].includes(materialPlan)) throw new Error("재료 사용 방식을 선택해 주세요.");
   const userMemo = optionalBookingText(payload.userMemo, 500);
   const db = getD1();
   const slot = await db
@@ -197,15 +183,7 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
   if (!slot || slot.status !== "OPEN" || !Number(slot.active) || !isFutureSlot(slot.startAt)) {
     throw new AuthError("현재 예약할 수 없는 시간입니다.", 409);
   }
-  const pass = await db
-    .prepare(
-      `SELECT id, type FROM member_passes
-       WHERE member_id = ? AND valid_month = ? AND status = 'ACTIVE'
-       ORDER BY CASE type WHEN 'MONTHLY' THEN 0 ELSE 1 END, id DESC LIMIT 1`,
-    )
-    .bind(memberId, slotMonth(slot.startAt))
-    .first<{ id: number; type: "DAILY" | "MONTHLY" }>();
-  if (!pass) throw new AuthError("해당 월에 사용할 수 있는 이용권이 없습니다.", 409);
+  const passId = await ensureReservationPass(db, memberId, slotMonth(slot.startAt));
   const duplicate = await db
     .prepare(
       `SELECT 1 FROM reservations
@@ -225,7 +203,7 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
       .bind(
         memberId,
         slotId,
-        pass.id,
+        passId,
         slot.startAt,
         purpose,
         materialPlan,
@@ -240,6 +218,54 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
     if (String(error).includes("UNIQUE")) throw new AuthError("이미 접수된 예약 요청입니다.", 409);
     throw error;
   }
+}
+
+async function ensureReservationPass(db: D1Database, memberId: number, month: string): Promise<number> {
+  const existing = await db
+    .prepare(
+      `SELECT id FROM member_passes
+       WHERE member_id = ? AND valid_month = ? AND status = 'ACTIVE'
+       ORDER BY id DESC LIMIT 1`,
+    )
+    .bind(memberId, month)
+    .first<{ id: number }>();
+  if (existing) return existing.id;
+
+  const member = await db
+    .prepare(
+      `SELECT approved_by AS approvedBy FROM booking_members
+       WHERE id = ? AND approval_status = 'APPROVED' AND deleted_at IS NULL`,
+    )
+    .bind(memberId)
+    .first<{ approvedBy: number | null }>();
+  const fallbackAdmin = member?.approvedBy ? null : await db
+    .prepare("SELECT id FROM staff WHERE role = 'admin' AND active = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1")
+    .first<{ id: number }>();
+  const creatorId = member?.approvedBy ?? fallbackAdmin?.id;
+  if (!member || !creatorId) throw new AuthError("승인된 수강생만 예약할 수 있습니다.", 403);
+
+  await db
+    .prepare(
+      `INSERT INTO member_passes
+        (member_id, type, valid_month, price, status, max_active_bookings, created_by)
+       SELECT ?, 'MONTHLY', ?, 0, 'ACTIVE', NULL, ?
+       WHERE NOT EXISTS (
+         SELECT 1 FROM member_passes
+         WHERE member_id = ? AND valid_month = ? AND status = 'ACTIVE'
+       )`,
+    )
+    .bind(memberId, month, creatorId, memberId, month)
+    .run();
+  const created = await db
+    .prepare(
+      `SELECT id FROM member_passes
+       WHERE member_id = ? AND valid_month = ? AND status = 'ACTIVE'
+       ORDER BY id DESC LIMIT 1`,
+    )
+    .bind(memberId, month)
+    .first<{ id: number }>();
+  if (!created) throw new Error("예약 정보를 준비하지 못했습니다.");
+  return created.id;
 }
 
 async function cancelReservation(memberId: number, payload: Record<string, unknown>) {

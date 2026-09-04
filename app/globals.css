@@ -1505,6 +1505,7 @@ a {
 .booking-admin-schedule article.confirmed { border-left: 3px solid #111; }
 .booking-admin-split { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 16px; margin-top: 22px; }
 .booking-admin-split > section { min-width: 0; padding: 22px; border: 1px solid #d3d3d0; background: #fff; }
+.booking-member-database { min-width: 0; margin-top: 22px; padding: 22px; border: 1px solid #d3d3d0; background: #fff; }
 .booking-admin-section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
 .booking-admin-section-title h2 { margin: 5px 0 0; font-size: 22px; }
 .booking-admin-section-title p { margin: 5px 0 0; color: #666; font-size: 11px; }
@@ -1537,6 +1538,8 @@ a {
 .booking-admin-table b { flex: 0 0 auto; color: #7d5f19; font-size: 10px; }
 .booking-admin-table b.paid { color: #255d35; }
 .booking-admin-table b.refunded { color: #7d2626; }
+.booking-payment-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+.booking-payment-actions button { min-height: 34px; padding: 0 11px; }
 .booking-admin-candidate { margin-top: 16px; padding: 24px; border: 1px solid #d3d3d0; background: #111; color: #fff; }
 .booking-admin-candidate h2 { margin: 5px 0; }
 .booking-admin-candidate p { margin: 0; color: #aaa; font-size: 12px; }

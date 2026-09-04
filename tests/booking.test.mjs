@@ -31,7 +31,7 @@ test("booking month and the three fixed operating times are validated", () => {
   assert.throws(() => validateBookingTimeRange("24:00", "25:00"));
 });
 
-test("reservation storage enforces passes and concurrent confirmation conflicts", async () => {
+test("approved members can reserve without manual passes and confirmation conflicts stay enforced", async () => {
   const [schema, migration, passMigration, adminRoute, memberRoute] = await Promise.all([
     readFile(new URL("lib/booking-schema.ts", root), "utf8"),
     readFile(new URL("drizzle/0011_mute_deathbird.sql", root), "utf8"),
@@ -49,10 +49,13 @@ test("reservation storage enforces passes and concurrent confirmation conflicts"
   assert.doesNotMatch(schema, /스테이션 1/);
   assert.match(schema, /WHERE NOT EXISTS \(SELECT 1 FROM stations WHERE type/);
   assert.match(passMigration, /ADD `pass_id` integer NOT NULL REFERENCES member_passes/);
-  assert.match(memberRoute, /pass\.id/);
-  assert.match(adminRoute, /WHERE id = \? AND member_id = \? AND valid_month = \? AND status = 'ACTIVE'/);
-  assert.match(adminRoute, /월 이용권은 하루에 한 타임만 확정/);
-  assert.match(adminRoute, /WHERE pass_id = \?/);
+  assert.match(memberRoute, /ensureReservationPass/);
+  assert.match(memberRoute, /price, status, max_active_bookings, created_by/);
+  assert.match(memberRoute, /0, 'ACTIVE', NULL/);
+  assert.doesNotMatch(memberRoute, /이용권이 없습니다/);
+  assert.doesNotMatch(adminRoute, /createPass|유효한 이용권|월 이용권은 하루에 한 타임만 확정/);
+  assert.match(adminRoute, /확정 또는 이용 완료된 예약만 결제/);
+  assert.match(adminRoute, /reservation_id = \? AND status = 'PAID'/);
   assert.match(adminRoute, /다른 관리자가 먼저 처리/);
 });
 
@@ -124,6 +127,10 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /input name="name" autoComplete="name"/);
   assert.doesNotMatch(portal, /name="loginId"|CUP00001/);
   assert.doesNotMatch(portal, /portal-evaluation|requestEvaluation/);
+  assert.doesNotMatch(portal, /이용권 없음|이용권 발급/);
+  assert.match(portal, /이용 당일 현장결제/);
+  assert.match(portal, /본인 지참/);
+  assert.match(portal, /센터 재료 사용 · 이용 금액 포함/);
   assert.match(portal, /운영자 로그인/);
   assert.match(portal, /initialShowHome/);
   assert.match(portal, /스테이션 홈/);
@@ -143,6 +150,9 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(admin, /상담·수강생 DB/);
   assert.match(admin, /권한 부여/);
   assert.match(admin, /계정 삭제/);
+  assert.match(admin, /예약별 현장결제/);
+  assert.match(admin, /1회 현장결제 금액/);
+  assert.doesNotMatch(admin, /이용권 발급|월 이용권 가격/);
   assert.match(admin, /로그인 아이디 · \{member\.name\}/);
   assert.doesNotMatch(admin, /ID 변경|setMemberLoginId/);
   assert.match(portal, /예약은 운영자 승인 후 확정/);

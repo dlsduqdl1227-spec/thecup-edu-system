@@ -6,8 +6,7 @@ type Member = { id: number; name: string; phoneLast4: string; approvalStatus: st
 type Station = { id: number; type: string; name: string; active: number; displayOrder: number };
 type Slot = { id: number; stationId: number; startAt: string; endAt: string; status: string; blockReason: string; stationType: string; stationName: string; hasConfirmed: number; requestCount: number };
 type Reservation = { id: number; memberId: number; memberName: string; phoneLast4: string; memberApprovalStatus: string; slotId: number; status: string; purpose: string; materialPlan: string; openToPeerPractice: number; userMemo: string; adminMemo: string; rejectionReason: string; createdAt: string; startAt: string; endAt: string; stationType: string; stationName: string };
-type Pass = { id: number; memberId: number; memberName: string; type: string; validMonth: string; price: number; status: string; maxActiveBookings: number | null };
-type Payment = { id: number; memberId: number; memberName: string; reservationId: number | null; passId: number | null; amount: number; method: string; status: string; paidAt: string | null; createdAt: string };
+type Payment = { id: number; memberId: number; memberName: string; reservationId: number | null; amount: number; method: string; status: string; paidAt: string | null; createdAt: string };
 type Feedback = { id: number; memberId: number; memberName: string; reservationId: number; message: string; status: string; adminReply: string; createdAt: string };
 type Evaluation = { id: number; memberId: number; memberName: string; status: string; technicalScore: number | null; consistencyScore: number | null; sensoryScore: number | null; ruleScore: number | null; ethicsStatus: string; result: string; note: string };
 type Candidate = { id: number; memberId: number; memberName: string; type: string; status: string; conflictNote: string };
@@ -17,18 +16,17 @@ type BookingAdminData = {
   stations: Station[];
   slots: Slot[];
   reservations: Reservation[];
-  passes: Pass[];
   payments: Payment[];
   feedback: Feedback[];
   evaluations: Evaluation[];
   candidates: Candidate[];
   scheduleMonths: string[];
-  settings: { dailyPrice: number; monthlyPrice: number; cancelHours: number; maxActiveBookings: number | null; kakaoChatUrl: string };
+  settings: { reservationPrice: number; cancelHours: number; kakaoChatUrl: string };
   bookingTimes: Array<{ key: string; start: string; end: string }>;
 };
 
 type AdminTab = "requests" | "schedule" | "members" | "payments" | "growth" | "settings";
-const tabs: Array<[AdminTab, string]> = [["requests", "예약 요청"], ["schedule", "스케줄"], ["members", "상담·회원"], ["payments", "이용권·결제"], ["growth", "평가·후보"], ["settings", "운영 설정"]];
+const tabs: Array<[AdminTab, string]> = [["requests", "예약 요청"], ["schedule", "스케줄"], ["members", "상담·회원"], ["payments", "현장 결제"], ["growth", "평가·후보"], ["settings", "운영 설정"]];
 const won = new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 });
 const stationLabel: Record<string, string> = { ESPRESSO: "에스프레소", BREWING: "브루잉", ROASTING: "로스팅" };
 const reservationLabel: Record<string, string> = { REQUESTED: "승인 대기", CONFIRMED: "확정", COMPLETED: "완료", CANCELLED: "취소", REJECTED: "거절", NO_SHOW: "노쇼" };
@@ -111,7 +109,7 @@ export function BookingAdmin({
       <nav className="booking-admin-tabs" aria-label="예약 운영 메뉴">{tabs.map(([key, label]) => <button type="button" key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}{key === "requests" && pending ? <b>{pending}</b> : null}</button>)}</nav>
       {tab === "requests" && <ReservationRequests data={data} busy={busy} act={act} />}
       {tab === "schedule" && <ScheduleAdmin key={month} data={data} month={month} busy={busy} act={act} />}
-      {tab === "members" && <MemberAdmin data={data} month={month} busy={busy} act={act} />}
+      {tab === "members" && <MemberAdmin data={data} busy={busy} act={act} />}
       {tab === "payments" && <PaymentAdmin data={data} busy={busy} act={act} />}
       {tab === "growth" && <GrowthAdmin data={data} busy={busy} act={act} />}
       {tab === "settings" && <SettingsAdmin data={data} busy={busy} act={act} />}
@@ -128,7 +126,7 @@ function ReservationRequests({ data, busy, act }: AdminProps) {
     if (decision === "REJECTED" && !rejectionReason) return;
     void act({ action: "decideReservation", reservationId: row.id, decision, adminMemo, rejectionReason }, `예약을 ${reservationLabel[decision] ?? "처리"}했습니다.`);
   };
-  return <div className="booking-admin-list">{rows.length ? rows.map((row) => <article className={`booking-admin-request status-${row.status.toLowerCase()}`} key={row.id}><div className="booking-admin-request-status"><span>{reservationLabel[row.status] ?? row.status}</span><small>#{row.id}</small></div><div><h2>{dateTime(row.startAt)} · {row.stationName}</h2><p><strong>{row.memberName}</strong> · 전화 끝자리 {row.phoneLast4} · {row.purpose}</p><small>재료 {row.materialPlan === "SELF" ? "직접 준비" : "센터 구매 희망"}{row.openToPeerPractice ? " · 함께 연습 가능" : ""}</small>{row.userMemo && <blockquote>{row.userMemo}</blockquote>}{row.adminMemo && <p className="booking-admin-note">관리자 안내 · {row.adminMemo}</p>}</div><div className="booking-admin-actions">{row.status === "REQUESTED" && <><button disabled={busy} className="solid" onClick={() => decide(row, "CONFIRMED")}>승인</button><button disabled={busy} onClick={() => decide(row, "PROPOSE")}>시간 제안</button><button disabled={busy} className="danger" onClick={() => decide(row, "REJECTED")}>거절</button></>}{row.status === "CONFIRMED" && <><button disabled={busy} className="solid" onClick={() => decide(row, "COMPLETED")}>이용 완료</button><button disabled={busy} onClick={() => decide(row, "NO_SHOW")}>노쇼</button><button disabled={busy} className="danger" onClick={() => decide(row, "CANCELLED")}>예약 취소</button></>}</div></article>) : <Empty>선택한 월의 예약 요청이 없습니다.</Empty>}</div>;
+  return <div className="booking-admin-list">{rows.length ? rows.map((row) => <article className={`booking-admin-request status-${row.status.toLowerCase()}`} key={row.id}><div className="booking-admin-request-status"><span>{reservationLabel[row.status] ?? row.status}</span><small>#{row.id}</small></div><div><h2>{dateTime(row.startAt)} · {row.stationName}</h2><p><strong>{row.memberName}</strong> · 전화 끝자리 {row.phoneLast4} · {row.purpose}</p><small>재료 {row.materialPlan === "SELF" ? "본인 지참" : "센터 재료 사용 · 이용 금액 포함"}{row.openToPeerPractice ? " · 함께 연습 가능" : ""}</small>{row.userMemo && <blockquote>{row.userMemo}</blockquote>}{row.adminMemo && <p className="booking-admin-note">관리자 안내 · {row.adminMemo}</p>}</div><div className="booking-admin-actions">{row.status === "REQUESTED" && <><button disabled={busy} className="solid" onClick={() => decide(row, "CONFIRMED")}>승인</button><button disabled={busy} onClick={() => decide(row, "PROPOSE")}>시간 제안</button><button disabled={busy} className="danger" onClick={() => decide(row, "REJECTED")}>거절</button></>}{row.status === "CONFIRMED" && <><button disabled={busy} className="solid" onClick={() => decide(row, "COMPLETED")}>이용 완료</button><button disabled={busy} onClick={() => decide(row, "NO_SHOW")}>노쇼</button><button disabled={busy} className="danger" onClick={() => decide(row, "CANCELLED")}>예약 취소</button></>}</div></article>) : <Empty>선택한 월의 예약 요청이 없습니다.</Empty>}</div>;
 }
 
 function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string }) {
@@ -266,7 +264,7 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
   </>;
 }
 
-function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string }) {
+function MemberAdmin({ data, busy, act }: AdminProps) {
   const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("ALL");
   const approved = data.members.filter((member) => member.approvalStatus === "APPROVED");
   const pending = data.members.filter((member) => member.approvalStatus === "PENDING");
@@ -287,14 +285,8 @@ function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string })
     if (!window.confirm(`${member.name} 수강생 계정을 삭제할까요?\n로그인은 즉시 차단되며 기존 예약·결제 이력은 보존됩니다.`)) return;
     void act({ action: "deleteMember", memberId: member.id }, "수강생 계정을 삭제했습니다. 기존 운영 이력은 보존됩니다.");
   }
-  async function issue(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = event.currentTarget; const values = Object.fromEntries(new FormData(form).entries());
-    await act({ action: "createPass", ...values, validMonth: month }, "이용권을 발급했습니다."); form.reset();
-  }
   return (
-    <>
-      <div className="booking-admin-split">
-        <section className="booking-member-database">
+    <section className="booking-member-database">
           <div className="booking-admin-section-title">
             <div><span>MEMBER DATABASE</span><h2>상담·수강생 DB</h2><p>상담 승인 또는 개강 모집의 수강 확정과 동시에 자동 저장됩니다.</p></div>
             <b>{data.members.length}명</b>
@@ -330,29 +322,17 @@ function MemberAdmin({ data, month, busy, act }: AdminProps & { month: string })
               </article>
             )) : <Empty>선택한 상태의 회원이 없습니다.</Empty>}
           </div>
-        </section>
-        <section>
-          <div className="booking-admin-section-title"><div><span>PASS</span><h2>{month} 이용권 발급</h2></div></div>
-          <form className="booking-admin-stack-form" onSubmit={issue}>
-            <label>승인 회원<select name="memberId" required defaultValue=""><option value="" disabled>회원을 선택하세요</option>{approved.map((member) => <option key={member.id} value={member.id}>{member.name} · 연락처 끝 {member.phoneLast4}</option>)}</select></label>
-            <label>이용권<select name="type" defaultValue="MONTHLY"><option value="MONTHLY">월 이용권 · {won.format(data.settings.monthlyPrice)}</option><option value="DAILY">1회 이용권 · {won.format(data.settings.dailyPrice)}</option></select></label>
-            <label>동시 확정 예약 제한<input name="maxActiveBookings" type="number" min="1" placeholder="비워두면 운영 설정 적용" /></label>
-            <button className="solid" disabled={busy || !approved.length}>이용권 발급</button>
-          </form>
-        </section>
-      </div>
-    </>
+    </section>
   );
 }
 
 function PaymentAdmin({ data, busy, act }: AdminProps) {
-  const paidPasses = new Set(data.payments.filter((payment) => payment.passId && payment.status === "PAID").map((payment) => payment.passId));
-  function pay(pass: Pass, status: "PAID" | "UNPAID" | "REFUNDED") {
-    const method = status === "PAID" ? window.prompt("결제수단을 입력하세요: CARD 또는 CASH", "CARD")?.toUpperCase() : "CARD";
-    if (!method || !["CARD", "CASH"].includes(method)) return;
-    void act({ action: "recordPayment", memberId: pass.memberId, passId: pass.id, method, status }, `결제를 ${status === "PAID" ? "완료" : status === "REFUNDED" ? "환불" : "미결제"}로 기록했습니다.`);
+  const payable = data.reservations.filter((reservation) => ["CONFIRMED", "COMPLETED"].includes(reservation.status));
+  const paidReservationIds = new Set(data.payments.filter((payment) => payment.reservationId && payment.status === "PAID").map((payment) => payment.reservationId));
+  function pay(reservation: Reservation, method: "CARD" | "CASH") {
+    void act({ action: "recordPayment", memberId: reservation.memberId, reservationId: reservation.id, method, status: "PAID" }, `${method === "CARD" ? "카드" : "현금"} 현장결제를 등록했습니다.`);
   }
-  return <div className="booking-admin-split"><section><div className="booking-admin-section-title"><div><span>PASSES</span><h2>이용권</h2></div></div><div className="booking-admin-table">{data.passes.map((pass) => <article key={pass.id}><div><span>{pass.type === "MONTHLY" ? "월 이용권" : "1회 이용권"}</span><strong>{pass.memberName}</strong><small>{pass.validMonth} · {won.format(pass.price)}</small></div><b className={paidPasses.has(pass.id) ? "paid" : "unpaid"}>{paidPasses.has(pass.id) ? "결제 완료" : "현장결제 대기"}</b><button disabled={busy} onClick={() => pay(pass, "PAID")}>결제 등록</button></article>)}{!data.passes.length && <Empty>선택한 월의 이용권이 없습니다.</Empty>}</div></section><section><div className="booking-admin-section-title"><div><span>PAYMENTS</span><h2>최근 결제 기록</h2></div></div><div className="booking-admin-table compact">{data.payments.map((payment) => <article key={payment.id}><div><span>{payment.method === "CASH" ? "현금" : "카드"}</span><strong>{payment.memberName}</strong><small>{won.format(payment.amount)} · {payment.createdAt.slice(0,16)}</small></div><b className={payment.status.toLowerCase()}>{payment.status === "PAID" ? "결제 완료" : payment.status === "REFUNDED" ? "환불" : "미결제"}</b></article>)}{!data.payments.length && <Empty>결제 기록이 없습니다.</Empty>}</div></section></div>;
+  return <div className="booking-admin-split"><section><div className="booking-admin-section-title"><div><span>ON-SITE PAYMENT</span><h2>예약별 현장결제</h2><p>이용 금액에는 센터 재료비가 포함됩니다.</p></div><b>{won.format(data.settings.reservationPrice)}</b></div><div className="booking-admin-table">{payable.map((reservation) => { const paid = paidReservationIds.has(reservation.id); return <article key={reservation.id}><div><span>{dateTime(reservation.startAt)} · {reservation.stationName}</span><strong>{reservation.memberName}</strong><small>{reservation.materialPlan === "SELF" ? "재료 본인 지참" : "센터 재료 사용 · 금액 포함"}</small></div><b className={paid ? "paid" : "unpaid"}>{paid ? "결제 완료" : "현장결제 대기"}</b><div className="booking-payment-actions"><button disabled={busy || paid} onClick={() => pay(reservation, "CARD")}>카드</button><button disabled={busy || paid} onClick={() => pay(reservation, "CASH")}>현금</button></div></article>; })}{!payable.length && <Empty>선택한 월의 확정 예약이 없습니다.</Empty>}</div></section><section><div className="booking-admin-section-title"><div><span>PAYMENTS</span><h2>최근 결제 기록</h2></div></div><div className="booking-admin-table compact">{data.payments.map((payment) => <article key={payment.id}><div><span>{payment.method === "CASH" ? "현금" : "카드"}</span><strong>{payment.memberName}</strong><small>{won.format(payment.amount)} · {payment.createdAt.slice(0,16)}</small></div><b className={payment.status.toLowerCase()}>{payment.status === "PAID" ? "결제 완료" : payment.status === "REFUNDED" ? "환불" : "미결제"}</b></article>)}{!data.payments.length && <Empty>결제 기록이 없습니다.</Empty>}</div></section></div>;
 }
 
 function GrowthAdmin({ data, busy, act }: AdminProps) {
@@ -370,7 +350,7 @@ function GrowthAdmin({ data, busy, act }: AdminProps) {
 
 function SettingsAdmin({ data, busy, act }: AdminProps) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); await act({ action: "updateSettings", ...Object.fromEntries(new FormData(event.currentTarget).entries()) }, "예약 운영 설정을 저장했습니다."); }
-  return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>이용권·예약 정책</h2><p>변경한 가격과 카카오톡 상담 링크는 공개 예약 화면에 반영됩니다.</p></div><label>1회 이용권 가격<input name="dailyPrice" type="number" min="1" defaultValue={data.settings.dailyPrice} required /></label><label>월 이용권 가격<input name="monthlyPrice" type="number" min="1" defaultValue={data.settings.monthlyPrice} required /></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label>동시 확정 예약 제한<input name="maxActiveBookings" type="number" min="1" defaultValue={data.settings.maxActiveBookings ?? ""} placeholder="제한 없음" /><small>비워두면 제한하지 않습니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>수업 예정자가 상담 신청을 누르면 이 주소로 바로 이동합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
+  return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>예약·현장결제 정책</h2><p>수강생은 승인 즉시 예약할 수 있으며 이용 당일 현장에서 결제합니다.</p></div><label>1회 현장결제 금액<input name="reservationPrice" type="number" min="1" defaultValue={data.settings.reservationPrice} required /><small>센터 재료비를 포함한 최종 결제 금액입니다.</small></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>수업 예정자가 상담 신청을 누르면 이 주소로 바로 이동합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
 }
 
 type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string) => Promise<void> };

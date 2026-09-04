@@ -12,14 +12,13 @@ export async function GET() {
     const settings = await getD1()
       .prepare(
         `SELECT key, value FROM app_settings
-         WHERE key IN ('booking_daily_price','booking_monthly_price')`,
+         WHERE key = 'booking_daily_price'`,
       )
       .all<{ key: string; value: string }>();
     const values = Object.fromEntries(settings.results.map((row) => [row.key, row.value]));
     return Response.json(
       {
-        dailyPrice: Number(values.booking_daily_price ?? 50000),
-        monthlyPrice: Number(values.booking_monthly_price ?? 500000),
+        reservationPrice: Number(values.booking_daily_price ?? 50000),
         bookingTimes,
       },
       { headers: { "Cache-Control": "public, max-age=30" } },

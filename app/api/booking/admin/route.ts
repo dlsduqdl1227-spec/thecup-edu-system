@@ -9,8 +9,6 @@ import {
   nonNegativeBookingInteger,
   optionalBookingText,
   positiveBookingInteger,
-  slotDate,
-  slotMonth,
   validateBookingDateInMonth,
   validateBookingMonth,
   validateBookingTimeRange,
@@ -33,7 +31,7 @@ export async function GET(request: Request) {
     ).bind(`${currentMonth}-01`).first<{ month: string | null }>();
     const month = validateBookingMonth(requestedMonth ?? nearestScheduleMonth?.month ?? currentMonth);
     const range = bookingMonthRange(month);
-    const [members, stations, slots, reservations, passes, payments, feedback, evaluations, candidates, settings, scheduleMonths] = await Promise.all([
+    const [members, stations, slots, reservations, payments, feedback, evaluations, candidates, settings, scheduleMonths] = await Promise.all([
       db.prepare(
         `SELECT id, name, phone_last4 AS phoneLast4, approval_status AS approvalStatus,
                 consultation_status AS consultationStatus, desired_station_type AS desiredStationType,
@@ -62,7 +60,7 @@ export async function GET(request: Request) {
       db.prepare(
         `SELECT r.id, r.member_id AS memberId, m.name AS memberName,
                 m.phone_last4 AS phoneLast4, m.approval_status AS memberApprovalStatus,
-                r.slot_id AS slotId, r.pass_id AS passId, r.status, r.purpose,
+                r.slot_id AS slotId, r.status, r.purpose,
                 r.material_plan AS materialPlan, r.open_to_peer_practice AS openToPeerPractice,
                 r.user_memo AS userMemo, r.admin_memo AS adminMemo,
                 r.rejection_reason AS rejectionReason, r.created_at AS createdAt,
@@ -77,15 +75,8 @@ export async function GET(request: Request) {
                   r.created_at DESC`,
       ).bind(range.start, range.end).all(),
       db.prepare(
-        `SELECT p.id, p.member_id AS memberId, m.name AS memberName, p.type,
-                p.valid_month AS validMonth, p.price, p.status,
-                p.max_active_bookings AS maxActiveBookings, p.created_at AS createdAt
-         FROM member_passes p JOIN booking_members m ON m.id = p.member_id
-         WHERE p.valid_month = ? ORDER BY p.id DESC`,
-      ).bind(month).all(),
-      db.prepare(
         `SELECT p.id, p.member_id AS memberId, m.name AS memberName,
-                p.reservation_id AS reservationId, p.pass_id AS passId,
+                p.reservation_id AS reservationId,
                 p.amount, p.method, p.status, p.paid_at AS paidAt, p.created_at AS createdAt
          FROM booking_payments p JOIN booking_members m ON m.id = p.member_id
          ORDER BY p.id DESC LIMIT 200`,
@@ -115,7 +106,7 @@ export async function GET(request: Request) {
       ).all(),
       db.prepare(
         `SELECT key, value FROM app_settings
-         WHERE key IN ('booking_daily_price','booking_monthly_price','booking_cancel_hours','booking_max_active_bookings','booking_kakao_chat_url')`,
+         WHERE key IN ('booking_daily_price','booking_cancel_hours','booking_kakao_chat_url')`,
       ).all<{ key: string; value: string }>(),
       db.prepare(
         `SELECT DISTINCT substr(start_at, 1, 7) AS month
@@ -130,19 +121,14 @@ export async function GET(request: Request) {
       stations: stations.results,
       slots: slots.results,
       reservations: reservations.results,
-      passes: passes.results,
       payments: payments.results,
       feedback: feedback.results,
       evaluations: evaluations.results,
       candidates: candidates.results,
       scheduleMonths: scheduleMonths.results.map((row) => row.month),
       settings: {
-        dailyPrice: Number(settingMap.booking_daily_price ?? 50000),
-        monthlyPrice: Number(settingMap.booking_monthly_price ?? 500000),
+        reservationPrice: Number(settingMap.booking_daily_price ?? 50000),
         cancelHours: Number(settingMap.booking_cancel_hours ?? 24),
-        maxActiveBookings: settingMap.booking_max_active_bookings === ""
-          ? null
-          : Number(settingMap.booking_max_active_bookings),
         kakaoChatUrl: settingMap.booking_kakao_chat_url ?? "",
       },
       bookingTimes,
@@ -167,7 +153,6 @@ export async function POST(request: Request) {
     if (action === "setSlotBlock") return setSlotBlock(actor.id, payload);
     if (action === "setDateBlock") return setDateBlock(actor.id, payload);
     if (action === "decideReservation") return decideReservation(actor.id, payload);
-    if (action === "createPass") return createPass(actor.id, payload);
     if (action === "recordPayment") return recordPayment(actor.id, payload);
     if (action === "updateSettings") return updateSettings(actor.id, payload);
     if (action === "answerFeedback") return answerFeedback(actor.id, payload);
@@ -427,7 +412,7 @@ async function decideReservation(actorId: number, payload: Record<string, unknow
 async function confirmReservation(actorId: number, reservationId: number, adminMemo: string) {
   const db = getD1();
   const row = await db.prepare(
-    `SELECT r.id, r.member_id AS memberId, r.pass_id AS passId, r.status, sl.id AS slotId,
+    `SELECT r.id, r.member_id AS memberId, r.status, sl.id AS slotId,
             sl.start_at AS startAt, sl.status AS slotStatus, st.active AS stationActive,
             m.approval_status AS approvalStatus
      FROM reservations r
@@ -436,7 +421,7 @@ async function confirmReservation(actorId: number, reservationId: number, adminM
      JOIN booking_members m ON m.id = r.member_id
      WHERE r.id = ?`,
   ).bind(reservationId).first<{
-    id: number; memberId: number; passId: number; status: string; slotId: number; startAt: string;
+    id: number; memberId: number; status: string; slotId: number; startAt: string;
     slotStatus: string; stationActive: number; approvalStatus: string;
   }>();
   if (!row || row.status !== "REQUESTED") throw new AuthError("승인 대기 예약이 아닙니다.", 409);
@@ -444,11 +429,6 @@ async function confirmReservation(actorId: number, reservationId: number, adminM
   if (row.slotStatus !== "OPEN" || !Number(row.stationActive) || !isFutureSlot(row.startAt)) {
     throw new AuthError("현재 이용 가능한 예약 시간이 아닙니다.", 409);
   }
-  const pass = await db.prepare(
-    `SELECT id, type, max_active_bookings AS maxActiveBookings
-     FROM member_passes WHERE id = ? AND member_id = ? AND valid_month = ? AND status = 'ACTIVE'`,
-  ).bind(row.passId, row.memberId, slotMonth(row.startAt)).first<{ id: number; type: "DAILY" | "MONTHLY"; maxActiveBookings: number | null }>();
-  if (!pass) throw new AuthError("유효한 이용권이 없습니다.", 409);
   const conflict = await db.prepare(
     `SELECT
        MAX(CASE WHEN slot_id = ? AND status = 'CONFIRMED' THEN 1 ELSE 0 END) AS slotConflict,
@@ -457,32 +437,6 @@ async function confirmReservation(actorId: number, reservationId: number, adminM
   ).bind(row.slotId, row.memberId, row.startAt).first<{ slotConflict: number; memberConflict: number }>();
   if (Number(conflict?.slotConflict)) throw new AuthError("이미 확정된 스테이션입니다.", 409);
   if (Number(conflict?.memberConflict)) throw new AuthError("회원에게 같은 시간의 확정 예약이 있습니다.", 409);
-  if (pass.type === "MONTHLY") {
-    const sameDay = await db.prepare(
-      `SELECT 1 FROM reservations
-       WHERE member_id = ? AND substr(slot_start_at, 1, 10) = ?
-         AND status IN ('CONFIRMED','COMPLETED')`,
-    ).bind(row.memberId, slotDate(row.startAt)).first();
-    if (sameDay) throw new AuthError("월 이용권은 하루에 한 타임만 확정할 수 있습니다.", 409);
-  } else {
-    const used = await db.prepare(
-      `SELECT COUNT(*) AS count FROM reservations
-       WHERE pass_id = ?
-         AND status IN ('CONFIRMED','COMPLETED')`,
-    ).bind(pass.id).first<{ count: number }>();
-    if (Number(used?.count ?? 0) >= 1) throw new AuthError("1회 이용권은 이미 사용 중이거나 사용 완료되었습니다.", 409);
-  }
-  let maxActive = pass.maxActiveBookings;
-  if (maxActive === null) {
-    const setting = await db.prepare("SELECT value FROM app_settings WHERE key = 'booking_max_active_bookings'").first<{ value: string }>();
-    maxActive = setting?.value ? Number(setting.value) : null;
-  }
-  if (maxActive !== null) {
-    const active = await db.prepare(
-      "SELECT COUNT(*) AS count FROM reservations WHERE member_id = ? AND status = 'CONFIRMED' AND datetime(slot_start_at) > datetime(?)",
-    ).bind(row.memberId, new Date().toISOString()).first<{ count: number }>();
-    if (Number(active?.count ?? 0) >= maxActive) throw new AuthError("동시에 보유할 수 있는 확정 예약 수를 초과합니다.", 409);
-  }
   try {
     const result = await db.prepare(
       `UPDATE reservations SET status = 'CONFIRMED', admin_memo = ?,
@@ -498,83 +452,52 @@ async function confirmReservation(actorId: number, reservationId: number, adminM
   return Response.json({ ok: true });
 }
 
-async function createPass(actorId: number, payload: Record<string, unknown>) {
-  const memberId = positiveBookingInteger(payload.memberId, "회원");
-  const type = bookingText(payload.type, "이용권", 20).toUpperCase();
-  if (!["DAILY", "MONTHLY"].includes(type)) throw new Error("이용권 유형이 올바르지 않습니다.");
-  const validMonth = validateBookingMonth(payload.validMonth);
-  const member = await getD1().prepare("SELECT approval_status AS approvalStatus FROM booking_members WHERE id = ?")
-    .bind(memberId).first<{ approvalStatus: string }>();
-  if (member?.approvalStatus !== "APPROVED") throw new AuthError("승인된 회원에게만 이용권을 발급할 수 있습니다.", 409);
-  const priceSettingKey = type === "DAILY" ? "booking_daily_price" : "booking_monthly_price";
-  const priceRow = await getD1().prepare("SELECT value FROM app_settings WHERE key = ?").bind(priceSettingKey).first<{ value: string }>();
-  const price = Number(priceRow?.value ?? (type === "DAILY" ? 50000 : 500000));
-  const maxActiveBookings = payload.maxActiveBookings === null || payload.maxActiveBookings === ""
-    ? null
-    : positiveBookingInteger(payload.maxActiveBookings, "동시 예약 제한");
-  const result = await getD1().prepare(
-    `INSERT INTO member_passes
-      (member_id, type, valid_month, price, status, max_active_bookings, created_by)
-     VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?)`,
-  ).bind(memberId, type, validMonth, price, maxActiveBookings, actorId).run();
-  const id = Number(result.meta.last_row_id);
-  await audit(actorId, "create_member_pass", "member_pass", String(id), `${type} · ${validMonth} · ${price}원`);
-  return Response.json({ id, price }, { status: 201 });
-}
-
 async function recordPayment(actorId: number, payload: Record<string, unknown>) {
   const memberId = positiveBookingInteger(payload.memberId, "회원");
-  const reservationId = payload.reservationId ? positiveBookingInteger(payload.reservationId, "예약") : null;
-  const passId = payload.passId ? positiveBookingInteger(payload.passId, "이용권") : null;
-  if (!reservationId && !passId) throw new Error("결제 대상 예약 또는 이용권을 선택해 주세요.");
+  const reservationId = positiveBookingInteger(payload.reservationId, "예약");
   const method = bookingText(payload.method, "결제수단", 10).toUpperCase();
   const status = bookingText(payload.status, "결제상태", 12).toUpperCase();
   if (!["CARD", "CASH"].includes(method) || !["UNPAID", "PAID", "REFUNDED"].includes(status)) {
     throw new Error("결제 정보가 올바르지 않습니다.");
   }
-  let amount = 0;
-  if (passId) {
-    const pass = await getD1().prepare("SELECT price FROM member_passes WHERE id = ? AND member_id = ?")
-      .bind(passId, memberId).first<{ price: number }>();
-    if (!pass) throw new AuthError("회원의 이용권이 아닙니다.", 403);
-    amount = Number(pass.price);
-  } else {
-    const reservation = await getD1().prepare("SELECT 1 FROM reservations WHERE id = ? AND member_id = ?")
-      .bind(reservationId, memberId).first();
-    if (!reservation) throw new AuthError("회원의 예약이 아닙니다.", 403);
-    const setting = await getD1().prepare("SELECT value FROM app_settings WHERE key = 'booking_daily_price'").first<{ value: string }>();
-    amount = Number(setting?.value ?? 50000);
+  const reservation = await getD1()
+    .prepare("SELECT status FROM reservations WHERE id = ? AND member_id = ?")
+    .bind(reservationId, memberId)
+    .first<{ status: string }>();
+  if (!reservation) throw new AuthError("회원의 예약이 아닙니다.", 403);
+  if (!["CONFIRMED", "COMPLETED"].includes(reservation.status)) {
+    throw new AuthError("확정 또는 이용 완료된 예약만 결제할 수 있습니다.", 409);
   }
+  const setting = await getD1().prepare("SELECT value FROM app_settings WHERE key = 'booking_daily_price'").first<{ value: string }>();
+  const amount = Number(setting?.value ?? 50000);
   const result = await getD1().prepare(
     `INSERT INTO booking_payments
       (member_id, reservation_id, pass_id, amount, method, status, paid_at, recorded_by)
-     VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP ELSE NULL END, ?)`,
-  ).bind(memberId, reservationId, passId, amount, method, status, status, actorId).run();
+     SELECT ?, ?, NULL, ?, ?, ?, CASE WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP ELSE NULL END, ?
+     WHERE ? != 'PAID' OR NOT EXISTS (
+       SELECT 1 FROM booking_payments WHERE reservation_id = ? AND status = 'PAID'
+     )`,
+  ).bind(memberId, reservationId, amount, method, status, status, actorId, status, reservationId).run();
+  if (!Number(result.meta.changes)) throw new AuthError("이미 결제 완료된 예약입니다.", 409);
   const id = Number(result.meta.last_row_id);
   await audit(actorId, "record_booking_payment", "booking_payment", String(id), `${method} · ${status} · ${amount}원`);
   return Response.json({ id, amount }, { status: 201 });
 }
 
 async function updateSettings(actorId: number, payload: Record<string, unknown>) {
-  const dailyPrice = positiveBookingInteger(payload.dailyPrice, "1회 이용권 가격");
-  const monthlyPrice = positiveBookingInteger(payload.monthlyPrice, "월 이용권 가격");
+  const reservationPrice = positiveBookingInteger(payload.reservationPrice, "1회 현장결제 금액");
   const cancelHours = nonNegativeBookingInteger(payload.cancelHours, "취소 가능 시간");
-  const maxActive = payload.maxActiveBookings === null || payload.maxActiveBookings === ""
-    ? ""
-    : String(positiveBookingInteger(payload.maxActiveBookings, "동시 예약 제한"));
   const kakaoChatUrl = validateKakaoChatUrl(payload.kakaoChatUrl);
   const rows = [
-    ["booking_daily_price", String(dailyPrice)],
-    ["booking_monthly_price", String(monthlyPrice)],
+    ["booking_daily_price", String(reservationPrice)],
     ["booking_cancel_hours", String(cancelHours)],
-    ["booking_max_active_bookings", maxActive],
     ["booking_kakao_chat_url", kakaoChatUrl],
   ];
   await getD1().batch(rows.map(([key, value]) => getD1().prepare(
     `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP`,
   ).bind(key, value, actorId)));
-  await audit(actorId, "update_booking_settings", "app_setting", "booking", `${dailyPrice}/${monthlyPrice} · 카카오 상담 ${kakaoChatUrl ? "연결" : "미연결"}`);
+  await audit(actorId, "update_booking_settings", "app_setting", "booking", `${reservationPrice}원 · 카카오 상담 ${kakaoChatUrl ? "연결" : "미연결"}`);
   return Response.json({ ok: true });
 }
 
