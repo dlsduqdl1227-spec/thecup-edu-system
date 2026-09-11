@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { requestJson } from "../../lib/api-client";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { useRequestGuard } from "../../lib/use-request-guard";
+import { AccessibleDialog } from "./AccessibleDialog";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
 type Slot = {
@@ -49,6 +51,7 @@ type Entry = "student" | "visitor" | "consultation" | null;
 type MemberTab = "schedule" | "reservations" | "practice";
 
 const stationLabels: Record<string, string> = { ESPRESSO: "에스프레소", BREWING: "브루잉", ROASTING: "로스팅" };
+const purposeLabels: Record<string, string> = { ...stationLabels, STEAMING: "스티밍", OTHER: "기타" };
 const slotLabels: Record<Slot["displayStatus"], string> = { AVAILABLE: "예약 가능", REQUESTED: "승인 대기", CONFIRMED: "내 예약", RESERVED: "예약 완료", BLOCKED: "이용 불가" };
 const reservationLabels: Record<Reservation["status"], string> = { REQUESTED: "승인 대기", CONFIRMED: "예약 확정", COMPLETED: "이용 완료", CANCELLED: "취소", REJECTED: "거절", NO_SHOW: "노쇼" };
 
@@ -62,8 +65,17 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
   const [memberData, setMemberData] = useState<BookingData | null>(null);
   const [memberDataError, setMemberDataError] = useState("");
   const [availability, setAvailability] = useState<PublicAvailability | null>(null);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [beginMemberLoad, cancelMemberLoad] = useRequestGuard();
+  const [beginAvailabilityLoad, cancelAvailabilityLoad] = useRequestGuard();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (message?.kind !== "ok") return;
+    const timer = window.setTimeout(() => setMessage(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
   const loadMember = useCallback(async () => {
     try {
@@ -78,22 +90,29 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
 
   const loadMemberData = useCallback(async () => {
     if (!member) return;
+    const isCurrent = beginMemberLoad();
     setMemberDataError("");
     try {
-      setMemberData(await requestJson<BookingData>(`/api/booking/member?month=${encodeURIComponent(month)}`));
+      const next = await requestJson<BookingData>(`/api/booking/member?month=${encodeURIComponent(month)}`);
+      if (isCurrent()) setMemberData(next);
     } catch (error) {
+      if (!isCurrent()) return;
       setMemberDataError(errorText(error));
       setMessage({ kind: "error", text: errorText(error) });
     }
-  }, [member, month]);
+  }, [member, month, beginMemberLoad]);
 
   const loadAvailability = useCallback(async () => {
+    const isCurrent = beginAvailabilityLoad();
     try {
-      setAvailability(await requestJson<PublicAvailability>(`/api/booking/public/availability?month=${encodeURIComponent(month)}`));
+      const next = await requestJson<PublicAvailability>(`/api/booking/public/availability?month=${encodeURIComponent(month)}`, { cache: "no-store" });
+      if (!isCurrent()) return;
+      setAvailability(next);
+      setAvailabilityError("");
     } catch (error) {
-      setMessage({ kind: "error", text: errorText(error) });
+      if (isCurrent()) setAvailabilityError(errorText(error));
     }
-  }, [month]);
+  }, [month, beginAvailabilityLoad]);
 
   useEffect(() => {
     // Initial remote session lookup; state changes after the request resolves.
@@ -104,14 +123,18 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
     // Refresh signed-in member data when the selected month changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadMemberData();
-  }, [loadMemberData]);
+    const refresh = window.setInterval(() => void loadMemberData(), 30_000);
+    window.addEventListener("focus", loadMemberData);
+    return () => { window.clearInterval(refresh); window.removeEventListener("focus", loadMemberData); cancelMemberLoad(); };
+  }, [loadMemberData, cancelMemberLoad]);
   useEffect(() => {
     // Public availability is safe to preload and stays synchronized with administrator changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAvailability();
     const refresh = window.setInterval(() => void loadAvailability(), 30_000);
-    return () => window.clearInterval(refresh);
-  }, [loadAvailability]);
+    window.addEventListener("focus", loadAvailability);
+    return () => { window.clearInterval(refresh); window.removeEventListener("focus", loadAvailability); cancelAvailabilityLoad(); };
+  }, [loadAvailability, cancelAvailabilityLoad]);
   useEffect(() => {
     if (authLoading || !entry) return;
     const target = document.getElementById("portal-entry-content");
@@ -138,7 +161,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
         form.reset();
         setEntry("visitor");
       }
-      setMessage({ kind: "ok", text: result.message ?? "처리되었습니다." });
+      setMessage({ kind: "ok", text: result.message ?? (result.member ? `${result.member.name}님, 로그인되었습니다.` : "상담 신청을 접수했습니다.") });
     } catch (error) {
       setMessage({ kind: "error", text: errorText(error) });
     } finally {
@@ -150,6 +173,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
     setBusy(true);
     try {
       await requestJson("/api/member-auth/logout", { method: "POST" });
+      cancelMemberLoad();
       setMember(null);
       setMemberData(null);
       setShowHome(false);
@@ -161,11 +185,11 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
     }
   }
 
-  if (authLoading) return <main className="portal-loading"><Brand /><p>예약 시스템을 불러오고 있습니다.</p></main>;
+  if (authLoading) return <main className="portal-loading" id="main-content" aria-live="polite"><Brand /><p>예약 시스템을 불러오고 있습니다.</p></main>;
 
   if (member && !showHome) {
     return (
-      <main className="portal-member">
+      <main className="portal-member" id="main-content">
         <header className="portal-member-header">
           <div className="portal-member-home">
             <Brand compact />
@@ -197,7 +221,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
   }
 
   return (
-    <main className="portal-public">
+    <main className={`portal-public${entry ? " has-entry" : ""}`} id="main-content">
       <header className="portal-header"><Link href="/?home=1" aria-label="스테이션 처음 화면"><Brand compact /></Link><div className="portal-header-actions">{member && <button type="button" onClick={() => setShowHome(false)}>내 수강 화면</button>}<span>STATION RESERVATION</span></div></header>
       <section className="portal-intro">
         <div><span>THE CUP EDU · COFFEE STATION</span><h1>필요한 스테이션을<br />간단하게 확인하고 예약하세요.</h1><p>계정 유형에 따라 필요한 기능만 보여드립니다.</p></div>
@@ -210,7 +234,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
 
       {entry === "student" && <section id="portal-entry-content" className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>승인받은 본인 이름과 등록된 휴대폰 번호를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>이름<input name="name" autoComplete="name" placeholder="본인 이름" maxLength={40} required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
 
-      {entry === "visitor" && <VisitorSchedule month={month} setMonth={setMonth} availability={availability} />}
+      {entry === "visitor" && <><VisitorSchedule month={month} setMonth={setMonth} availability={availability} />{availabilityError && <p className="portal-load-notice" role="alert">{availabilityError} 기존 일정은 유지됩니다. <button onClick={() => void loadAvailability()}>다시 불러오기</button></p>}</>}
 
       {entry === "consultation" && <section id="portal-entry-content" className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 승인하면 본인 이름과 연락처로 바로 이용할 수 있습니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
 
@@ -229,26 +253,33 @@ function VisitorSchedule({ month, setMonth, availability }: { month: string; set
   const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
   const [picked, setPicked] = useState("");
   const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
-  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 승인을 받으면 본인 이름과 연락처로 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
+  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" aria-label="조회 월" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} /></SectionHeading>{availability?.month !== month && <p role="status">선택한 월의 일정을 불러오는 중입니다.</p>}<CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 승인을 받으면 본인 이름과 연락처로 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
 }
 
 function MemberSchedule({ data, month, setMonth, reload, notify }: { data: BookingData; month: string; setMonth: (value: string) => void; reload: () => Promise<void>; notify: Notify }) {
   const [filter, setFilter] = useState("ALL");
   const [picked, setPicked] = useState("");
   const [requestSlot, setRequestSlot] = useState<Slot | null>(null);
-  const slots = data.slots.filter((slot) => filter === "ALL" || slot.stationType === filter);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const submitting = useRef(false);
+  const slots = (data.month === month ? data.slots : []).filter((slot) => filter === "ALL" || slot.stationType === filter);
   const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
   const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
   async function reserve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requestSlot) return;
+    if (!requestSlot || submitting.current) return;
+    submitting.current = true;
+    setSaving(true);
+    setSaveError("");
     const values = new FormData(event.currentTarget);
     try {
       await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "requestReservation", slotId: requestSlot.id, purpose: values.get("purpose"), materialPlan: values.get("materialPlan"), openToPeerPractice: values.get("openToPeerPractice") === "YES", userMemo: values.get("userMemo") }) });
       setRequestSlot(null); await reload(); notify({ kind: "ok", text: "예약 요청을 접수했습니다. 운영자 승인 후 확정되며 이용 당일 현장에서 결제합니다." });
-    } catch (error) { notify({ kind: "error", text: errorText(error) }); }
+    } catch (error) { setSaveError(errorText(error)); notify({ kind: "error", text: errorText(error) }); }
+    finally { submitting.current = false; setSaving(false); }
   }
-  return <><SectionHeading eyebrow="STUDENT SCHEDULE" title="스테이션 예약" text="승인된 수강생은 원하는 시간을 바로 예약할 수 있습니다."><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></SectionHeading><div className="portal-schedule-toolbar"><div>{["ALL","ESPRESSO","BREWING","ROASTING"].map((type) => <button key={type} className={filter === type ? "active" : ""} onClick={() => setFilter(type)}>{type === "ALL" ? "전체" : stationLabels[type]}</button>)}</div><span>이용 당일 현장결제</span></div><CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} available={(slot) => (slot as Slot).displayStatus === "AVAILABLE"} renderSlot={(value) => { const slot = value as Slot; return <article className={`portal-slot ${slot.displayStatus.toLowerCase()}`} key={slot.id}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>{slotLabels[slot.displayStatus]}</b>{slot.displayStatus === "AVAILABLE" && <button onClick={() => setRequestSlot(slot)}>예약 요청</button>}</article>; }} />{requestSlot && <div className="portal-modal-backdrop"><form className="portal-modal" onSubmit={reserve}><button type="button" className="close" onClick={() => setRequestSlot(null)}>×</button><span>RESERVATION REQUEST</span><h2>{shortDate(requestSlot.startAt)} · {timeRange(requestSlot)}</h2><p>{requestSlot.stationName}</p><label>실습 목적<select name="purpose" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="STEAMING">스티밍</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">기타</option></select></label><label>재료 사용<select name="materialPlan"><option value="SELF">본인 지참</option><option value="CENTER">센터 재료 사용 · 이용 금액 포함</option></select></label><label>함께 연습<select name="openToPeerPractice"><option value="NO">혼자 연습</option><option value="YES">함께 연습 가능</option></select></label><label>전달 메모<textarea name="userMemo" rows={3} maxLength={500} /></label><button className="submit">예약 요청</button></form></div>}</>;
+  return <><SectionHeading eyebrow="STUDENT SCHEDULE" title="스테이션 예약" text="승인된 수강생은 원하는 시간을 바로 예약할 수 있습니다."><input type="month" aria-label="조회 월" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} /></SectionHeading><div className="portal-schedule-toolbar"><div>{["ALL","ESPRESSO","BREWING","ROASTING"].map((type) => <button key={type} className={filter === type ? "active" : ""} onClick={() => setFilter(type)}>{type === "ALL" ? "전체" : stationLabels[type]}</button>)}</div><span>이용 당일 현장결제</span></div>{data.month !== month ? <p role="status">선택한 월의 일정을 불러오는 중입니다.</p> : null}<CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} available={(slot) => (slot as Slot).displayStatus === "AVAILABLE"} renderSlot={(value) => { const slot = value as Slot; return <article className={`portal-slot ${slot.displayStatus.toLowerCase()}`} key={slot.id}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>{slotLabels[slot.displayStatus]}</b>{slot.displayStatus === "AVAILABLE" && <button onClick={() => { setSaveError(""); setRequestSlot(slot); }}>예약 요청</button>}</article>; }} />{requestSlot && <AccessibleDialog label="스테이션 예약 요청" busy={saving} onClose={() => setRequestSlot(null)}><form className="portal-modal" onSubmit={reserve}><button type="button" className="close" aria-label="예약창 닫기" disabled={saving} onClick={() => setRequestSlot(null)}>×</button><span>RESERVATION REQUEST</span><h2>{shortDate(requestSlot.startAt)} · {timeRange(requestSlot)}</h2><p>{requestSlot.stationName}</p><label>실습 목적<select name="purpose" defaultValue={requestSlot.stationType}><option value="ESPRESSO">에스프레소</option><option value="STEAMING">스티밍</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">기타</option></select></label><label>재료 사용<select name="materialPlan"><option value="SELF">본인 지참</option><option value="CENTER">센터 재료 사용 · 이용 금액 포함</option></select></label><label>함께 연습<select name="openToPeerPractice"><option value="NO">혼자 연습</option><option value="YES">함께 연습 가능</option></select></label><label>전달 메모<textarea name="userMemo" rows={3} maxLength={500} /></label>{saveError && <p role="alert" className="portal-form-error">{saveError}</p>}<button className="submit" disabled={saving}>{saving ? "요청 중…" : "예약 요청"}</button></form></AccessibleDialog>}</>;
 }
 
 function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelected, renderSlot, available = () => true }: { month: string; slots: T[]; selected: string; setSelected: (date: string) => void; renderSlot: (slot: T) => ReactNode; available?: (slot: T) => boolean }) {
@@ -267,7 +298,7 @@ function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelect
       <div className="portal-mobile-dates">
         {dates.map((date) => {
           const count = countForDate(date);
-          return <button key={date} className={[selected === date ? "active" : "", count ? "has-availability" : ""].filter(Boolean).join(" ")} onClick={() => setSelected(date)}><b>{date.slice(8)}</b><span>{weekday(date)}</span><small>{count ? `${count}개` : "마감"}</small></button>;
+          return <button key={date} className={[selected === date ? "active" : "", count ? "has-availability" : ""].filter(Boolean).join(" ")} aria-pressed={selected === date} aria-label={`${longDate(date)}, 예약 가능 ${count}개`} onClick={() => setSelected(date)}><b>{date.slice(8)}</b><span>{weekday(date)}</span><small>{count ? `${count}개` : "마감"}</small></button>;
         })}
       </div>
       <div className="portal-calendar-layout">
@@ -277,7 +308,7 @@ function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelect
             {days.map((day, index) => day === null ? <span key={`blank-${index}`} /> : (() => {
               const date = `${month}-${String(day).padStart(2, "0")}`;
               const count = countForDate(date);
-              return <button key={day} className={[selected === date ? "active" : "", count ? "has-availability" : ""].filter(Boolean).join(" ")} onClick={() => setSelected(date)}><b>{day}</b>{count > 0 && <small>{count}개 가능</small>}</button>;
+              return <button key={day} className={[selected === date ? "active" : "", count ? "has-availability" : ""].filter(Boolean).join(" ")} aria-pressed={selected === date} aria-label={`${longDate(date)}, 예약 가능 ${count}개`} onClick={() => setSelected(date)}><b>{day}</b>{count > 0 && <small>{count}개</small>}</button>;
             })())}
           </div>
         </div>
@@ -292,7 +323,7 @@ function MemberReservations({ data, reload, notify }: { data: BookingData; reloa
   const rows = data.reservations.filter((row) => filter === "ACTIVE" ? ["REQUESTED","CONFIRMED"].includes(row.status) : row.status === filter);
   async function cancel(id: number) { try { await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancelReservation", reservationId: id }) }); await reload(); notify({ kind: "ok", text: "예약을 취소했습니다." }); } catch (error) { notify({ kind: "error", text: errorText(error) }); } }
   async function feedback(id: number) { const value = window.prompt("운영자에게 요청할 피드백을 입력해 주세요."); if (!value) return; try { await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "requestFeedback", reservationId: id, message: value }) }); await reload(); notify({ kind: "ok", text: "피드백을 요청했습니다." }); } catch (error) { notify({ kind: "error", text: errorText(error) }); } }
-  return <><SectionHeading eyebrow="MY RESERVATIONS" title="내 예약" text="본인의 예약 상태와 운영자 안내만 표시됩니다." /><div className="portal-filter">{[["ACTIVE","대기·확정"],["COMPLETED","완료"],["CANCELLED","취소"],["REJECTED","거절"]].map(([value,label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}</div><div className="portal-reservations">{rows.length ? rows.map((row) => <article key={row.id}><div><span>{reservationLabels[row.status]}</span><h2>{shortDate(row.startAt)} · {timeRange(row)}</h2><p>{row.stationName} · {row.purpose}</p><small>{row.materialPlan === "SELF" ? "재료 본인 지참" : "센터 재료 사용 · 이용 금액 포함"} · 이용 당일 현장결제</small>{row.adminMemo && <small>운영자 안내 · {row.adminMemo}</small>}{row.rejectionReason && <small>거절 사유 · {row.rejectionReason}</small>}</div><div>{["REQUESTED","CONFIRMED"].includes(row.status) && <button onClick={() => void cancel(row.id)}>예약 취소</button>}{["CONFIRMED","COMPLETED"].includes(row.status) && <button onClick={() => void feedback(row.id)}>피드백 요청</button>}</div></article>) : <Empty>해당 상태의 예약이 없습니다.</Empty>}</div></>;
+  return <><SectionHeading eyebrow="MY RESERVATIONS" title="내 예약" text="본인의 예약 상태와 운영자 안내만 표시됩니다." /><div className="portal-filter">{[["ACTIVE","대기·확정"],["COMPLETED","완료"],["CANCELLED","취소"],["REJECTED","거절"]].map(([value,label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}</div><div className="portal-reservations">{rows.length ? rows.map((row) => <article key={row.id}><div><span>{reservationLabels[row.status]}</span><h2>{shortDate(row.startAt)} · {timeRange(row)}</h2><p>{row.stationName} · {purposeLabels[row.purpose] ?? row.purpose}</p><small>{row.materialPlan === "SELF" ? "재료 본인 지참" : "센터 재료 사용 · 이용 금액 포함"} · 이용 당일 현장결제</small>{row.adminMemo && <small>운영자 안내 · {row.adminMemo}</small>}{row.rejectionReason && <small>거절 사유 · {row.rejectionReason}</small>}</div><div>{["REQUESTED","CONFIRMED"].includes(row.status) && <button onClick={() => void cancel(row.id)}>예약 취소</button>}{["CONFIRMED","COMPLETED"].includes(row.status) && <button onClick={() => void feedback(row.id)}>피드백 요청</button>}</div></article>) : <Empty>해당 상태의 예약이 없습니다.</Empty>}</div></>;
 }
 
 function MemberPractice({ data, reload, notify }: { data: BookingData; reload: () => Promise<void>; notify: Notify }) {
@@ -307,12 +338,12 @@ function MemberPractice({ data, reload, notify }: { data: BookingData; reload: (
 function SectionHeading({ eyebrow, title, text, children }: { eyebrow: string; title: string; text: string; children?: ReactNode }) { return <header className="portal-section-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{text}</p></div>{children}</header>; }
 function Brand({ compact = false }: { compact?: boolean }) { return <span className={`portal-brand${compact ? " compact" : ""}`}><b>THE CUP EDU</b><small>COFFEE STATION</small></span>; }
 function Empty({ children }: { children: ReactNode }) { return <div className="portal-empty">{children}</div>; }
-function Toast({ value, close }: { value: { kind: "ok" | "error"; text: string }; close: () => void }) { return <button className={`portal-toast ${value.kind}`} onClick={close}>{value.text}</button>; }
+function Toast({ value, close }: { value: { kind: "ok" | "error"; text: string }; close: () => void }) { return <button role={value.kind === "error" ? "alert" : "status"} aria-label={`${value.text} · 알림 닫기`} className={`portal-toast ${value.kind}`} onClick={close}>{value.text}</button>; }
 type Notify = (value: { kind: "ok" | "error"; text: string }) => void;
 function currentMonth() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit" }).format(new Date()).slice(0,7); }
 function timeRange(value: { startAt: string; endAt: string }) { return `${value.startAt.slice(11,16)}–${value.endAt.slice(11,16)}`; }
 function shortDate(value: string) { return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short" }).format(new Date(value)); }
-function weekday(date: string) { return ["일","월","화","수","목","금","토"][new Date(`${date}T00:00:00+09:00`).getDay()]; }
+function weekday(date: string) { return ["일","월","화","수","목","금","토"][new Date(`${date}T00:00:00Z`).getUTCDay()]; }
 function longDate(date: string) { const [year,month,day] = date.split("-").map(Number); return `${year}년 ${month}월 ${day}일 ${weekday(date)}요일`; }
 function calendarCells(month: string): Array<number | null> { const [year,value] = month.split("-").map(Number); const first = new Date(Date.UTC(year,value-1,1)).getUTCDay(); const days = new Date(Date.UTC(year,value,0)).getUTCDate(); return [...Array.from({ length: first }, () => null), ...Array.from({ length: days }, (_,index) => index+1)]; }
 function errorText(error: unknown) { return error instanceof Error ? error.message : "요청을 처리하지 못했습니다."; }

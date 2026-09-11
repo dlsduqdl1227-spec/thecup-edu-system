@@ -5,6 +5,9 @@ export function jsonError(error: unknown): Response {
     return Response.json({ error: error.message }, { status: error.status });
   }
   const message = error instanceof Error ? error.message : "처리 중 오류가 발생했습니다.";
+  if (message.includes("UNIQUE constraint failed: stations.name")) {
+    return Response.json({ error: "같은 이름의 스테이션이 이미 있습니다. 다른 이름을 입력해 주세요." }, { status: 409 });
+  }
   if (message.includes("inventory_quantity_negative")) {
     return Response.json(
       { error: "다른 작업으로 재고가 변경됐습니다. 현재 수량을 새로고침한 뒤 다시 입력해 주세요." },

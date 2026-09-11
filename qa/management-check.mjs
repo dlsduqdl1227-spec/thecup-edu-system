@@ -1,0 +1,104 @@
+import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+const { chromium } = await import(process.env.QA_PLAYWRIGHT ? pathToFileURL(process.env.QA_PLAYWRIGHT).href : "playwright");
+const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_BROWSER });
+const baseURL = "http://127.0.0.1:5173";
+const admin = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+const guest = await browser.newContext({ baseURL, viewport: { width: 360, height: 900 } });
+const page = await admin.newPage();
+const publicPage = await guest.newPage();
+const courseName = `QA Q Grader ${Date.now()}`;
+const report = { checks: [], pageErrors: [], screens: [] };
+for (const current of [page, publicPage]) current.on("pageerror", (error) => report.pageErrors.push(error.message));
+const check = (name) => { report.checks.push(name); console.log(`PASS ${name}`); };
+async function api(client, path, data, method = "POST") { const response = data === undefined ? await client.get(path) : await client.fetch(path, { method, data }); assert.ok(response.ok(), `${path}: ${await response.text()}`); return response.json(); }
+async function capture(current, name) { await current.screenshot({ path: `outputs/qa/${name}.png`, fullPage: true }); assert.equal(await current.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, name); report.screens.push(name); }
+async function nav(name) { await page.locator(".side-nav").getByRole("button", { name: new RegExp(name) }).click(); }
+async function save(current, locator, path, method = "POST") { const response = current.waitForResponse((r) => r.url().includes(path) && r.request().method() === method); await locator.click(); const result = await response; assert.ok(result.ok(), await result.text()); return result.json(); }
+await mkdir("outputs/qa", { recursive: true });
+try {
+  await api(admin.request, "/api/auth/login", { name: "QA 운영자", phone: "01000009901" });
+  await page.goto("/admin");
+  await nav("재고 관리");
+  await page.getByRole("button", { name: /새 품목.*등록과 입고/ }).click();
+  const itemName = `QA 검수 원두 ${Date.now()}`;
+  await page.locator('input[name="name"]').fill(itemName);
+  await page.locator('input[name="initialQuantity"]').fill("2");
+  await save(page, page.getByRole("button", { name: /품목.*입고|입고.*등록/ }).last(), "/api/inventory");
+  await page.getByRole("tab", { name: "재고 현황" }).click();
+  await page.getByText(itemName, { exact: true }).waitFor();
+  await capture(page, "inventory-overview-desktop");
+  await page.setViewportSize({ width: 360, height: 900 });
+  await capture(page, "inventory-overview-360");
+  check("새 품목과 입고 동시 저장 · 재고 현황");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  for (const path of ["/api/exports/inventory", "/api/exports/finance"]) { const response = await admin.request.get(path); assert.ok(response.ok()); assert.match(response.headers()["content-type"], /spreadsheetml/); assert.ok((await response.body()).length > 1000); }
+  check("재고·매출 Excel 다운로드");
+  await nav("로스팅 프로파일");
+  await page.getByRole("button", { name: "선택값 복사해 입력" }).click();
+  await save(page, page.getByRole("button", { name: "새 프로파일로 저장" }), "/api/roasting");
+  const before = await api(admin.request, "/api/roasting");
+  await save(page, page.locator(".profile-list-item").first().getByRole("button", { name: /아래로 이동/ }), "/api/roasting/order", "PUT");
+  const after = await api(admin.request, "/api/roasting");
+  assert.equal(after.profiles[1].id, before.profiles[0].id);
+  page.once("dialog", (dialog) => dialog.accept());
+  await save(page, page.locator(".profile-hero").getByRole("button", { name: "삭제", exact: true }), `/api/roasting/${before.profiles[0].id}`, "DELETE");
+  check("프로파일 복사 · 목록 순서 저장 · 복사본 삭제");
+  await nav("운영 · 개강 관리");
+  await page.getByLabel("기준 월").fill("2026-10");
+  await page.getByRole("button", { name: "새 과정", exact: true }).click();
+  await page.getByRole("textbox", { name: "과정명", exact: true }).fill(courseName);
+  await page.locator('input[name="capacity"]').fill("6");
+  await page.locator('input[name="recruitmentStartDate"]').fill("2026-10-13");
+  await page.locator('input[name="recruitmentEndDate"]').fill("2026-10-16");
+  const course = await save(page, page.getByRole("button", { name: "과정 등록", exact: true }), "/api/course-openings");
+  const applicants = [];
+  for (let index = 0; index < 6; index++) applicants.push(await api(admin.request, `/api/course-openings/${course.id}/applicants`, { applicantName: `QA 신청자 ${index}`, phone: `0107777700${index}`, status: "WAITING", notes: "공개 금지 메모" }));
+  await api(admin.request, "/api/course-openings", { publicPageVisible: true }, "PATCH");
+  let data = await api(guest.request, "/api/public/course-openings?month=2026-10");
+  let current = data.courses.find((row) => row.name === courseName);
+  assert.equal(current.status, "FULL"); assert.equal(current.currentApplicants, 6);
+  assert.doesNotMatch(JSON.stringify(data), /QA 신청자|공개 금지 메모|phone|email|createdBy|phoneLast4|payment/);
+  const privateData = await api(admin.request, "/api/course-openings?month=2026-10");
+  const selected = privateData.courses.find((row) => row.id === course.id);
+  await api(admin.request, `/api/course-openings/${course.id}`, { ...selected, capacity: 12, isPublic: true }, "PATCH");
+  data = await api(guest.request, "/api/public/course-openings?month=2026-10");
+  assert.equal(data.courses.find((row) => row.id === current.id).status, "OPENABLE");
+  await api(admin.request, `/api/course-openings/${course.id}/applicants/${applicants[0].id}`, { status: "CANCELLED" }, "PATCH");
+  data = await api(guest.request, "/api/public/course-openings?month=2026-10");
+  current = data.courses.find((row) => row.id === current.id);
+  assert.equal(current.status, "WAITING"); assert.equal(current.currentApplicants, 5);
+  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) assert.equal((await guest.request.fetch("/api/public/course-openings?month=2026-10", { method })).status(), 405);
+  await publicPage.goto("/embed/course-openings?month=2026-10");
+  await publicPage.getByRole("heading", { name: courseName, exact: true }).first().waitFor();
+  for (const width of [360, 768, 1440]) { await publicPage.setViewportSize({ width, height: 900 }); await capture(publicPage, `public-openings-${width}`); }
+  check("모집 등록 · 6명 개강 가능/정원 마감 · 취소 집계 · 개인정보 제외 · 읽기 전용 API");
+  await api(admin.request, `/api/course-openings/${course.id}`, {}, "DELETE");
+  await publicPage.reload();
+  await publicPage.waitForResponse((response) => response.url().includes("/api/public/course-openings"));
+  await publicPage.getByText(courseName, { exact: true }).first().waitFor({ state: "detached" });
+  await api(admin.request, "/api/course-openings", { publicPageVisible: false }, "PATCH");
+  await publicPage.reload();
+  await publicPage.getByRole("heading", { name: "개강 현황을 준비하고 있습니다." }).waitFor();
+  await capture(publicPage, "public-openings-hidden");
+  check("삭제된 과정 재노출 방지 · 공개 전체 숨김");
+  await nav("직원 · 권한");
+  const suffix = String(Date.now()).slice(-8);
+  const name = `QA 강사 ${suffix}`;
+  await page.locator('input[name="name"]').fill(name);
+  await page.locator('input[name="phone"]').fill(`010${suffix}`);
+  await save(page, page.getByRole("button", { name: "직원 등록", exact: true }), "/api/staff");
+  await api(guest.request, "/api/auth/login", { name, phone: `010${suffix}` });
+  await publicPage.goto("/admin");
+  await publicPage.getByRole("heading", { name: `${name}님의 수업 기록`, exact: true }).waitFor();
+  assert.equal(await publicPage.locator(".side-nav button").count(), 1);
+  for (const path of ["/api/booking/admin", "/api/course-openings", "/api/staff", "/api/roasting"]) assert.equal((await guest.request.get(path)).status(), 403);
+  await capture(publicPage, "instructor-restricted-desktop");
+  check("실제 강사 계정 로그인 · 권한 없는 메뉴/API 차단");
+  assert.deepEqual(report.pageErrors, []);
+} finally {
+  await writeFile("outputs/qa/management-check.json", JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report));
+  await browser.close();
+}

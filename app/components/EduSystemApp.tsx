@@ -20,6 +20,8 @@ import { compareInventoryItems, type InventorySort } from "../../lib/inventory-s
 import { BookingAdmin } from "./BookingAdmin";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
 import { requestJson } from "../../lib/api-client";
+import { useRequestGuard } from "../../lib/use-request-guard";
+import { AccessibleDialog } from "./AccessibleDialog";
 
 type Role = "admin" | "employee" | "instructor";
 type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "staff";
@@ -300,6 +302,7 @@ export function EduSystemApp() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<TabKey[]>([]);
+  const [beginDataLoad, cancelDataLoad] = useRequestGuard();
 
   const loadAuth = useCallback(async () => {
     try {
@@ -323,15 +326,18 @@ export function EduSystemApp() {
 
   const refreshData = useCallback(async () => {
     if (!authState.user) return;
+    const isCurrent = beginDataLoad();
     setDataError("");
     try {
       const nextData = await requestJson<DashboardData>("/api/dashboard");
+      if (!isCurrent()) return;
       setData(nextData);
     } catch (error) {
+      if (!isCurrent()) return;
       setDataError(errorMessage(error));
       setToast({ kind: "error", message: errorMessage(error) });
     }
-  }, [authState.user]);
+  }, [authState.user, beginDataLoad]);
 
   useEffect(() => {
     // Initial remote session lookup; the state change happens after the request resolves.
@@ -343,7 +349,8 @@ export function EduSystemApp() {
     // Refresh authenticated server data when the signed-in user changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshData();
-  }, [refreshData]);
+    return cancelDataLoad;
+  }, [refreshData, cancelDataLoad]);
 
   useEffect(() => {
     if (!toast) return;
@@ -380,6 +387,7 @@ export function EduSystemApp() {
     setBusy(true);
     try {
       await requestJson("/api/auth/logout", { method: "POST" });
+      cancelDataLoad();
       setNavigationHistory([]);
       setData(null);
       await loadAuth();
@@ -392,7 +400,7 @@ export function EduSystemApp() {
 
   if (authState.loading) {
     return (
-      <main className="loading-screen" aria-live="polite">
+      <main className="loading-screen" id="main-content" aria-live="polite">
         <BrandMark />
         <div className="loading-line" />
         <p>운영 데이터를 안전하게 불러오는 중입니다.</p>
@@ -470,12 +478,12 @@ export function EduSystemApp() {
         </div>
       </aside>
 
-      <main className="main-content">
+      <main className="main-content" id="main-content">
         <header className="mobile-header">
           <BrandMark compact />
           <div className="mobile-user">
             <strong>{user.name}</strong>
-            <span>{roleLabel[user.role]}</span>
+            <span>{roleLabel[user.role]}</span><button type="button" className="mobile-logout" disabled={busy} onClick={() => void logout()}>로그아웃</button>
           </div>
           <nav className="mobile-history-nav" aria-label="화면 이동">
             <button type="button" onClick={goBack} disabled={navigationHistory.length === 0}>← 이전</button>
@@ -562,7 +570,7 @@ function OperationsHub({ notify }: { notify: (toast: { kind: "ok" | "error"; mes
         <div className="operations-unified-toolbar panel">
           <label>
             <span>기준 월</span>
-            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+            <input type="month" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} />
           </label>
           <nav className="operations-unified-months" aria-label="등록된 운영 월">
             {scheduleMonths.length ? scheduleMonths.map((value) => (
@@ -570,7 +578,7 @@ function OperationsHub({ notify }: { notify: (toast: { kind: "ok" | "error"; mes
                 <b>{Number(value.slice(5))}월</b>
                 <small>일정 등록</small>
               </button>
-            )) : <span>등록된 일정을 확인하고 있습니다.</span>}
+            )) : <span>{month ? "등록된 일정이 없습니다." : "등록된 일정을 확인하고 있습니다."}</span>}
           </nav>
           <div className="operations-jump-actions" aria-label="통합 관리 바로가기">
             <button type="button" onClick={() => moveToSection("operations-schedule")}>스테이션 일정</button>
@@ -643,7 +651,7 @@ function AuthScreen({
   onSubmit: (endpoint: string, data: FormData) => Promise<void>;
 }) {
   return (
-    <main className="auth-layout">
+    <main className="auth-layout" id="main-content">
       <section className="auth-story">
         <BrandMark />
         <div className="auth-headline">
@@ -1598,10 +1606,8 @@ function InventoryView({
           || Math.abs(editingItem.quantity) > 0.000001;
         const currentAmount = inventoryItemAmount(editingItem);
         return (
-          <div className="record-modal-backdrop" role="presentation" onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setEditingItem(null);
-          }}>
-            <article className="record-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-item-editor-title">
+<AccessibleDialog label="품목 정보 수정" onClose={() => setEditingItem(null)}>
+            <article className="record-modal" aria-labelledby="inventory-item-editor-title">
               <div className="record-modal-heading">
                 <div><span className="eyebrow">관리자 편집</span><h3 id="inventory-item-editor-title">품목 정보 수정</h3></div>
                 <button type="button" aria-label="닫기" onClick={() => setEditingItem(null)}>×</button>
@@ -1646,7 +1652,7 @@ function InventoryView({
                 </div>
               </form>
             </article>
-          </div>
+          </AccessibleDialog>
         );
       })()}
     </section>
@@ -1796,10 +1802,8 @@ function FinanceView({
       </div>
 
       {editingTransaction && (
-        <div className="record-modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.currentTarget === event.target) setEditingTransaction(null);
-        }}>
-          <article className="record-modal" role="dialog" aria-modal="true" aria-labelledby="finance-editor-title">
+<AccessibleDialog label="매출·지출 수정" onClose={() => setEditingTransaction(null)}>
+          <article className="record-modal" aria-labelledby="finance-editor-title">
             <div className="record-modal-heading">
               <div><span className="eyebrow">관리자 편집</span><h3 id="finance-editor-title">매출·지출 기록 수정</h3></div>
               <button type="button" aria-label="닫기" onClick={() => setEditingTransaction(null)}>×</button>
@@ -1823,7 +1827,7 @@ function FinanceView({
               </div>
             </form>
           </article>
-        </div>
+        </AccessibleDialog>
       )}
     </section>
   );
@@ -2718,6 +2722,9 @@ function CourseOpeningsAdminView({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editor, setEditor] = useState<"create" | CourseOpening | null>(null);
   const [publicPageVisible, setPublicPageVisible] = useState(false);
+  const [loadedMonth, setLoadedMonth] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [beginLoad, cancelLoad] = useRequestGuard();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -2732,7 +2739,7 @@ function CourseOpeningsAdminView({
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const isCurrent = beginLoad();
     try {
       const result = await requestJson<{
         publicPageVisible: boolean;
@@ -2742,6 +2749,9 @@ function CourseOpeningsAdminView({
       }>(
         `/api/course-openings?month=${encodeURIComponent(targetMonth)}`,
       );
+      if (!isCurrent()) return;
+      setLoadedMonth(targetMonth);
+      setLoadError("");
       setCourses(result.courses);
       setScheduleMonths(result.scheduleMonths);
       setScheduleDays(result.scheduleDays);
@@ -2752,20 +2762,27 @@ function CourseOpeningsAdminView({
         return result.courses[0]?.id ?? null;
       });
     } catch (error) {
+      if (!isCurrent()) return;
+      setLoadError(errorMessage(error));
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [month, notify]);
+  }, [month, notify, beginLoad]);
 
   useEffect(() => {
     // Load the selected month's private administration data after the tab opens.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+    const refresh = () => void load();
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("thecup:booking-updated", refresh);
+    window.addEventListener("focus", refresh);
+    return () => { cancelLoad(); window.clearInterval(timer); window.removeEventListener("thecup:booking-updated", refresh); window.removeEventListener("focus", refresh); };
+  }, [load, cancelLoad]);
 
   const selected = courses.find((course) => course.id === selectedId) ?? null;
-  const scheduleForMonth = scheduleMonths.find((summary) => summary.month === month) ?? null;
+  const scheduleForMonth = loadedMonth === month ? scheduleMonths.find((summary) => summary.month === month) ?? null : null;
 
   async function saveCourse(payload: Record<string, unknown>, course?: CourseOpening) {
     setBusy(true);
@@ -2952,7 +2969,7 @@ function CourseOpeningsAdminView({
           <p>
             {publicPageVisible
               ? "게스트가 로그인 없이 과정 일정과 모집 인원을 확인할 수 있습니다."
-              : "로그인 화면의 게스트 링크와 외부 과정·인원 정보가 모두 숨겨져 있습니다."}
+              : "외부 개강 모집 페이지를 숨겼습니다. 스테이션 빈자리 조회는 계속 이용할 수 있습니다."}
           </p>
         </div>
         <button
@@ -2986,7 +3003,8 @@ function CourseOpeningsAdminView({
         ) : <div className="opening-schedule-empty">이 달에는 등록된 스테이션 운영 일정이 없습니다.</div>}
       </section>
 
-      {loading ? <div className="panel empty-state">개강 정보를 불러오는 중입니다.</div> : courses.length ? (
+      {loadError && <div role="alert" className="panel empty-state">{loadError} <button type="button" onClick={() => void load()}>다시 불러오기</button></div>}
+      {loading || loadedMonth !== month ? <div className="panel empty-state">{loadError ? "선택한 월의 개강 정보를 확인하지 못했습니다." : "개강 정보를 불러오는 중입니다."}</div> : courses.length ? (
         <div className="opening-admin-layout">
           <aside className="opening-course-list" aria-label="과정 목록">
             {courses.map((course) => {
@@ -3465,10 +3483,8 @@ function MovementTable({
       </div>
 
       {editing && (
-        <div className="record-modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.currentTarget === event.target) setEditing(null);
-        }}>
-          <article className="record-modal" role="dialog" aria-modal="true" aria-labelledby="movement-editor-title">
+<AccessibleDialog label="재고 기록 수정" onClose={() => setEditing(null)}>
+          <article className="record-modal" aria-labelledby="movement-editor-title">
             <div className="record-modal-heading">
               <div><span className="eyebrow">관리자 편집</span><h3 id="movement-editor-title">재고 기록 수정</h3></div>
               <button type="button" aria-label="닫기" onClick={() => setEditing(null)}>×</button>
@@ -3509,7 +3525,7 @@ function MovementTable({
               </div>
             </form>
           </article>
-        </div>
+        </AccessibleDialog>
       )}
     </>
   );
@@ -3578,16 +3594,25 @@ function PresetOrCustomField({
   const value = choice === customKey ? customValue.trim() : choice;
 
   return (
-    <Field label={label}>
+    <fieldset className="field preset-field">
+      <legend>{label}</legend>
       <input type="hidden" name={name} value={value} />
-      <div className="preset-options" role="radiogroup" aria-label={`${label} 선택`}>
+      <div className="preset-options" role="radiogroup" aria-label={`${label} 선택`} onKeyDown={(event) => {
+        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const values = [...options, customKey];
+        const current = values.indexOf(choice);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? values.length - 1 : (current + (["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1) + values.length) % values.length;
+        setChoice(values[next]);
+        event.currentTarget.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+      }}>
         {options.map((option) => (
-          <button type="button" role="radio" aria-checked={choice === option} className={choice === option ? "active" : ""} key={option || "blank"} onClick={() => setChoice(option)}>{option || "미지정"}</button>
+          <button type="button" role="radio" tabIndex={choice === option ? 0 : -1} aria-checked={choice === option} className={choice === option ? "active" : ""} key={option || "blank"} onClick={() => setChoice(option)}>{option || "미지정"}</button>
         ))}
-        <button type="button" role="radio" aria-checked={choice === customKey} className={choice === customKey ? "active" : ""} onClick={() => setChoice(customKey)}>기타</button>
+        <button type="button" role="radio" tabIndex={choice === customKey ? 0 : -1} aria-checked={choice === customKey} className={choice === customKey ? "active" : ""} onClick={() => setChoice(customKey)}>기타</button>
       </div>
-      {choice === customKey && <input className="preset-custom-input" value={customValue} onChange={(event) => setCustomValue(event.target.value)} placeholder={customPlaceholder} required={required} autoFocus />}
-    </Field>
+      {choice === customKey && <input aria-label={`${label} 직접 입력`} className="preset-custom-input" value={customValue} onChange={(event) => setCustomValue(event.target.value)} placeholder={customPlaceholder} required={required} autoFocus />}
+    </fieldset>
   );
 }
 

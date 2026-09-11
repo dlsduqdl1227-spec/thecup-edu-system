@@ -87,7 +87,13 @@ export async function GET(request: Request) {
           `SELECT substr(start_at, 1, 7) AS month,
                   COUNT(*) AS totalSlots,
                   COUNT(DISTINCT substr(start_at, 1, 10)) AS operationDays,
-                  SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openSlots,
+                  SUM(CASE WHEN status = 'OPEN'
+                    AND datetime(start_at) > datetime('now')
+                    AND EXISTS (SELECT 1 FROM stations st WHERE st.id = booking_slots.station_id AND st.active = 1)
+                    AND NOT EXISTS (SELECT 1 FROM reservations r JOIN booking_slots occupied ON occupied.id = r.slot_id
+                      WHERE r.status = 'CONFIRMED' AND occupied.station_id = booking_slots.station_id
+                        AND occupied.start_at < booking_slots.end_at AND occupied.end_at > booking_slots.start_at)
+                    THEN 1 ELSE 0 END) AS openSlots,
                   SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) AS blockedSlots
            FROM booking_slots
            WHERE substr(start_at, 1, 7) >= ?
@@ -101,7 +107,13 @@ export async function GET(request: Request) {
         .prepare(
           `SELECT substr(start_at, 1, 10) AS date,
                   COUNT(*) AS totalSlots,
-                  SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openSlots,
+                  SUM(CASE WHEN status = 'OPEN'
+                    AND datetime(start_at) > datetime('now')
+                    AND EXISTS (SELECT 1 FROM stations st WHERE st.id = booking_slots.station_id AND st.active = 1)
+                    AND NOT EXISTS (SELECT 1 FROM reservations r JOIN booking_slots occupied ON occupied.id = r.slot_id
+                      WHERE r.status = 'CONFIRMED' AND occupied.station_id = booking_slots.station_id
+                        AND occupied.start_at < booking_slots.end_at AND occupied.end_at > booking_slots.start_at)
+                    THEN 1 ELSE 0 END) AS openSlots,
                   SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) AS blockedSlots
            FROM booking_slots
            WHERE start_at >= ? AND start_at < ?

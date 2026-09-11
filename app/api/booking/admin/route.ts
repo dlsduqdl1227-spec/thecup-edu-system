@@ -15,7 +15,7 @@ import {
 } from "../../../../lib/booking";
 import { currentKoreanMonth } from "../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
-import { assertSameOrigin, jsonError } from "../../../../lib/http";
+import { assertSameOrigin, isoDate, jsonError } from "../../../../lib/http";
 
 export async function GET(request: Request) {
   try {
@@ -145,19 +145,20 @@ export async function POST(request: Request) {
     const actor = await requireUser(request, ["admin"]);
     const payload = (await request.json()) as Record<string, unknown>;
     const action = bookingText(payload.action, "작업", 50);
-    if (action === "approveMember") return approveMember(actor.id, payload);
-    if (action === "deleteMember") return deleteMember(actor.id, payload);
-    if (action === "saveStation") return saveStation(actor.id, payload);
-    if (action === "generateSlots") return generateSlots(actor.id, payload);
-    if (action === "copyDate") return copyDate(actor.id, payload);
-    if (action === "setSlotBlock") return setSlotBlock(actor.id, payload);
-    if (action === "setDateBlock") return setDateBlock(actor.id, payload);
-    if (action === "decideReservation") return decideReservation(actor.id, payload);
-    if (action === "recordPayment") return recordPayment(actor.id, payload);
-    if (action === "updateSettings") return updateSettings(actor.id, payload);
-    if (action === "answerFeedback") return answerFeedback(actor.id, payload);
-    if (action === "saveEvaluation") return saveEvaluation(actor.id, payload);
-    if (action === "saveCandidate") return saveCandidate(actor.id, payload);
+    // Await inside this boundary so asynchronous validation stays a JSON 4xx response.
+    if (action === "approveMember") return await approveMember(actor.id, payload);
+    if (action === "deleteMember") return await deleteMember(actor.id, payload);
+    if (action === "saveStation") return await saveStation(actor.id, payload);
+    if (action === "generateSlots") return await generateSlots(actor.id, payload);
+    if (action === "copyDate") return await copyDate(actor.id, payload);
+    if (action === "setSlotBlock") return await setSlotBlock(actor.id, payload);
+    if (action === "setDateBlock") return await setDateBlock(actor.id, payload);
+    if (action === "decideReservation") return await decideReservation(actor.id, payload);
+    if (action === "recordPayment") return await recordPayment(actor.id, payload);
+    if (action === "updateSettings") return await updateSettings(actor.id, payload);
+    if (action === "answerFeedback") return await answerFeedback(actor.id, payload);
+    if (action === "saveEvaluation") return await saveEvaluation(actor.id, payload);
+    if (action === "saveCandidate") return await saveCandidate(actor.id, payload);
     throw new Error("지원하지 않는 관리자 작업입니다.");
   } catch (error) {
     return jsonError(error);
@@ -306,11 +307,9 @@ async function generateSlots(actorId: number, payload: Record<string, unknown>) 
 }
 
 async function copyDate(actorId: number, payload: Record<string, unknown>) {
-  const sourceDate = bookingText(payload.sourceDate, "복사할 날짜", 10);
-  const targetDate = bookingText(payload.targetDate, "적용 날짜", 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(sourceDate) || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-    throw new Error("날짜 형식이 올바르지 않습니다.");
-  }
+  const sourceDate = isoDate(payload.sourceDate);
+  const targetDate = isoDate(payload.targetDate);
+  if (sourceDate === targetDate) throw new Error("서로 다른 날짜를 선택해 주세요.");
   const sourceSlots = await getD1()
     .prepare(
       `SELECT station_id AS stationId, substr(start_at, 12, 5) AS startTime,
@@ -321,13 +320,17 @@ async function copyDate(actorId: number, payload: Record<string, unknown>) {
     .all<{ stationId: number; startTime: string; endTime: string; status: string; blockReason: string }>();
   if (!sourceSlots.results.length) throw new Error("복사할 날짜에 운영 시간이 없습니다.");
   const statements = sourceSlots.results.map((slot) => getD1().prepare(
-    `INSERT OR IGNORE INTO booking_slots
+    `INSERT INTO booking_slots
       (station_id, start_at, end_at, status, block_reason, created_by)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).bind(slot.stationId, bookingDateTime(targetDate, slot.startTime), bookingDateTime(targetDate, slot.endTime), slot.status, slot.blockReason, actorId));
-  await getD1().batch(statements);
+     SELECT ?, ?, ?, ?, ?, ?
+     WHERE NOT EXISTS (
+       SELECT 1 FROM booking_slots WHERE station_id = ? AND start_at < ? AND end_at > ?
+     )`,
+  ).bind(slot.stationId, bookingDateTime(targetDate, slot.startTime), bookingDateTime(targetDate, slot.endTime), slot.status, slot.blockReason, actorId, slot.stationId, bookingDateTime(targetDate, slot.endTime), bookingDateTime(targetDate, slot.startTime)));
+  const results = await getD1().batch(statements);
+  const created = results.reduce((total, result) => total + Number(result.meta.changes ?? 0), 0);
   await audit(actorId, "copy_booking_date", "booking_slot", targetDate, `${sourceDate} 복사`);
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, created, skipped: statements.length - created });
 }
 
 async function setSlotBlock(actorId: number, payload: Record<string, unknown>) {
@@ -441,9 +444,21 @@ async function confirmReservation(actorId: number, reservationId: number, adminM
     const result = await db.prepare(
       `UPDATE reservations SET status = 'CONFIRMED', admin_memo = ?,
               confirmed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND status = 'REQUESTED'`,
+       WHERE id = ? AND status = 'REQUESTED'
+         AND EXISTS (
+           SELECT 1 FROM booking_slots s JOIN stations st ON st.id = s.station_id
+           JOIN booking_members m ON m.id = reservations.member_id
+           WHERE s.id = reservations.slot_id AND s.status = 'OPEN' AND st.active = 1
+             AND m.approval_status = 'APPROVED' AND m.deleted_at IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM reservations other JOIN booking_slots occupied ON occupied.id = other.slot_id
+               WHERE other.status = 'CONFIRMED' AND other.id != reservations.id
+                 AND (other.member_id = reservations.member_id OR occupied.station_id = s.station_id)
+                 AND occupied.start_at < s.end_at AND occupied.end_at > s.start_at
+             )
+         )`,
     ).bind(adminMemo, reservationId).run();
-    if (!Number(result.meta.changes)) throw new AuthError("다른 관리자가 먼저 처리했습니다.", 409);
+    if (!Number(result.meta.changes)) throw new AuthError("예약 상태가 변경되었거나 시간이 겹치는 확정 예약이 있습니다. 다시 확인해 주세요.", 409);
   } catch (error) {
     if (String(error).includes("UNIQUE")) throw new AuthError("동시에 다른 예약이 확정되어 다시 확인이 필요합니다.", 409);
     throw error;

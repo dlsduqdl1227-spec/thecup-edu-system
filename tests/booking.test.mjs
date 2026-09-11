@@ -56,7 +56,7 @@ test("approved members can reserve without manual passes and confirmation confli
   assert.doesNotMatch(adminRoute, /createPass|유효한 이용권|월 이용권은 하루에 한 타임만 확정/);
   assert.match(adminRoute, /확정 또는 이용 완료된 예약만 결제/);
   assert.match(adminRoute, /reservation_id = \? AND status = 'PAID'/);
-  assert.match(adminRoute, /다른 관리자가 먼저 처리/);
+  assert.match(adminRoute, /시간이 겹치는 확정 예약/);
 });
 
 test("three audience paths, public availability and private member data stay separated", async () => {

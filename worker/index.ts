@@ -20,6 +20,9 @@ const worker = {
     headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     headers.set("Cross-Origin-Opener-Policy", "same-origin");
+    const publicGet = request.method === "GET" && (pathname.startsWith("/api/public/") || pathname.startsWith("/api/booking/public/"));
+    if (pathname.startsWith("/api/") && !publicGet) headers.set("Cache-Control", "private, no-store");
+    if (pathname === "/admin") headers.set("X-Robots-Tag", "noindex, nofollow");
     if (pathname === "/embed/course-openings") {
       headers.delete("X-Frame-Options");
       headers.delete("Cross-Origin-Opener-Policy");

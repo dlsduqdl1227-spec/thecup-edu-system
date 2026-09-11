@@ -129,7 +129,8 @@ function scheduleMarkers(month: string, courses: PublicCourse[]): Map<number, Sc
 
 export function PublicCourseOpenings({ initialMonth }: { initialMonth: string }) {
   const [month, setMonth] = useState(initialMonth || currentKoreanMonth);
-  const [data, setData] = useState<PublicCourseResponse | null>(null);
+  const [responseData, setData] = useState<PublicCourseResponse | null>(null);
+  const data = responseData?.month === month ? responseData : null;
   const [loading, setLoading] = useState(true);
   const [refreshError, setRefreshError] = useState(false);
 
@@ -138,6 +139,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
     const refresh = () => {
       fetch(`/api/public/course-openings?month=${encodeURIComponent(month)}`, {
         headers: { Accept: "application/json" },
+        cache: "no-store",
       })
         .then(async (response) => {
           if (!response.ok) throw new Error("공개 모집 현황을 불러오지 못했습니다.");
@@ -164,6 +166,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
   }, [month]);
 
   function selectMonth(nextMonth: string) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth) || nextMonth === month) return;
     setLoading(true);
     setMonth(nextMonth);
     window.history.replaceState(null, "", `?month=${nextMonth}`);
@@ -186,7 +189,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
 
   if (!loading && data && !data.isVisible) {
     return (
-      <main className="public-openings-page public-openings-hidden-page">
+      <main className="public-openings-page public-openings-hidden-page" id="main-content">
         <section className="public-openings-hidden" aria-live="polite">
           <span>THE CUP EDU</span>
           <h1>개강 현황을 준비하고 있습니다.</h1>
@@ -197,7 +200,7 @@ export function PublicCourseOpenings({ initialMonth }: { initialMonth: string })
   }
 
   return (
-    <main className="public-openings-page">
+    <main className="public-openings-page" id="main-content">
       <header className="public-openings-header">
         <div>
           <span className="public-eyebrow">THE CUP EDU · 실시간 모집 현황</span>

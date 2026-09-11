@@ -42,7 +42,9 @@ export async function GET(request: Request) {
           `SELECT sl.id, sl.station_id AS stationId, st.type AS stationType,
                   st.name AS stationName, sl.start_at AS startAt, sl.end_at AS endAt,
                   sl.status AS slotStatus, sl.block_reason AS blockReason,
-                  MAX(CASE WHEN r.status = 'CONFIRMED' THEN 1 ELSE 0 END) AS hasConfirmed,
+                  EXISTS (SELECT 1 FROM reservations booked JOIN booking_slots occupied ON occupied.id = booked.slot_id
+                    WHERE booked.status = 'CONFIRMED' AND (occupied.station_id = sl.station_id OR booked.member_id = ?)
+                      AND occupied.start_at < sl.end_at AND occupied.end_at > sl.start_at) AS hasConfirmed,
                   MAX(CASE WHEN r.member_id = ? AND r.status = 'CONFIRMED' THEN 1 ELSE 0 END) AS ownConfirmed,
                   MAX(CASE WHEN r.member_id = ? AND r.status = 'REQUESTED' THEN 1 ELSE 0 END) AS ownRequested
            FROM booking_slots sl
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
            GROUP BY sl.id
            ORDER BY sl.start_at, st.display_order, st.id`,
         )
-        .bind(member.id, member.id, range.start, range.end)
+        .bind(member.id, member.id, member.id, range.start, range.end)
         .all<SlotRow>(),
       db
         .prepare(
@@ -119,7 +121,7 @@ export async function GET(request: Request) {
       startAt: slot.startAt,
       endAt: slot.endAt,
       blockReason: slot.slotStatus === "BLOCKED" ? slot.blockReason : "",
-      displayStatus: slot.slotStatus === "BLOCKED"
+      displayStatus: slot.slotStatus === "BLOCKED" || !isFutureSlot(slot.startAt)
         ? "BLOCKED"
         : Number(slot.ownConfirmed)
           ? "CONFIRMED"
@@ -154,11 +156,11 @@ export async function POST(request: Request) {
     const member = await requireMember(request);
     const payload = (await request.json()) as Record<string, unknown>;
     const action = bookingText(payload.action, "작업", 40);
-    if (action === "requestReservation") return requestReservation(member.id, payload);
-    if (action === "cancelReservation") return cancelReservation(member.id, payload);
-    if (action === "requestFeedback") return requestFeedback(member.id, payload);
-    if (action === "savePracticeLog") return savePracticeLog(member.id, payload);
-    if (action === "requestEvaluation") return requestEvaluation(member.id);
+    if (action === "requestReservation") return await requestReservation(member.id, payload);
+    if (action === "cancelReservation") return await cancelReservation(member.id, payload);
+    if (action === "requestFeedback") return await requestFeedback(member.id, payload);
+    if (action === "savePracticeLog") return await savePracticeLog(member.id, payload);
+    if (action === "requestEvaluation") return await requestEvaluation(member.id);
     throw new Error("지원하지 않는 회원 작업입니다.");
   } catch (error) {
     return jsonError(error);
@@ -198,7 +200,19 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
         `INSERT INTO reservations
           (member_id, slot_id, pass_id, slot_start_at, status, purpose, material_plan,
            open_to_peer_practice, user_memo)
-         VALUES (?, ?, ?, ?, 'REQUESTED', ?, ?, ?, ?)`,
+         SELECT ?, ?, ?, ?, 'REQUESTED', ?, ?, ?, ?
+         WHERE EXISTS (
+           SELECT 1 FROM booking_slots s JOIN stations st ON st.id = s.station_id
+           JOIN booking_members m ON m.id = ?
+           WHERE s.id = ? AND s.status = 'OPEN' AND st.active = 1
+             AND m.approval_status = 'APPROVED' AND m.deleted_at IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM reservations r JOIN booking_slots occupied ON occupied.id = r.slot_id
+               WHERE r.status = 'CONFIRMED'
+                 AND (occupied.station_id = s.station_id OR r.member_id = m.id)
+                 AND occupied.start_at < s.end_at AND occupied.end_at > s.start_at
+             )
+         )`,
       )
       .bind(
         memberId,
@@ -209,8 +223,11 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
         materialPlan,
         payload.openToPeerPractice === true ? 1 : 0,
         userMemo,
+        memberId,
+        slotId,
       )
       .run();
+    if (!Number(result.meta.changes)) throw new AuthError("이미 예약되었거나 이용할 수 없는 시간입니다. 일정을 다시 확인해 주세요.", 409);
     const id = Number(result.meta.last_row_id);
     await audit(null, "request_reservation", "reservation", String(id), `${slot.startAt} · ${purpose}`);
     return Response.json({ id, status: "REQUESTED" }, { status: 201 });

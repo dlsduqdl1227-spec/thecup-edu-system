@@ -26,8 +26,9 @@ export async function GET(request: Request) {
            AND sl.status = 'OPEN'
            AND datetime(sl.start_at) > datetime('now')
            AND NOT EXISTS (
-             SELECT 1 FROM reservations r
-             WHERE r.slot_id = sl.id AND r.status = 'CONFIRMED'
+             SELECT 1 FROM reservations r JOIN booking_slots occupied ON occupied.id = r.slot_id
+             WHERE r.status = 'CONFIRMED' AND occupied.station_id = sl.station_id
+               AND occupied.start_at < sl.end_at AND occupied.end_at > sl.start_at
            )
          ORDER BY sl.start_at, st.display_order, st.id`,
       )

@@ -1,0 +1,77 @@
+/* Shared release-quality defaults. Keep component layouts and user content intact. */
+html, body, .app-shell, .main-content { background: #fff; }
+[hidden] { display: none !important; }
+html { scroll-padding-bottom: 100px; }
+button, a, input, select, textarea { touch-action: manipulation; }
+button:disabled { cursor: not-allowed; }
+:is(button, a, input, select, textarea):focus-visible { outline: 3px solid #16704c; outline-offset: 3px; }
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 300; transform: translateY(-160%); padding: 12px 18px; background: #111; color: #fff; }
+.skip-link:focus { transform: translateY(0); }
+.page-header p { font-size: 15px; color: #555; }
+.side-nav .nav-item { font-size: 14px; color: #ccc; }
+.side-nav .nav-item.active { color: #fff; }
+.field > span, .booking-admin-page label { font-size: 14px; }
+.preset-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.preset-field legend { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.portal-modal .portal-form-error { margin: 0; padding: 12px; background: #f4f4f4; border-left: 3px solid #333; color: #111; font-size: 14px; }
+.field :is(input, select, textarea) { font-size: 16px; }
+.portal-public p, .portal-member p { word-break: keep-all; overflow-wrap: anywhere; }
+.portal-role-grid p { color: #595959; font-size: 14px; }
+.portal-role-grid > a.active p, .portal-role-grid > a:hover p { color: #ddd; }
+.portal-public.has-entry .portal-intro { padding: 24px 0; }
+.portal-public.has-entry .portal-intro > div:first-child { display: none; }
+.portal-public.has-entry .portal-role-grid { margin-top: 0; }
+.portal-public.has-entry .portal-role-grid > a { min-height: 110px; padding: 16px 22px; }
+.portal-public.has-entry .portal-role-grid :is(span, p, b) { display: none; }
+.portal-public.has-entry .portal-role-grid h2 { margin: 0; font-size: 20px; }
+.portal-public.has-entry .portal-role-grid > a { justify-content: center; }
+.portal-slot.blocked, .portal-slot.reserved { opacity: 1; color: #555; background: #f4f4f4; padding: 14px; }
+.portal-schedule-toolbar button, .portal-filter button, .portal-reservations button { min-height: 44px; font-size: 13px; }
+.portal-reservations :is(p, small), .portal-reservations article span { font-size: 13px; }
+.portal-empty, .booking-admin-empty { font-size: 14px; color: #595959; }
+.portal-load-notice { width: min(1380px, calc(100% - 32px)); margin: 16px auto; padding: 16px; background: #f4f4f4; font-size: 14px; }
+.portal-load-notice button { min-height: 44px; padding: 0 12px; border: 1px solid #aaa; }
+.accessible-dialog { width: min(620px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: auto; border: 1px solid #ccc; background: #fff; color: #111; }
+.accessible-dialog::backdrop { background: rgb(0 0 0 / .6); }
+.accessible-dialog .record-modal, .accessible-dialog .portal-modal { width: 100%; max-height: none; box-shadow: none; }
+.portal-modal .close { width: 44px; height: 44px; }
+.portal-modal h2 { padding-right: 25px; }
+.mobile-logout { min-height: 32px; padding: 4px 10px; border: 1px solid #aaa; background: #fff; color: #333; font-size: 12px; }
+.booking-admin-tabs button, .booking-batch-quick button, .booking-admin-actions button { min-height: 44px; font-size: 13px; }
+.booking-admin-request :is(p, small), .booking-admin-table small { font-size: 13px; }
+.booking-admin-schedule article small { color: #555; }
+
+@media (max-width: 760px) {
+  .portal-role-grid > a { min-height: 150px; }
+  .portal-role-grid h2 { margin: 12px 0 8px; }
+  .portal-role-grid b { padding-top: 16px; }
+  .portal-public.has-entry .portal-role-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .portal-public.has-entry .portal-role-grid > a { min-height: 56px; padding: 10px 4px; text-align: center; border-bottom: 0; border-right: 1px solid #ddd; }
+  .portal-public.has-entry .portal-role-grid > a:last-child { border-right: 0; }
+  .portal-public.has-entry .portal-role-grid h2 { font-size: 15px; white-space: nowrap; }
+  .portal-public.has-entry .portal-intro { padding: 18px 0; }
+  .portal-entry-panel, .portal-schedule-section { padding-top: 28px; }
+  .portal-calendar { display: block; border: 1px solid #ccc; }
+  .portal-mobile-dates { display: none; }
+  .portal-calendar .days > button, .portal-calendar .days > span { min-height: 60px; aspect-ratio: auto; padding: 6px 4px; }
+  .portal-calendar .days small { font-size: 12px; letter-spacing: 0; }
+  .portal-calendar .weekdays span { padding: 10px 4px; font-size: 12px; }
+  .portal-calendar-layout { gap: 16px; }
+  .portal-slot.available { padding: 12px; gap: 8px; }
+  .portal-slot h3 { font-size: 17px; }
+  .portal-member-main { padding-top: 28px; }
+  .portal-member-header { flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; gap: 12px; }
+  .portal-member-account { margin-left: auto; }
+  .portal-section-heading h1 { font-size: 27px; }
+  .portal-section-heading p { font-size: 14px; }
+  .portal-member :is(input, select, textarea), .portal-public :is(input, select, textarea) { font-size: 16px; }
+  .main-content, .portal-member-main { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+  .bottom-nav, .portal-mobile-nav { padding-bottom: env(safe-area-inset-bottom); }
+  .bottom-nav button { min-height: 58px; min-width: 64px; font-size: 13px; }
+  .mobile-user { gap: 3px; }
+  .toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -67,7 +67,8 @@ export async function POST(request: Request) {
            desired_station_type, consultation_memo, updated_at)
          VALUES (?, ?, ?, 'PENDING', 'REQUESTED', ?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT(phone_hash) DO UPDATE SET
-           name = excluded.name,
+           name = CASE WHEN booking_members.deleted_at IS NOT NULL OR booking_members.approval_status = 'PENDING'
+             THEN excluded.name ELSE booking_members.name END,
            phone_last4 = excluded.phone_last4,
            approval_status = CASE
              WHEN booking_members.deleted_at IS NOT NULL THEN 'PENDING'

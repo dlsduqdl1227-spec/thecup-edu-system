@@ -1,7 +1,8 @@
 "use client";
 import { requestJson } from "../../lib/api-client";
+import { useRequestGuard } from "../../lib/use-request-guard";
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; phoneLast4: string; approvalStatus: string; consultationStatus: string; desiredStationType: string; consultationMemo: string; adminMemo: string; approvedAt: string | null; createdAt: string };
 type Station = { id: number; type: string; name: string; active: number; displayOrder: number };
@@ -27,7 +28,7 @@ type BookingAdminData = {
 };
 
 type AdminTab = "requests" | "schedule" | "members" | "payments" | "growth" | "settings";
-const tabs: Array<[AdminTab, string]> = [["requests", "예약 요청"], ["schedule", "스케줄"], ["members", "상담·회원"], ["payments", "현장 결제"], ["growth", "평가·후보"], ["settings", "운영 설정"]];
+const tabs: Array<[AdminTab, string]> = [["requests", "예약 요청"], ["schedule", "스케줄"], ["members", "상담·회원"], ["payments", "현장 결제"], ["growth", "피드백"], ["settings", "운영 설정"]];
 const won = new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 });
 const stationLabel: Record<string, string> = { ESPRESSO: "에스프레소", BREWING: "브루잉", ROASTING: "로스팅" };
 const reservationLabel: Record<string, string> = { REQUESTED: "승인 대기", CONFIRMED: "확정", COMPLETED: "완료", CANCELLED: "취소", REJECTED: "거절", NO_SHOW: "노쇼" };
@@ -53,11 +54,15 @@ export function BookingAdmin({
   const [data, setData] = useState<BookingAdminData | null>(null);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const [beginLoad, cancelLoad] = useRequestGuard();
 
   const load = useCallback(async () => {
+    const isCurrent = beginLoad();
     setLoadError("");
     try {
       const result = await requestJson<BookingAdminData>(month ? `/api/booking/admin?month=${encodeURIComponent(month)}` : "/api/booking/admin");
+      if (!isCurrent()) return;
       setData(result);
       onScheduleMonthsChange?.(result.scheduleMonths);
       if (!month) {
@@ -65,12 +70,14 @@ export function BookingAdmin({
         onMonthChange?.(result.month);
       }
     } catch (error) {
+      if (!isCurrent()) return;
       setLoadError(errorMessage(error));
       notify({ kind: "error", message: errorMessage(error) });
     }
-  }, [month, notify, onMonthChange, onScheduleMonthsChange]);
+  }, [month, notify, onMonthChange, onScheduleMonthsChange, beginLoad]);
 
   function changeMonth(nextMonth: string) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth)) return;
     setInternalMonth(nextMonth);
     onMonthChange?.(nextMonth);
   }
@@ -80,23 +87,30 @@ export function BookingAdmin({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     const refresh = window.setInterval(() => void load(), 30_000);
-    return () => window.clearInterval(refresh);
-  }, [load]);
+    window.addEventListener("focus", load);
+    return () => { window.clearInterval(refresh); window.removeEventListener("focus", load); cancelLoad(); };
+  }, [load, cancelLoad]);
 
   async function act(body: Record<string, unknown>, success: string) {
+    if (submitting.current) return false;
+    submitting.current = true;
     setBusy(true);
     try {
-      await requestJson("/api/booking/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const result = await requestJson<{ created?: number; skipped?: number }>("/api/booking/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       await load();
-      notify({ kind: "ok", message: success });
+      window.dispatchEvent(new Event("thecup:booking-updated"));
+      notify({ kind: "ok", message: result.created === undefined ? success : `${result.created}개 일정 생성 · ${result.skipped ?? 0}개 중복·겹침 제외` });
+      return true;
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
+      return false;
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
 
-  if (!data) return <section className="page-section booking-admin-loading">{loadError ? <><p role="alert">{loadError}</p><button type="button" onClick={() => void load()}>다시 불러오기</button></> : <><div className="loading-line" /><p>예약 운영 데이터를 준비하고 있습니다.</p></>}</section>;
+  if (!data || (month && data.month !== month)) return <section className="page-section booking-admin-loading">{loadError ? <><p role="alert">{loadError}</p><button type="button" onClick={() => void load()}>다시 불러오기</button></> : <><div className="loading-line" /><p>예약 운영 데이터를 준비하고 있습니다.</p></>}</section>;
 
   const pending = data.reservations.filter((row) => row.status === "REQUESTED").length;
   const consultations = data.members.filter((row) => row.approvalStatus === "PENDING").length;
@@ -105,7 +119,7 @@ export function BookingAdmin({
   return (
     <section className={embedded ? "page-section booking-admin-page integrated-admin-section" : "page-section booking-admin-page"}>
       {embedded ? <header className="integrated-section-heading"><div><span>01 · STATION SCHEDULE</span><h2>스테이션 일정과 예약 운영</h2><p>선택한 달의 일정 생성, 휴강 처리, 예약 승인과 회원 관리를 한곳에서 처리합니다.</p></div></header> : <header className="booking-admin-heading">
-        <div><span>COFFEE STATION OPERATIONS</span><h1>예약 운영</h1><p>상담 승인부터 스케줄, 예약 확정, 현장결제와 평가까지 관리합니다.</p></div>
+        <div><span>COFFEE STATION OPERATIONS</span><h1>예약 운영</h1><p>상담 승인부터 스케줄, 예약 확정, 현장결제까지 관리합니다.</p></div>
         <label>조회 월<input type="month" value={month} onChange={(event) => changeMonth(event.target.value)} /></label>
       </header>}
       {!embedded && data.scheduleMonths.length > 0 && <nav className="booking-admin-month-nav" aria-label="등록된 운영 월"><span>등록된 일정</span>{data.scheduleMonths.map((value) => <button type="button" key={value} className={month === value ? "active" : ""} onClick={() => changeMonth(value)}>{Number(value.slice(5))}월</button>)}</nav>}
@@ -223,8 +237,8 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
   async function createStation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    await act({ action: "saveStation", ...Object.fromEntries(new FormData(form).entries()), active: true }, "스테이션을 추가했습니다.");
-    form.reset();
+    const saved = await act({ action: "saveStation", ...Object.fromEntries(new FormData(form).entries()), active: true }, "스테이션을 추가했습니다.");
+    if (saved) form.reset();
   }
   function toggleStation(station: Station) {
     void act({ action: "saveStation", id: station.id, type: station.type, name: station.name, displayOrder: station.displayOrder, active: !Boolean(station.active) }, station.active ? "스테이션을 운영 중지했습니다." : "스테이션을 다시 활성화했습니다.");
@@ -262,8 +276,8 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
         </section>
       </div>
     </form>
-    <div className="booking-admin-tools single"><form onSubmit={copy}><div><strong>하루 스케줄 복사</strong><small>특정 날짜의 스케줄과 차단 상태를 다른 날짜로 복사합니다.</small></div><input name="sourceDate" type="date" required /><span>→</span><input name="targetDate" type="date" required /><button disabled={busy}>복사</button></form></div>
-    <section className="booking-admin-stations"><div><strong>스테이션 관리</strong><span>같은 유형의 장비를 여러 대 등록할 수 있습니다.</span></div><form onSubmit={createStation}><select name="type" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option></select><input name="name" required maxLength={80} placeholder="예: 에스프레소 Station 2" /><input name="displayOrder" type="number" min="0" defaultValue="0" aria-label="표시 순서" /><button className="solid" disabled={busy}>추가</button></form><div>{data.stations.map((station) => <button type="button" key={station.id} className={station.active ? "active" : ""} onClick={() => toggleStation(station)} disabled={busy}><b>{station.name}</b><small>{station.active ? "운영 중 · 클릭하여 중지" : "운영 중지 · 클릭하여 활성화"}</small></button>)}</div></section>
+    <div className="booking-admin-tools single"><form onSubmit={copy}><div><strong>하루 스케줄 복사</strong><small>특정 날짜의 스케줄과 차단 상태를 다른 날짜로 복사합니다.</small></div><input name="sourceDate" type="date" aria-label="복사할 날짜" required /><span>→</span><input name="targetDate" type="date" aria-label="적용 날짜" required /><button disabled={busy}>복사</button></form></div>
+    <section className="booking-admin-stations"><div><strong>스테이션 관리</strong><span>같은 유형의 장비를 여러 대 등록할 수 있습니다.</span></div><form onSubmit={createStation}><select name="type" aria-label="스테이션 유형" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option></select><input name="name" aria-label="스테이션 이름" required maxLength={80} placeholder="예: 에스프레소 스테이션" /><input name="displayOrder" type="number" min="0" defaultValue="0" aria-label="표시 순서" /><button className="solid" disabled={busy}>추가</button></form><div>{data.stations.map((station) => <button type="button" key={station.id} className={station.active ? "active" : ""} onClick={() => toggleStation(station)} disabled={busy}><b>{station.name}</b><small>{station.active ? "운영 중 · 클릭하여 중지" : "운영 중지 · 클릭하여 활성화"}</small></button>)}</div></section>
     <div className="booking-admin-schedule">{groups.length ? groups.map(([date, slots]) => <section key={date}><header><strong>{fullDate(date)}</strong><div><span>{slots.length}개 슬롯</span><button type="button" disabled={busy || slots.some((slot) => Boolean(slot.hasConfirmed))} onClick={() => toggleDate(date, slots)}>{slots.every((slot) => slot.status === "BLOCKED") ? "날짜 열기" : "날짜 차단"}</button></div></header><div>{slots.map((slot) => <article key={slot.id} className={slot.status === "BLOCKED" ? "blocked" : slot.hasConfirmed ? "confirmed" : ""}><span>{slot.startAt.slice(11,16)}–{slot.endAt.slice(11,16)}</span><strong>{slot.stationName}</strong><small>{slot.status === "BLOCKED" ? slot.blockReason || "이용 불가" : slot.hasConfirmed ? "예약 확정" : slot.requestCount ? `요청 ${slot.requestCount}건` : "예약 가능"}</small><button type="button" disabled={busy || Boolean(slot.hasConfirmed)} onClick={() => toggle(slot)}>{slot.status === "BLOCKED" ? "차단 해제" : "차단"}</button></article>)}</div></section>) : <Empty>생성된 스케줄이 없습니다. 위에서 날짜와 시간대를 선택해 일괄 생성하세요.</Empty>}</div>
   </>;
 }
@@ -349,7 +363,7 @@ function GrowthAdmin({ data, busy, act }: AdminProps) {
     void act({ action: "saveEvaluation", evaluationId: row.id, technicalScore, consistencyScore, sensoryScore, ruleScore, result, ethicsStatus, note }, "내부평가를 완료했습니다.");
   }
   function candidate(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); void act({ action: "saveCandidate", ...values }, "후보 상태를 수동으로 저장했습니다."); }
-  return <><div className="booking-admin-split"><section><div className="booking-admin-section-title"><div><span>FEEDBACK</span><h2>피드백 요청</h2></div></div><div className="booking-admin-table">{data.feedback.map((row) => <article key={row.id}><div><span>{row.status === "REQUESTED" ? "답변 대기" : "답변 완료"}</span><strong>{row.memberName}</strong><small>{row.message}</small></div><button disabled={busy} onClick={() => answer(row)}>답변</button></article>)}{!data.feedback.length && <Empty>피드백 요청이 없습니다.</Empty>}</div></section><section><div className="booking-admin-section-title"><div><span>EVALUATION</span><h2>내부평가</h2></div></div><div className="booking-admin-table">{data.evaluations.map((row) => <article key={row.id}><div><span>{row.status === "COMPLETED" ? "평가 완료" : "평가 요청"}</span><strong>{row.memberName}</strong><small>{row.result || "점수 입력 대기"}</small></div><button disabled={busy} onClick={() => evaluate(row)}>{row.status === "COMPLETED" ? "재평가" : "평가"}</button></article>)}{!data.evaluations.length && <Empty>내부평가 신청이 없습니다.</Empty>}</div></section></div><section className="booking-admin-candidate"><div><span>OPPORTUNITY CANDIDATE</span><h2>활동 후보 수동 관리</h2><p>내부평가 결과는 후보 선정으로 자동 연결되지 않습니다. 관리자가 이해상충을 확인한 뒤 직접 결정합니다.</p></div><form onSubmit={candidate}><select name="memberId" required defaultValue=""><option value="" disabled>회원 선택</option>{data.members.filter((member) => member.approvalStatus === "APPROVED").map((member) => <option key={member.id} value={member.id}>{member.name} · {member.phoneLast4}</option>)}</select><select name="type"><option value="MONTHLY_COFFEE_CONTENT">월간커피 콘텐츠</option><option value="KCL_JUDGE">KCL 심사</option></select><select name="status"><option value="TRAINING">훈련 중</option><option value="ELIGIBLE">자격 검토 가능</option><option value="UNDER_REVIEW">검토 중</option><option value="SELECTED">선정</option><option value="NOT_SELECTED">미선정</option><option value="SUSPENDED">보류</option></select><input name="conflictNote" placeholder="이해상충·결정 메모" /><button className="solid" disabled={busy}>수동 저장</button></form><div className="booking-admin-candidate-list">{data.candidates.map((row) => <span key={row.id}><strong>{row.memberName}</strong> · {row.type} · {row.status}</span>)}</div></section></>;
+  return <><div className="booking-admin-split"><section><div className="booking-admin-section-title"><div><span>FEEDBACK</span><h2>피드백 요청</h2></div></div><div className="booking-admin-table">{data.feedback.map((row) => <article key={row.id}><div><span>{row.status === "REQUESTED" ? "답변 대기" : "답변 완료"}</span><strong>{row.memberName}</strong><small>{row.message}</small></div><button disabled={busy} onClick={() => answer(row)}>답변</button></article>)}{!data.feedback.length && <Empty>피드백 요청이 없습니다.</Empty>}</div></section><section hidden><div className="booking-admin-section-title"><div><span>EVALUATION</span><h2>내부평가</h2></div></div><div className="booking-admin-table">{data.evaluations.map((row) => <article key={row.id}><div><span>{row.status === "COMPLETED" ? "평가 완료" : "평가 요청"}</span><strong>{row.memberName}</strong><small>{row.result || "점수 입력 대기"}</small></div><button disabled={busy} onClick={() => evaluate(row)}>{row.status === "COMPLETED" ? "재평가" : "평가"}</button></article>)}{!data.evaluations.length && <Empty>내부평가 신청이 없습니다.</Empty>}</div></section></div><section className="booking-admin-candidate" hidden><div><span>OPPORTUNITY CANDIDATE</span><h2>활동 후보 수동 관리</h2><p>내부평가 결과는 후보 선정으로 자동 연결되지 않습니다. 관리자가 이해상충을 확인한 뒤 직접 결정합니다.</p></div><form onSubmit={candidate}><select name="memberId" required defaultValue=""><option value="" disabled>회원 선택</option>{data.members.filter((member) => member.approvalStatus === "APPROVED").map((member) => <option key={member.id} value={member.id}>{member.name} · {member.phoneLast4}</option>)}</select><select name="type"><option value="MONTHLY_COFFEE_CONTENT">월간커피 콘텐츠</option><option value="KCL_JUDGE">KCL 심사</option></select><select name="status"><option value="TRAINING">훈련 중</option><option value="ELIGIBLE">자격 검토 가능</option><option value="UNDER_REVIEW">검토 중</option><option value="SELECTED">선정</option><option value="NOT_SELECTED">미선정</option><option value="SUSPENDED">보류</option></select><input name="conflictNote" placeholder="이해상충·결정 메모" /><button className="solid" disabled={busy}>수동 저장</button></form><div className="booking-admin-candidate-list">{data.candidates.map((row) => <span key={row.id}><strong>{row.memberName}</strong> · {row.type} · {row.status}</span>)}</div></section></>;
 }
 
 function SettingsAdmin({ data, busy, act }: AdminProps) {
@@ -357,7 +371,7 @@ function SettingsAdmin({ data, busy, act }: AdminProps) {
   return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>예약·현장결제 정책</h2><p>수강생은 승인 즉시 예약할 수 있으며 이용 당일 현장에서 결제합니다.</p></div><label>1회 현장결제 금액<input name="reservationPrice" type="number" min="1" defaultValue={data.settings.reservationPrice} required /><small>센터 재료비를 포함한 최종 결제 금액입니다.</small></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>수업 예정자가 상담 신청을 누르면 이 주소로 바로 이동합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
 }
 
-type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string) => Promise<void> };
+type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string) => Promise<boolean> };
 function Empty({ children }: { children: React.ReactNode }) { return <div className="booking-admin-empty">{children}</div>; }
 function rank(status: string) { return ["REQUESTED", "CONFIRMED", "COMPLETED", "NO_SHOW", "REJECTED", "CANCELLED"].indexOf(status); }
 function datesInMonth(month: string) {
@@ -370,5 +384,5 @@ function utcWeekday(date: string) {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 function dateTime(value: string) { return `${value.slice(5, 10).replace("-", ".")} ${value.slice(11, 16)}`; }
-function fullDate(date: string) { const parts = date.split("-"); return `${Number(parts[1])}월 ${Number(parts[2])}일 ${["일","월","화","수","목","금","토"][new Date(`${date}T00:00:00+09:00`).getDay()]}요일`; }
+function fullDate(date: string) { const parts = date.split("-"); return `${Number(parts[1])}월 ${Number(parts[2])}일 ${["일","월","화","수","목","금","토"][utcWeekday(date)]}요일`; }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : "요청을 처리하지 못했습니다."; }
