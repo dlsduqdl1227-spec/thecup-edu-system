@@ -3072,6 +3072,19 @@ td.expense {
   padding: 10px;
 }
 
+.receipt-attachment { min-width: 0; width: 100%; }
+.receipt-attachment input[hidden] { display: none; }
+.receipt-source-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.receipt-source-buttons button { min-height: 48px; padding: 12px 8px; border: 1px solid #888; border-radius: 6px; background: #fff; color: #111; font-size: 14px; font-weight: 700; white-space: normal; }
+.receipt-source-buttons button:last-child { background: #222; border-color: #222; color: #fff; }
+.receipt-attachment .receipt-help { margin: 10px 0 0; color: #555; font-size: 13px; line-height: 1.6; }
+.receipt-attachment .receipt-error { margin: 10px 0 0; padding: 10px; border-left: 3px solid #333; background: #f3f3f3; color: #222; font-size: 14px; line-height: 1.6; }
+.receipt-attachment .receipt-preview img { object-fit: contain; background: #fff; }
+.receipt-attachment .receipt-preview strong { font-size: 14px; }
+.receipt-attachment .receipt-preview span, .receipt-attachment .receipt-preview small { font-size: 13px; color: #555; }
+.receipt-attachment .receipt-remove { align-self: flex-start; min-height: 40px; margin-top: 6px; padding: 6px 12px; border: 1px solid #bbb; border-radius: 4px; background: #fff; color: #222; font-size: 14px; }
+.receipt-attachment .receipt-enlarge { align-self: flex-start; padding: 8px 0; color: #111; font-size: 14px; text-decoration: underline; }
+
 .receipt-preview img {
   width: 92px;
   height: 92px;

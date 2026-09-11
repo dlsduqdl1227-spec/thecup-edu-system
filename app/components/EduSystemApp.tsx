@@ -18,6 +18,8 @@ import {
 } from "../../lib/quantity";
 import { compareInventoryItems, type InventorySort } from "../../lib/inventory-sort";
 import { BookingAdmin } from "./BookingAdmin";
+import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
+import { requestJson } from "../../lib/api-client";
 
 type Role = "admin" | "employee" | "instructor";
 type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "staff";
@@ -293,6 +295,7 @@ export function EduSystemApp() {
     user: User | null;
   }>({ loading: true, bootstrapRequired: false, publicPageVisible: false, user: null });
   const [data, setData] = useState<DashboardData | null>(null);
+  const [dataError, setDataError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
@@ -320,10 +323,12 @@ export function EduSystemApp() {
 
   const refreshData = useCallback(async () => {
     if (!authState.user) return;
+    setDataError("");
     try {
       const nextData = await requestJson<DashboardData>("/api/dashboard");
       setData(nextData);
     } catch (error) {
+      setDataError(errorMessage(error));
       setToast({ kind: "error", message: errorMessage(error) });
     }
   }, [authState.user]);
@@ -481,8 +486,7 @@ export function EduSystemApp() {
 
         {!data ? (
           <section className="page-section loading-panel" aria-live="polite">
-            <div className="loading-line" />
-            <p>대시보드를 준비하고 있습니다.</p>
+            {dataError ? <><p role="alert">{dataError}</p><button type="button" className="primary-button" onClick={() => void refreshData()}>다시 불러오기</button></> : <><div className="loading-line" /><p>대시보드를 준비하고 있습니다.</p></>}
           </section>
         ) : (
           <>
@@ -1000,61 +1004,29 @@ function RecordView({
   notify: (toast: { kind: "ok" | "error"; message: string }) => void;
 }) {
   const [busy, setBusy] = useState<"milk" | "class" | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<{
-    url: string;
-    name: string;
-    size: number;
-  } | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptAttachmentValue | null>(null);
+  const [preparingReceipt, setPreparingReceipt] = useState(false);
+  const submitting = useRef(false);
   const beanItems = data.inventory.filter((item) => ["roasted", "gusto"].includes(item.category));
   const instructor = data.user.role === "instructor";
   const administrator = data.user.role === "admin";
 
-  useEffect(() => {
-    return () => {
-      if (receiptPreview) URL.revokeObjectURL(receiptPreview.url);
-    };
-  }, [receiptPreview]);
-
-  function selectReceipt(file: File | undefined, input: HTMLInputElement) {
-    if (!file) {
-      setReceiptPreview(null);
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
-      input.value = "";
-      setReceiptPreview(null);
-      notify({ kind: "error", message: "영수증 이미지 파일을 선택해 주세요." });
-      return;
-    }
-    if (file.size > 20_000_000) {
-      input.value = "";
-      setReceiptPreview(null);
-      notify({ kind: "error", message: "원본 사진은 20MB 이하만 선택할 수 있습니다." });
-      return;
-    }
-    setReceiptPreview({
-      url: URL.createObjectURL(file),
-      name: file.name || "촬영한 영수증",
-      size: file.size,
-    });
-  }
-
   async function submitMilk(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current || preparingReceipt) return;
+    if (!receipt) { notify({ kind: "error", message: "영수증을 촬영하거나 앨범에서 선택해 주세요." }); return; }
     const formElement = event.currentTarget;
+    submitting.current = true;
     setBusy("milk");
     try {
       const form = new FormData(formElement);
-      const source = form.get("receipt");
-      if (!(source instanceof File) || !source.size) throw new Error("영수증 사진을 선택해 주세요.");
-      const optimized = await optimizeReceipt(source);
-      form.set("receipt", optimized, optimized.name);
+      form.set("receipt", receipt.file, receipt.file.name);
       const result = await requestJson<{ id: number; archivedReceipts: number; receiptBytes: number }>(
         "/api/inventory/milk-purchase",
         { method: "POST", body: form },
       );
       formElement.reset();
-      setReceiptPreview(null);
+      setReceipt(null);
       await onUpdated();
       notify({
         kind: "ok",
@@ -1065,13 +1037,16 @@ function RecordView({
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
+      submitting.current = false;
       setBusy(null);
     }
   }
 
   async function submitClassUse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current) return;
     const formElement = event.currentTarget;
+    submitting.current = true;
     setBusy("class");
     try {
       const form = new FormData(formElement);
@@ -1088,6 +1063,7 @@ function RecordView({
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
+      submitting.current = false;
       setBusy(null);
     }
   }
@@ -1123,7 +1099,7 @@ function RecordView({
         <article className="panel form-panel">
           <div className="form-title">
             <span className="step-number">01</span>
-            <div><h3>우유 구매 등록</h3><p>영수증은 약 350KB 이하로 자동 최적화됩니다.</p></div>
+            <div><h3>우유 구매 등록</h3><p>촬영한 사진과 앨범에 저장한 영수증을 첨부할 수 있습니다.</p></div>
           </div>
           <form onSubmit={submitMilk}>
             <div className="two-columns">
@@ -1137,37 +1113,14 @@ function RecordView({
             <Field label="결제 금액">
               <div className="input-suffix"><input name="amount" type="number" min="1" step="1" placeholder="36800" required /><span>원</span></div>
             </Field>
-            <Field label="영수증 사진">
-              <label className="file-drop">
-                <input
-                  name="receipt"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  required
-                  onChange={(event) => selectReceipt(event.target.files?.[0], event.target)}
-                />
-                <span>사진 촬영 또는 파일 선택</span>
-                <small>JPG · PNG · WebP / 자동 압축 저장</small>
-              </label>
-              {receiptPreview && (
-                <div className="receipt-preview" aria-live="polite">
-                  {/* Local object URLs are preview-only and must not pass through the image optimizer. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={receiptPreview.url} alt="선택한 영수증 미리보기" />
-                  <div>
-                    <strong>사진 준비 완료</strong>
-                    <span>{receiptPreview.name}</span>
-                    <small>원본 {formatFileSize(receiptPreview.size)} · 저장할 때 자동 최적화</small>
-                  </div>
-                </div>
-              )}
-            </Field>
+            <div className="field"><span>영수증 사진</span>
+              <ReceiptAttachment value={receipt} onChange={setReceipt} onProcessingChange={setPreparingReceipt} disabled={busy !== null} />
+            </div>
             <Field label="메모 (선택)">
               <input name="note" placeholder="구매처 또는 수업명" maxLength={300} />
             </Field>
-            <button className="primary-button" disabled={busy === "milk"}>
-              {busy === "milk" ? "이미지 최적화 중…" : "구매 내역 반영"}
+            <button className="primary-button" disabled={busy !== null || preparingReceipt}>
+              {busy === "milk" ? "구매 내역 저장 중…" : preparingReceipt ? "사진 준비 중…" : "구매 내역 반영"}
             </button>
           </form>
         </article>
@@ -1203,7 +1156,7 @@ function RecordView({
             <Field label="메모 (선택)">
               <input name="note" placeholder="인원, 특이사항" maxLength={300} />
             </Field>
-            <button className="primary-button" disabled={busy === "class"}>
+            <button className="primary-button" disabled={busy !== null}>
               {busy === "class" ? "기록 중…" : "수업 사용량 반영"}
             </button>
           </form>
@@ -3642,87 +3595,6 @@ function Toast({ toast }: { toast: { kind: "ok" | "error"; message: string } }) 
   return <div className={`toast ${toast.kind}`} role="status"><span>{toast.kind === "ok" ? "완료" : "확인"}</span>{toast.message}</div>;
 }
 
-async function requestJson<T = { ok: boolean }>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const body = (await response.json().catch(() => ({}))) as { error?: string } & T;
-  if (!response.ok) throw new Error(body.error || "요청을 처리하지 못했습니다.");
-  return body;
-}
-
-async function optimizeReceipt(source: File): Promise<File> {
-  const image = await loadReceiptImage(source);
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("이미지를 최적화할 수 없습니다.");
-  let maxSide = 1400;
-  let quality = 0.76;
-  let blob: Blob | null = null;
-  for (let attempt = 0; attempt < 7; attempt += 1) {
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-    canvas.width = Math.max(1, Math.round(image.width * scale));
-    canvas.height = Math.max(1, Math.round(image.height * scale));
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image.source, 0, 0, canvas.width, canvas.height);
-    blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) => result ? resolve(result) : reject(new Error("이미지 변환에 실패했습니다.")),
-        "image/jpeg",
-        quality,
-      );
-    });
-    if (blob.size <= 350_000) break;
-    maxSide = Math.round(maxSide * 0.82);
-    quality = Math.max(0.58, quality - 0.07);
-  }
-  image.close();
-  if (!blob || blob.size > 400_000) {
-    throw new Error("영수증 이미지를 400KB 이하로 줄일 수 없습니다. 다른 사진을 선택해 주세요.");
-  }
-  return new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" });
-}
-
-async function loadReceiptImage(source: File): Promise<{
-  source: CanvasImageSource;
-  width: number;
-  height: number;
-  close: () => void;
-}> {
-  if (typeof createImageBitmap === "function") {
-    try {
-      const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
-      return {
-        source: bitmap,
-        width: bitmap.width,
-        height: bitmap.height,
-        close: () => bitmap.close(),
-      };
-    } catch {
-      // Some mobile browsers decode camera images only through an HTMLImageElement.
-    }
-  }
-
-  const objectUrl = URL.createObjectURL(source);
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const element = new Image();
-      element.decoding = "async";
-      element.onload = () => resolve(element);
-      element.onerror = () => reject(new Error("이 기기에서 영수증 이미지를 읽을 수 없습니다."));
-      element.src = objectUrl;
-    });
-    return {
-      source: image,
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-      close: () => URL.revokeObjectURL(objectUrl),
-    };
-  } catch (error) {
-    URL.revokeObjectURL(objectUrl);
-    throw error;
-  }
-}
 
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + Number(value), 0);

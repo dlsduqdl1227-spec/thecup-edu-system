@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { requestJson } from "../../lib/api-client";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
@@ -59,6 +60,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
   const [memberTab, setMemberTab] = useState<MemberTab>("schedule");
   const [month, setMonth] = useState(currentMonth());
   const [memberData, setMemberData] = useState<BookingData | null>(null);
+  const [memberDataError, setMemberDataError] = useState("");
   const [availability, setAvailability] = useState<PublicAvailability | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -76,9 +78,11 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
 
   const loadMemberData = useCallback(async () => {
     if (!member) return;
+    setMemberDataError("");
     try {
       setMemberData(await requestJson<BookingData>(`/api/booking/member?month=${encodeURIComponent(month)}`));
     } catch (error) {
+      setMemberDataError(errorText(error));
       setMessage({ kind: "error", text: errorText(error) });
     }
   }, [member, month]);
@@ -175,7 +179,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
           <div className="portal-member-account"><span><b>{member.name}</b><small>승인 수강생</small></span><button onClick={() => void logout()} disabled={busy}>로그아웃</button></div>
         </header>
         <section className="portal-member-main">
-          {!memberData ? <Empty>수강생 예약 정보를 불러오는 중입니다.</Empty> : <>
+          {!memberData ? <Empty>{memberDataError ? <><p role="alert">{memberDataError}</p><button type="button" onClick={() => void loadMemberData()}>다시 불러오기</button></> : "수강생 예약 정보를 불러오는 중입니다."}</Empty> : <>
             {memberTab === "schedule" && <MemberSchedule data={memberData} month={month} setMonth={setMonth} reload={loadMemberData} notify={setMessage} />}
             {memberTab === "reservations" && <MemberReservations data={memberData} reload={loadMemberData} notify={setMessage} />}
             {memberTab === "practice" && <MemberPractice data={memberData} reload={loadMemberData} notify={setMessage} />}
@@ -312,4 +316,3 @@ function weekday(date: string) { return ["일","월","화","수","목","금","�
 function longDate(date: string) { const [year,month,day] = date.split("-").map(Number); return `${year}년 ${month}월 ${day}일 ${weekday(date)}요일`; }
 function calendarCells(month: string): Array<number | null> { const [year,value] = month.split("-").map(Number); const first = new Date(Date.UTC(year,value-1,1)).getUTCDay(); const days = new Date(Date.UTC(year,value,0)).getUTCDate(); return [...Array.from({ length: first }, () => null), ...Array.from({ length: days }, (_,index) => index+1)]; }
 function errorText(error: unknown) { return error instanceof Error ? error.message : "요청을 처리하지 못했습니다."; }
-async function requestJson<T = unknown>(url: string, init?: RequestInit): Promise<T> { const response = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } }); const result = await response.json() as T & { error?: string }; if (!response.ok) throw new Error(result.error ?? "요청을 처리하지 못했습니다."); return result; }

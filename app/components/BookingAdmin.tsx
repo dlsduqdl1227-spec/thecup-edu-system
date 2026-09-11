@@ -1,4 +1,5 @@
 "use client";
+import { requestJson } from "../../lib/api-client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -50,9 +51,11 @@ export function BookingAdmin({
   const month = controlledMonth ?? internalMonth;
   const [tab, setTab] = useState<AdminTab>(initialTab);
   const [data, setData] = useState<BookingAdminData | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadError("");
     try {
       const result = await requestJson<BookingAdminData>(month ? `/api/booking/admin?month=${encodeURIComponent(month)}` : "/api/booking/admin");
       setData(result);
@@ -62,6 +65,7 @@ export function BookingAdmin({
         onMonthChange?.(result.month);
       }
     } catch (error) {
+      setLoadError(errorMessage(error));
       notify({ kind: "error", message: errorMessage(error) });
     }
   }, [month, notify, onMonthChange, onScheduleMonthsChange]);
@@ -92,7 +96,7 @@ export function BookingAdmin({
     }
   }
 
-  if (!data) return <section className="page-section booking-admin-loading"><div className="loading-line" /><p>예약 운영 데이터를 준비하고 있습니다.</p></section>;
+  if (!data) return <section className="page-section booking-admin-loading">{loadError ? <><p role="alert">{loadError}</p><button type="button" onClick={() => void load()}>다시 불러오기</button></> : <><div className="loading-line" /><p>예약 운영 데이터를 준비하고 있습니다.</p></>}</section>;
 
   const pending = data.reservations.filter((row) => row.status === "REQUESTED").length;
   const consultations = data.members.filter((row) => row.approvalStatus === "PENDING").length;
@@ -368,4 +372,3 @@ function utcWeekday(date: string) {
 function dateTime(value: string) { return `${value.slice(5, 10).replace("-", ".")} ${value.slice(11, 16)}`; }
 function fullDate(date: string) { const parts = date.split("-"); return `${Number(parts[1])}월 ${Number(parts[2])}일 ${["일","월","화","수","목","금","토"][new Date(`${date}T00:00:00+09:00`).getDay()]}요일`; }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : "요청을 처리하지 못했습니다."; }
-async function requestJson<T = unknown>(url: string, init?: RequestInit): Promise<T> { const response = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } }); const result = await response.json() as T & { error?: string }; if (!response.ok) throw new Error(result.error ?? "요청을 처리하지 못했습니다."); return result; }

@@ -134,8 +134,9 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /직원 전용/);
   assert.doesNotMatch(app, /OPERATIONS, REFINED|개월 매출 이관|단계 권한 분리/);
   assert.match(app, /Asia\/Seoul/);
-  assert.match(app, /capture="environment"/);
-  assert.match(app, /선택한 영수증 미리보기/);
+  assert.match(app, /ReceiptAttachment/);
+  const receiptAttachment = await readFile(new URL("app/components/ReceiptAttachment.tsx", root), "utf8");
+  assert.match(receiptAttachment, /첨부할 영수증 미리보기/);
   assert.match(app, /내가 등록한 기록만 표시됩니다/);
   assert.match(app, /전체 직원의 우유 입고·수업 사용 기록과 등록자/);
   assert.match(app, /name="beanQuantityKg"/);
