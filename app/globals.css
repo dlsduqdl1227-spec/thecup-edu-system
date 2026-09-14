@@ -1013,7 +1013,7 @@ a {
 
 .monthly-breakdown-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .monthly-breakdown,
@@ -1023,7 +1023,7 @@ a {
 }
 
 .monthly-transactions {
-  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
 }
 
 .monthly-subheading {
@@ -2749,7 +2749,7 @@ a {
   }
 }
 
-.monthly-transaction-list article.csv-expense-entry {
+.monthly-transaction-list article.monthly-expense-entry {
   border-left: 3px solid var(--ink);
   background: #f4f1ea;
   padding-left: 10px;

@@ -773,9 +773,9 @@ function DashboardView({ data }: { data: DashboardData }) {
     const [entryYear, entryMonth] = entry.transactionDate.split("-").map(Number);
     return entryYear === year && entryMonth === month;
   });
-  const selectedMonthHasCsvExpense = selectedMonth.baseExpense !== 0;
+  const selectedMonthHasBaseExpense = selectedMonth.baseExpense !== 0;
   const selectedMonthDetailCount =
-    selectedMonthTransactions.length + (selectedMonthHasCsvExpense ? 1 : 0);
+    selectedMonthTransactions.length + (selectedMonthHasBaseExpense ? 1 : 0);
   const selectedMonthKey = `${year}-${String(month).padStart(2, "0")}`;
   const selectedMonthHasData = selectedMonth.revenue !== 0 || selectedMonth.expense !== 0;
 
@@ -784,7 +784,7 @@ function DashboardView({ data }: { data: DashboardData }) {
       <PageHeader
         eyebrow="매출 현황"
         title="매출 내역"
-        description="2022년부터 현재까지의 월별 매출, 비용과 순익을 확인합니다."
+        description="2022년부터 현재까지의 월별 매출, 지출과 순익을 확인합니다."
         action={
           <div className="page-action-group">
             <select
@@ -855,43 +855,20 @@ function DashboardView({ data }: { data: DashboardData }) {
           </div>
 
           <div className="monthly-breakdown-grid">
-            <section className="monthly-breakdown" aria-labelledby="monthly-breakdown-title">
-              <div className="monthly-subheading">
-                <h4 id="monthly-breakdown-title">월 집계 구성</h4>
-                <span>CSV 기준 + 추가 등록</span>
-              </div>
-              <dl>
-                <div><dt>CSV 기준 매출</dt><dd>{won.format(selectedMonth.baseRevenue)}</dd></div>
-                <div><dt>추가 등록 매출</dt><dd>{won.format(selectedMonth.additionalIncome)}</dd></div>
-                <div><dt>CSV 기준 지출</dt><dd>{won.format(selectedMonth.baseExpense)}</dd></div>
-                <div><dt>추가 등록 지출</dt><dd>{won.format(selectedMonth.additionalExpense)}</dd></div>
-              </dl>
-              {(selectedMonth.note || selectedMonth.source) && (
-                <div className="monthly-source-note">
-                  {selectedMonth.note && <strong>{selectedMonth.note}</strong>}
-                  {selectedMonth.source && <span>{selectedMonth.source}</span>}
-                </div>
-              )}
-            </section>
-
             <section className="monthly-transactions" aria-labelledby="monthly-transactions-title">
               <div className="monthly-subheading">
                 <h4 id="monthly-transactions-title">월별 상세 내역</h4>
-                <span>
-                  {selectedMonthHasCsvExpense ? "CSV 지출 1건 · " : ""}
-                  추가 등록 {selectedMonthTransactions.length}건
-                </span>
+                <span>{selectedMonthDetailCount}건</span>
               </div>
+              {selectedMonth.note && <div className="monthly-source-note"><strong>{selectedMonth.note}</strong></div>}
               {selectedMonthDetailCount ? (
                 <div className="monthly-transaction-list">
-                  {selectedMonthHasCsvExpense && (
-                    <article className="csv-expense-entry">
+                  {selectedMonthHasBaseExpense && (
+                    <article className="monthly-expense-entry">
                       <time dateTime={selectedMonthKey}>{month}월 합계</time>
                       <div>
-                        <strong>CSV 월 지출 합계</strong>
-                        <span title={selectedMonth.source}>
-                          {selectedMonth.source || `${year}년 ${month}월 원본 CSV 기준`}
-                        </span>
+                        <strong>지출</strong>
+                        <span>월 단위 합산 내역</span>
                       </div>
                       <em className="expense">−{won.format(selectedMonth.baseExpense)}</em>
                     </article>
@@ -911,7 +888,7 @@ function DashboardView({ data }: { data: DashboardData }) {
                 </div>
               ) : (
                 <p className="monthly-empty">
-                  이 달에는 CSV 기준 지출과 추가 등록 내역이 없습니다.
+                  이 달에는 등록된 상세 내역이 없습니다.
                 </p>
               )}
             </section>
@@ -930,7 +907,7 @@ function DashboardView({ data }: { data: DashboardData }) {
           </div>
           <FinanceBarChart rows={rows} />
           <div className="chart-footnote">
-            {year === 2026 ? "2026년 7월은 7월 24일까지 입력된 CSV 기준입니다." : "원본 CSV의 월별 합계와 순익을 기준으로 집계했습니다."}
+            매출과 지출을 합산하고, 매출에서 지출을 뺀 금액을 순익으로 표시합니다.
           </div>
         </article>
 
@@ -1748,7 +1725,7 @@ function FinanceView({
       <PageHeader
         eyebrow="매출 · 지출"
         title="매출 및 지출 등록"
-        description="CSV 매출 자료 이후 새로 발생한 매출과 지출만 입력하세요. 우유 구매 비용은 자동으로 들어옵니다."
+        description="새로운 매출과 지출을 기록하세요. 우유 구매 지출은 자동으로 반영됩니다."
       />
       <div className="finance-layout">
         <article className="panel finance-entry">
@@ -1769,7 +1746,6 @@ function FinanceView({
         <article className="panel table-panel finance-ledger">
           <div className="panel-heading">
             <div><span className="eyebrow">최근 장부</span><h3>최근 입력 내역</h3></div>
-            <span className="csv-badge">CSV 2022–2026 이관 완료</span>
           </div>
           <div className="table-wrap">
             <table>
