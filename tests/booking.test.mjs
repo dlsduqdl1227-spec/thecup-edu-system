@@ -123,7 +123,8 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(worker, /X-Content-Type-Options/);
   assert.match(worker, /Permissions-Policy/);
   assert.match(portal, /수업 예정자/);
-  assert.match(portal, /승인받은 본인 이름/);
+  assert.match(portal, /승인받은 이름, 휴대폰 번호와 수강생 보안코드/);
+  assert.match(portal, /name="securityCode"/);
   assert.match(portal, /input name="name" autoComplete="name"/);
   assert.doesNotMatch(portal, /name="loginId"|CUP00001/);
   assert.doesNotMatch(portal, /portal-evaluation|requestEvaluation/);

@@ -5,12 +5,14 @@ import {
 } from "./auth";
 import type { MemberSession } from "./booking";
 import { ensureDatabase, getD1 } from "./db";
+import { hasCurrentSecurityVersion, readLoginSecurity } from "./login-security";
 
 const MEMBER_SESSION_COOKIE = "thecup_member_session";
 const MEMBER_SESSION_DAYS = 30;
 
-export async function createMemberSession(memberId: number): Promise<{ token: string; expiresAt: string }> {
-  const token = createSessionToken();
+export async function createMemberSession(memberId: number, securityVersion?: string): Promise<{ token: string; expiresAt: string }> {
+  const version = securityVersion ?? (await readLoginSecurity("student")).version;
+  const token = `${version}.${createSessionToken()}`;
   const tokenHash = await sha256(token);
   const expiresAt = new Date(Date.now() + MEMBER_SESSION_DAYS * 86400000).toISOString();
   await getD1()
@@ -26,6 +28,7 @@ export async function getMemberSession(request: Request): Promise<MemberSession 
   await ensureDatabase();
   const token = readCookie(request, MEMBER_SESSION_COOKIE);
   if (!token) return null;
+  if (!await hasCurrentSecurityVersion("student", token)) return null;
   const row = await getD1()
     .prepare(
       `SELECT m.id, m.name, m.approval_status AS approvalStatus

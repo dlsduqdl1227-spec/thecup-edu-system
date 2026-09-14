@@ -31,7 +31,7 @@ try {
   await capture("student-login-360");
   await page.setViewportSize({ width: 1440, height: 1000 });
   const status = await (await context.request.get("/api/auth/status")).json();
-  const auth = !status.bootstrapRequired ? await context.request.post("/api/auth/login", { data: { name: "QA 운영자", phone: "01000009901" } }) : await context.request.post("/api/auth/bootstrap", { data: { name: "QA 운영자", phone: "01000009901", code: "local-browser-qa" } });
+  const auth = !status.bootstrapRequired ? await context.request.post("/api/auth/login", { data: { name: "QA 운영자", phone: "01000009901", securityCode: "7319" } }) : await context.request.post("/api/auth/bootstrap", { data: { name: "QA 운영자", phone: "01000009901", securityCode: "7319", code: "local-browser-qa" } });
   assert.ok(auth.ok(), await auth.text());
   await page.goto("/admin");
   await page.locator(".side-nav").getByRole("button", { name: /재고 관리/ }).waitFor();

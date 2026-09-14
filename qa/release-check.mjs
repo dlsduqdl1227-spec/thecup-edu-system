@@ -33,11 +33,12 @@ async function nav(name) { await page.locator(".side-nav").getByRole("button", {
 async function postClick(current, locator, path) { const pending = current.waitForResponse((response) => response.url().includes(path) && response.request().method() === "POST"); await locator.click(); const response = await pending; assert.ok(response.ok(), await response.text()); return response.json(); }
 try {
   const status = await api(context.request, "/api/auth/status");
-  if (status.bootstrapRequired) await api(context.request, "/api/auth/bootstrap", { name: "QA 운영자", phone: "01000009901", code: "local-browser-qa" });
+  if (status.bootstrapRequired) await api(context.request, "/api/auth/bootstrap", { name: "QA 운영자", phone: "01000009901", securityCode: "7319", code: "local-browser-qa" });
   await api(context.request, "/api/auth/logout", {});
   await page.goto("/admin");
   await page.locator('input[name="name"]').fill("QA 운영자");
   await page.locator('input[name="phone"]').fill("01000009901");
+  await page.getByLabel("보안코드", { exact: true }).fill("7319");
   await postClick(page, page.getByRole("button", { name: "로그인", exact: true }), "/api/auth/login");
   await page.locator(".side-nav").waitFor();
   check("운영자 실제 폼 로그인");
@@ -81,6 +82,7 @@ try {
   await memberPage.getByRole("link", { name: /수강생/ }).click();
   await memberPage.locator('input[name="name"]').fill(studentName);
   await memberPage.locator('input[name="phone"]').fill(phone);
+  await memberPage.getByLabel("보안코드", { exact: true }).fill("08372");
   await postClick(memberPage, memberPage.getByRole("button", { name: "로그인", exact: true }), "/api/member-auth/login");
   await memberPage.getByLabel("조회 월").fill("2026-10");
   await memberPage.getByRole("button", { name: "예약 요청", exact: true }).first().waitFor();

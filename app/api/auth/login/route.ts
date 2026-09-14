@@ -7,9 +7,11 @@ import {
   recordLoginFailure,
   sessionCookie,
   normalizeSessionUser,
+  loginAttemptKeys,
 } from "../../../../lib/auth";
 import { audit, ensureDatabase, getD1, type StaffRole } from "../../../../lib/db";
 import { assertSameOrigin, jsonError, textValue } from "../../../../lib/http";
+import { matchesSecurityCode, readLoginSecurity } from "../../../../lib/login-security";
 
 export async function POST(request: Request) {
   try {
@@ -19,8 +21,10 @@ export async function POST(request: Request) {
     const name = textValue(payload.name, "이름", 40).replace(/\s+/g, " ");
     const phone = normalizePhone(String(payload.phone ?? ""));
     const hashedPhone = await phoneHash(phone);
-    const identifierHash = hashedPhone;
-    await assertLoginAllowed(identifierHash);
+    const attemptKeys = await loginAttemptKeys(request, hashedPhone, "operator");
+    await Promise.all(attemptKeys.map(assertLoginAllowed));
+    const security = await readLoginSecurity("operator");
+    const codeMatches = await matchesSecurityCode("operator", payload.securityCode, security);
 
     const row = await getD1()
       .prepare(
@@ -41,17 +45,17 @@ export async function POST(request: Request) {
         canRoasting: number;
       }>();
 
-    if (!row) {
-      await recordLoginFailure(identifierHash);
+    if (!row || !codeMatches) {
+      await Promise.all(attemptKeys.map(recordLoginFailure));
       return Response.json(
-        { error: "등록된 이름과 휴대폰 번호가 일치하지 않습니다." },
+        { error: "이름, 휴대폰 번호 또는 보안코드가 올바르지 않습니다." },
         { status: 401 },
       );
     }
 
     const user = normalizeSessionUser(row);
-    await clearLoginFailures(identifierHash);
-    const session = await createSession(user.id);
+    await Promise.all(attemptKeys.map(clearLoginFailures));
+    const session = await createSession(user.id, security.version);
     await audit(user.id, "login", "session");
     return new Response(JSON.stringify({ user }), {
       headers: {

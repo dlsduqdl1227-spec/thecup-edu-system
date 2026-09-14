@@ -299,13 +299,15 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
   ]);
 
   assert.match(app, /개강 관리/);
-  assert.match(app, /로그인 없이 실시간 개강 현황 보기/);
+  assert.doesNotMatch(app, /guest-opening-link|로그인 없이 실시간 개강 현황 보기/);
+  assert.match(app, /name="securityCode"/);
+  assert.match(app, /LoginSecuritySettings/);
   assert.match(app, /대기·확정 상태만 공개 인원에 포함/);
   assert.match(app, /예약 운영과 자동 동기화/);
   assert.match(app, /등록된 스테이션 일정/);
   assert.match(app, /외부 공개 페이지 전체 노출/);
   assert.match(app, /페이지 숨기기/);
-  assert.match(app, /publicPageVisible &&/);
+  assert.match(app, /setPublicPageVisible/);
   assert.match(publicPage, /PublicCourseOpenings/);
   assert.match(publicComponent, /30_000/);
   assert.match(publicComponent, /잠시 후 다시 확인해 주세요/);

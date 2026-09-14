@@ -17,6 +17,7 @@ node qa/browser-audit.mjs
 node qa/release-check.mjs
 node qa/management-check.mjs
 node qa/live-smoke.mjs
+node qa/security-check.mjs
 npx tsc --noEmit
 npx eslint app lib worker qa tests
 npm test
@@ -25,6 +26,7 @@ npm test
 - `browser-audit`: 주요 화면과 반응형 상태 18개
 - `release-check`: 로그인, 상담 승인, 예약·취소·월 전환, 선택형 입력, 영수증 등 12개 흐름
 - `management-check`: 재고, 다운로드, 프로파일, 모집 공개·삭제, 강사 권한 등 6개 흐름
+- `security-check`: 보안코드 실제 폼 로그인·변경·기존 세션 무효화. 로컬 테스트 코드는 운영자 `7319`, 수강생 `08372`이며 실제 운영 값이 아닙니다.
 - `live-smoke`: 운영 공개 화면·API·휴강 시간·카카오톡·외부 출처 iframe 검증. 쓰기 요청은 하지 않습니다.
 - `tests/booking-integrity.test.mjs`: 실제 API 코드를 격리 SQLite에서 실행하여 예약 중복·시간 겹침·승인·결제·회원 회수·삭제를 검증합니다.
 

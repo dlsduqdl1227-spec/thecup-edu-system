@@ -18,7 +18,7 @@ async function nav(name) { await page.locator(".side-nav").getByRole("button", {
 async function save(current, locator, path, method = "POST") { const response = current.waitForResponse((r) => r.url().includes(path) && r.request().method() === method); await locator.click(); const result = await response; assert.ok(result.ok(), await result.text()); return result.json(); }
 await mkdir("outputs/qa", { recursive: true });
 try {
-  await api(admin.request, "/api/auth/login", { name: "QA 운영자", phone: "01000009901" });
+  await api(admin.request, "/api/auth/login", { name: "QA 운영자", phone: "01000009901", securityCode: "7319" });
   await page.goto("/admin");
   await nav("재고 관리");
   await page.getByRole("button", { name: /새 품목.*등록과 입고/ }).click();
@@ -89,7 +89,7 @@ try {
   await page.locator('input[name="name"]').fill(name);
   await page.locator('input[name="phone"]').fill(`010${suffix}`);
   await save(page, page.getByRole("button", { name: "직원 등록", exact: true }), "/api/staff");
-  await api(guest.request, "/api/auth/login", { name, phone: `010${suffix}` });
+  await api(guest.request, "/api/auth/login", { name, phone: `010${suffix}`, securityCode: "7319" });
   await publicPage.goto("/admin");
   await publicPage.getByRole("heading", { name: `${name}님의 수업 기록`, exact: true }).waitFor();
   assert.equal(await publicPage.locator(".side-nav button").count(), 1);

@@ -22,6 +22,7 @@ import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachm
 import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
 import { AccessibleDialog } from "./AccessibleDialog";
+import { LoginSecuritySettings } from "./LoginSecuritySettings";
 
 type Role = "admin" | "employee" | "instructor";
 type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "staff";
@@ -413,7 +414,6 @@ export function EduSystemApp() {
       <>
         <AuthScreen
           bootstrapRequired={authState.bootstrapRequired}
-          publicPageVisible={authState.publicPageVisible}
           busy={busy}
           onSubmit={handleAuth}
         />
@@ -641,12 +641,10 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
 
 function AuthScreen({
   bootstrapRequired,
-  publicPageVisible,
   busy,
   onSubmit,
 }: {
   bootstrapRequired: boolean;
-  publicPageVisible: boolean;
   busy: boolean;
   onSubmit: (endpoint: string, data: FormData) => Promise<void>;
 }) {
@@ -658,7 +656,7 @@ function AuthScreen({
           <span>직원 전용</span>
           <h1>더컵에듀<br />운영 시스템</h1>
           <p>
-            이름과 등록된 휴대폰 번호로 로그인하면 담당 업무에 필요한 메뉴만 표시됩니다.
+            이름, 등록된 휴대폰 번호와 보안코드로 로그인하면 담당 업무에 필요한 메뉴만 표시됩니다.
           </p>
         </div>
         <p className="auth-help">계정 등록과 메뉴 권한은 관리자에게 요청하세요.</p>
@@ -671,7 +669,7 @@ function AuthScreen({
           <p>
             {bootstrapRequired
               ? "배포 시 전달받은 초기 관리자 코드와 본인 정보를 입력해 주세요."
-              : "관리자가 등록한 이름과 휴대폰 번호로 로그인하세요."}
+              : "등록된 이름, 휴대폰 번호와 운영자 보안코드를 입력하세요."}
           </p>
           <form
             onSubmit={(event) => {
@@ -706,16 +704,13 @@ function AuthScreen({
                 />
               </Field>
             )}
+            <Field label="보안코드">
+              <input name="securityCode" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,32}" minLength={4} maxLength={32} placeholder="운영자 보안코드" required />
+            </Field>
             <button className="primary-button auth-submit" disabled={busy}>
               {busy ? "확인 중…" : bootstrapRequired ? "관리자 등록하고 시작" : "로그인"}
             </button>
           </form>
-          {publicPageVisible && (
-            <a className="guest-opening-link" href="/embed/course-openings?month=current">
-              <span>게스트 조회</span>
-              로그인 없이 실시간 개강 현황 보기 →
-            </a>
-          )}
           <div className="security-note">
             <span>보안</span>
             휴대폰 번호 원문은 저장하지 않으며, 등록된 직원만 접근할 수 있습니다.
@@ -3261,6 +3256,7 @@ function StaffView({
         title="직원 권한 관리"
         description="직원 구분과 메뉴 권한을 수정하거나 더 이상 사용하지 않는 계정을 안전하게 삭제합니다."
       />
+      <LoginSecuritySettings />
       <div className="staff-layout">
         <article className="panel staff-form">
           <div className="panel-heading"><div><span className="eyebrow">직원 등록</span><h3>새 직원</h3></div></div>

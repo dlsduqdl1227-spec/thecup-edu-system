@@ -5,6 +5,7 @@ import {
   type StaffPermission,
   type StaffRole,
 } from "./db";
+import { hasCurrentSecurityVersion, readLoginSecurity } from "./login-security";
 
 const SESSION_COOKIE = "thecup_session";
 const SESSION_DAYS = 30;
@@ -36,8 +37,9 @@ export function createSessionToken(): string {
   return bytesToBase64Url(bytes);
 }
 
-export async function createSession(staffId: number): Promise<{ token: string; expiresAt: string }> {
-  const token = createSessionToken();
+export async function createSession(staffId: number, securityVersion?: string): Promise<{ token: string; expiresAt: string }> {
+  const version = securityVersion ?? (await readLoginSecurity("operator")).version;
+  const token = `${version}.${createSessionToken()}`;
   const tokenHash = await sha256(token);
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
   const db = getD1();
@@ -64,6 +66,7 @@ export async function getSessionUser(request: Request): Promise<SessionUser | nu
   await ensureDatabase();
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
+  if (!await hasCurrentSecurityVersion("operator", token)) return null;
   const row = await getD1()
     .prepare(
       `SELECT s.id, s.name, s.role,
@@ -183,31 +186,14 @@ export async function assertLoginAllowed(identifierHash: string): Promise<void> 
 }
 
 export async function recordLoginFailure(identifierHash: string): Promise<void> {
-  const db = getD1();
   const now = new Date();
-  const row = await db
-    .prepare("SELECT window_start, attempt_count FROM login_attempts WHERE identifier_hash = ?")
-    .bind(identifierHash)
-    .first<{ window_start: string; attempt_count: number }>();
-  const expired =
-    !row || now.getTime() - new Date(row.window_start).getTime() >= LOGIN_WINDOW_MINUTES * 60000;
-  if (expired) {
-    await db
-      .prepare(
-        `INSERT INTO login_attempts (identifier_hash, window_start, attempt_count)
-         VALUES (?, ?, 1)
-         ON CONFLICT(identifier_hash) DO UPDATE SET window_start = excluded.window_start, attempt_count = 1`,
-      )
-      .bind(identifierHash, now.toISOString())
-      .run();
-  } else {
-    await db
-      .prepare(
-        "UPDATE login_attempts SET attempt_count = attempt_count + 1 WHERE identifier_hash = ?",
-      )
-      .bind(identifierHash)
-      .run();
-  }
+  const cutoff = new Date(now.getTime() - LOGIN_WINDOW_MINUTES * 60000).toISOString();
+  await getD1().prepare(
+    `INSERT INTO login_attempts (identifier_hash, window_start, attempt_count) VALUES (?, ?, 1)
+     ON CONFLICT(identifier_hash) DO UPDATE SET
+       window_start = CASE WHEN login_attempts.window_start <= ? THEN excluded.window_start ELSE login_attempts.window_start END,
+       attempt_count = CASE WHEN login_attempts.window_start <= ? THEN 1 ELSE login_attempts.attempt_count + 1 END`,
+  ).bind(identifierHash, now.toISOString(), cutoff, cutoff).run();
 }
 
 export async function clearLoginFailures(identifierHash: string): Promise<void> {
@@ -215,6 +201,11 @@ export async function clearLoginFailures(identifierHash: string): Promise<void> 
     .prepare("DELETE FROM login_attempts WHERE identifier_hash = ?")
     .bind(identifierHash)
     .run();
+}
+
+export async function loginAttemptKeys(request: Request, accountKey: string, audience: string): Promise<string[]> {
+  const ip = request.headers.get("cf-connecting-ip");
+  return ip ? [accountKey, `login-ip:${audience}:${await sha256(ip)}`] : [accountKey];
 }
 
 export class AuthError extends Error {

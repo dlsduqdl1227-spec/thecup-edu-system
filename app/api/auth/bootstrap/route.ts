@@ -8,6 +8,7 @@ import {
 } from "../../../../lib/auth";
 import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, jsonError, textValue } from "../../../../lib/http";
+import { matchesSecurityCode, readLoginSecurity } from "../../../../lib/login-security";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "초기 관리자 코드가 올바르지 않습니다." }, { status: 403 });
     }
 
+    const security = await readLoginSecurity("operator");
+    if (!await matchesSecurityCode("operator", payload.securityCode, security)) {
+      return Response.json({ error: "운영자 보안코드가 올바르지 않습니다." }, { status: 403 });
+    }
     const name = textValue(payload.name, "이름", 40).replace(/\s+/g, " ");
     const phone = normalizePhone(String(payload.phone ?? ""));
     const result = await db
@@ -40,7 +45,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "초기 관리자 등록이 이미 완료되었습니다." }, { status: 409 });
     }
     const staffId = Number(result.meta.last_row_id);
-    const session = await createSession(staffId);
+    const session = await createSession(staffId, security.version);
     await audit(staffId, "bootstrap_admin", "staff", String(staffId), "최초 관리자 등록");
 
     return new Response(

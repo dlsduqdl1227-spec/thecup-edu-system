@@ -30,9 +30,12 @@ test("booking lifecycle keeps private, public and recruitment schedules consiste
     builder.onLoad({ filter: /.*/, namespace: "test" }, () => ({ contents: "export const env = globalThis.__bookingTestEnv;" }));
   } }] });
   const routes = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString("base64")}`);
-  const request = (path, cookie = "", data) => new Request(`https://booking-test.invalid${path}`, { method: data ? "POST" : "GET", headers: { cookie, "Content-Type": "application/json" }, body: data ? JSON.stringify(data) : undefined });
+  const securityVersion = "00000000-0000-4000-8000-000000000000";
+  const secureToken = (name) => `${securityVersion}.${name.padEnd(43, "x")}`;
+  const request = (path, cookie = "", data) => new Request(`https://booking-test.invalid${path}`, { method: data ? "POST" : "GET", headers: { cookie: cookie.replace(/(thecup_(?:member_)?session=)([^;]+)/g, (_, prefix, value) => prefix + secureToken(value)), "Content-Type": "application/json" }, body: data ? JSON.stringify(data) : undefined });
   assert.equal((await routes.adminGet(request("/api/booking/admin"))).status, 401);
-  const hash = (token) => createHash("sha256").update(token).digest("hex");
+  for (const audience of ["operator", "student"]) sqlite.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?)").run(`auth_security_${audience}`, JSON.stringify({ version: securityVersion, digest: "0".repeat(64) }));
+  const hash = (token) => createHash("sha256").update(secureToken(token)).digest("hex");
   sqlite.prepare("INSERT INTO staff (name, phone_hash, phone_last4, role) VALUES ('QA Admin', 'admin', '0000', 'admin')").run();
   sqlite.prepare("INSERT INTO sessions (token_hash, staff_id, expires_at) VALUES (?, 1, '2100-01-01')").run(hash("admin"));
   for (let id = 1; id <= 2; id++) {

@@ -37,6 +37,10 @@ button:disabled { cursor: not-allowed; }
 .portal-modal .close { width: 44px; height: 44px; }
 .portal-modal h2 { padding-right: 25px; }
 .mobile-logout { min-height: 32px; padding: 4px 10px; border: 1px solid #aaa; background: #fff; color: #333; font-size: 12px; }
+.login-security-panel { padding: 24px; margin-bottom: 20px; }
+.login-security-panel > p { margin-bottom: 20px; color: #555; font-size: 14px; }
+.login-security-panel form { display: grid; gap: 16px; }
+.login-security-panel .primary-button { justify-self: start; }
 .booking-admin-tabs button, .booking-batch-quick button, .booking-admin-actions button { min-height: 44px; font-size: 13px; }
 .booking-admin-request :is(p, small), .booking-admin-table small { font-size: 13px; }
 .booking-admin-schedule article small { color: #555; }

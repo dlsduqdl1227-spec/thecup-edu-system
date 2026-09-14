@@ -39,13 +39,16 @@ test("receipt upload atomically links stock and expense, and only its instructor
     } }],
   });
   const routes = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString("base64")}`);
-  const request = (path, cookie, init = {}) => new Request(`https://receipt-test.invalid${path}`, { ...init, headers: cookie ? { cookie: `thecup_session=${cookie}` } : undefined });
+  const securityVersion = "00000000-0000-4000-8000-000000000000";
+  const secureToken = (name) => `${securityVersion}.${name.padEnd(43, "x")}`;
+  const request = (path, cookie, init = {}) => new Request(`https://receipt-test.invalid${path}`, { ...init, headers: cookie ? { cookie: `thecup_session=${secureToken(cookie)}` } : undefined });
   const params = (id) => ({ params: Promise.resolve({ id: String(id) }) });
   assert.equal((await routes.receipt(request("/api/receipts/1"), params(1))).status, 401);
 
+  sqlite.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?)").run("auth_security_operator", JSON.stringify({ version: securityVersion, digest: "0".repeat(64) }));
   const addUser = (name, role, token) => {
     const row = sqlite.prepare("INSERT INTO staff (name, phone_hash, phone_last4, role) VALUES (?, ?, '0000', ?)").run(name, name, role);
-    sqlite.prepare("INSERT INTO sessions (token_hash, staff_id, expires_at) VALUES (?, ?, ?)").run(createHash("sha256").update(token).digest("hex"), Number(row.lastInsertRowid), "2099-01-01T00:00:00Z");
+    sqlite.prepare("INSERT INTO sessions (token_hash, staff_id, expires_at) VALUES (?, ?, ?)").run(createHash("sha256").update(secureToken(token)).digest("hex"), Number(row.lastInsertRowid), "2099-01-01T00:00:00Z");
   };
   addUser("Test instructor", "instructor", "owner");
   addUser("Other instructor", "instructor", "other");
