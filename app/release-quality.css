@@ -79,3 +79,11 @@ button:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* SCA 교육자료 탭 (슬라이드 뷰어 자체 스타일은 lib/sca-edu/viewer.js가 주입) */
+.sca-education { min-width: 0; }
+.sca-education-status { margin: 0; padding: 48px 0; color: var(--muted); text-align: center; font-size: 14px; }
+.sca-education .sca { border: 1px solid var(--line); background: #fff; }
+@media (max-width: 760px) {
+  .portal-mobile-nav { grid-template-columns: repeat(5, 1fr); }
+}

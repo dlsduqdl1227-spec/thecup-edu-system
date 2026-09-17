@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "outputs/**",
     ".wrangler/**",
     "next-env.d.ts",
+    // Minified third-party bundle served as a static file.
+    "public/vendor/**",
   ]),
 ]);
 

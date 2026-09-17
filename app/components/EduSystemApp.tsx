@@ -23,9 +23,10 @@ import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
 import { AccessibleDialog } from "./AccessibleDialog";
 import { LoginSecuritySettings } from "./LoginSecuritySettings";
+import { ScaEducation } from "./ScaEducation";
 
 type Role = "admin" | "employee" | "instructor";
-type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "staff";
+type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "education" | "staff";
 
 type User = {
   id: number;
@@ -265,6 +266,7 @@ const navItems: Array<{
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
   { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
   { key: "booking", label: "운영 · 개강 관리", short: "운영", adminOnly: true },
+  { key: "education", label: "SCA 교육자료", short: "교육", adminOnly: true },
   { key: "staff", label: "직원 · 권한", short: "직원", adminOnly: true },
 ];
 
@@ -526,6 +528,7 @@ export function EduSystemApp() {
             {activeTab === "booking" && (
               <OperationsHub notify={setToast} />
             )}
+            {activeTab === "education" && <EducationView />}
             {activeTab === "staff" && (
               <StaffView currentUserId={user.id} notify={setToast} />
             )}
@@ -547,6 +550,19 @@ export function EduSystemApp() {
       </nav>
       {toast && <Toast toast={toast} />}
     </div>
+  );
+}
+
+function EducationView() {
+  return (
+    <section className="page-section">
+      <PageHeader
+        eyebrow="SCA Coffee Skills Program"
+        title="SCA 교육자료"
+        description="과목·레벨별 수업 슬라이드를 웹에서 발표하고 PPTX로 내려받습니다. 검토 중·초안 자료는 관리자에게만 보이며, 공개(ready)로 바꾼 자료만 승인 수강생이 볼 수 있습니다."
+      />
+      <ScaEducation />
+    </section>
   );
 }
 

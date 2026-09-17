@@ -1,0 +1,27 @@
+{
+  "program": "SCA Coffee Skills Program",
+  "courses": [
+    { "id": "introduction", "name": "Introduction to Coffee", "ko": "커피 입문", "levels": [
+      {"level": "Introduction", "deck": null, "status": "planned"} ] },
+    { "id": "barista-skills", "name": "Barista Skills", "ko": "바리스타 스킬", "levels": [
+      {"level": "Foundation", "deck": "barista-skills/foundation.json", "status": "review"},
+      {"level": "Intermediate", "deck": "barista-skills/intermediate.json", "status": "review"},
+      {"level": "Professional", "deck": "barista-skills/professional.json", "status": "review"} ] },
+    { "id": "brewing", "name": "Brewing", "ko": "브루잉", "levels": [
+      {"level": "Foundation", "deck": null, "status": "planned"},
+      {"level": "Intermediate", "deck": null, "status": "planned"},
+      {"level": "Professional", "deck": null, "status": "planned"} ] },
+    { "id": "green-coffee", "name": "Green Coffee", "ko": "생두", "levels": [
+      {"level": "Foundation", "deck": null, "status": "planned"},
+      {"level": "Intermediate", "deck": null, "status": "planned"},
+      {"level": "Professional", "deck": null, "status": "planned"} ] },
+    { "id": "roasting", "name": "Roasting", "ko": "로스팅", "levels": [
+      {"level": "Foundation", "deck": null, "status": "planned"},
+      {"level": "Intermediate", "deck": null, "status": "planned"},
+      {"level": "Professional", "deck": null, "status": "planned"} ] },
+    { "id": "sensory-skills", "name": "Sensory Skills", "ko": "센서리", "levels": [
+      {"level": "Foundation", "deck": null, "status": "planned"},
+      {"level": "Intermediate", "deck": null, "status": "planned"},
+      {"level": "Professional", "deck": null, "status": "planned"} ] }
+  ]
+}

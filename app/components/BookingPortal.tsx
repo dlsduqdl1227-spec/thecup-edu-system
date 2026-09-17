@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
 import { AccessibleDialog } from "./AccessibleDialog";
+import { ScaEducation } from "./ScaEducation";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
@@ -48,7 +49,7 @@ type BookingData = {
 };
 type PublicAvailability = { month: string; updatedAt: string; slots: PublicSlot[]; consultationUrl: string };
 type Entry = "student" | "visitor" | "consultation" | null;
-type MemberTab = "schedule" | "reservations" | "practice";
+type MemberTab = "schedule" | "reservations" | "practice" | "education";
 
 const stationLabels: Record<string, string> = { ESPRESSO: "에스프레소", BREWING: "브루잉", ROASTING: "로스팅" };
 const purposeLabels: Record<string, string> = { ...stationLabels, STEAMING: "스티밍", OTHER: "기타" };
@@ -199,11 +200,12 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
             <button className={memberTab === "schedule" ? "active" : ""} onClick={() => setMemberTab("schedule")}>스케줄</button>
             <button className={memberTab === "reservations" ? "active" : ""} onClick={() => setMemberTab("reservations")}>내 예약</button>
             <button className={memberTab === "practice" ? "active" : ""} onClick={() => setMemberTab("practice")}>실습 기록</button>
+            <button className={memberTab === "education" ? "active" : ""} onClick={() => setMemberTab("education")}>교육자료</button>
           </nav>
           <div className="portal-member-account"><span><b>{member.name}</b><small>승인 수강생</small></span><button onClick={() => void logout()} disabled={busy}>로그아웃</button></div>
         </header>
         <section className="portal-member-main">
-          {!memberData ? <Empty>{memberDataError ? <><p role="alert">{memberDataError}</p><button type="button" onClick={() => void loadMemberData()}>다시 불러오기</button></> : "수강생 예약 정보를 불러오는 중입니다."}</Empty> : <>
+          {memberTab === "education" ? <ScaEducation /> : !memberData ? <Empty>{memberDataError ? <><p role="alert">{memberDataError}</p><button type="button" onClick={() => void loadMemberData()}>다시 불러오기</button></> : "수강생 예약 정보를 불러오는 중입니다."}</Empty> : <>
             {memberTab === "schedule" && <MemberSchedule data={memberData} month={month} setMonth={setMonth} reload={loadMemberData} notify={setMessage} />}
             {memberTab === "reservations" && <MemberReservations data={memberData} reload={loadMemberData} notify={setMessage} />}
             {memberTab === "practice" && <MemberPractice data={memberData} reload={loadMemberData} notify={setMessage} />}
@@ -214,6 +216,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
           <button className={memberTab === "schedule" ? "active" : ""} onClick={() => setMemberTab("schedule")}>스케줄</button>
           <button className={memberTab === "reservations" ? "active" : ""} onClick={() => setMemberTab("reservations")}>내 예약</button>
           <button className={memberTab === "practice" ? "active" : ""} onClick={() => setMemberTab("practice")}>기록</button>
+          <button className={memberTab === "education" ? "active" : ""} onClick={() => setMemberTab("education")}>교육</button>
         </nav>
         {message && <Toast value={message} close={() => setMessage(null)} />}
       </main>
