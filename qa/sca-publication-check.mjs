@@ -77,14 +77,32 @@ try {
     await page.locator('.sca-stage').screenshot({path:`outputs/qa/required-${i}.png`});
   }
   for(const course of ['water-maintenance','sustainability']){
+    const original=JSON.parse(readFileSync(new URL(`../lib/sca-edu/decks/${course}/foundation.json`,import.meta.url),'utf8'));
     await page.locator(`.sca-lv[data-c="${course}"]`).click();
     await page.locator('.sca-stage').waitFor();
     const count=await page.locator('.sca-thumb').count();
     for(let i=0;i<count;i++){
       await page.locator('.sca-thumb').nth(i).click();
+      if(original.slides[i]?.layout==='question'){
+        const reveal=page.getByRole('button',{name:'정답 보기',exact:true});
+        assert.equal(await reveal.getAttribute('aria-pressed'),'false');
+        await reveal.click();
+        assert.equal(await reveal.getAttribute('aria-pressed'),'true');
+        await page.waitForFunction(()=>getComputedStyle(document.querySelector('.sca-stage .reveal')).opacity==='1');
+      }
       const clips=await page.locator('.sca-stage .tx').evaluateAll(nodes=>nodes.filter(n=>n.scrollHeight>n.clientHeight+3).map(n=>n.textContent));
       assert.deepEqual(clips,[],`${course}/${i}: clipped text`);
       await page.locator('.sca-stage').screenshot({path:`outputs/qa/${course}-${i}.png`});
+      if(original.slides[i]?.caseId || original.slides[i]?.caseIndex){
+        await page.getByRole('button',{name:'발표 시작',exact:true}).click();
+        await page.locator('.sca-show__stage .sca-slide').waitFor();
+        if(original.slides[i]?.layout==='question') await page.waitForFunction(()=>getComputedStyle(document.querySelector('.sca-show__stage .reveal')).opacity==='1');
+        const fullscreenClips=await page.locator('.sca-show__stage .tx').evaluateAll(nodes=>nodes.filter(n=>n.scrollHeight>n.clientHeight+3).map(n=>n.textContent));
+        assert.deepEqual(fullscreenClips,[],`${course}/${i}: fullscreen text`);
+        await page.locator('.sca-show__stage').screenshot({path:`outputs/qa/case-${course}-${i}.png`});
+        await page.keyboard.press('Escape');
+        await page.locator('.sca-show').waitFor({state:'detached'});
+      }
     }
   }
   pass('필수 원본 이미지 9장·확대 보기·신규 Foundation 전체 슬라이드 잘림 없음');
@@ -108,6 +126,26 @@ try {
   await pupil.getByRole("button", { name: "로그인", exact: true }).click();
   await pupil.locator(".portal-mobile-nav").getByRole("button", { name: "교육", exact: true }).click();
   await pupil.getByText("열람 가능한 교육자료가 없습니다.", { exact: false }).waitFor();
+  // Fictional accounts in the isolated DB only; no production grants.
+  const caseMember=(await api(admin.request,'/api/edu/members')).members.find(m=>m.name==='QA 교육 수강생');
+  for(const course of ['water-maintenance','sustainability']){
+    const grantPath=`/api/edu/members/${caseMember.id}/courses/${course}/levels/Foundation`;
+    assert.ok((await admin.request.put(grantPath,{data:{enabled:true}})).ok());
+    await studentEducation();
+    await pupil.locator('.sca-stage .sca-slide').waitFor();
+    await pupil.locator('.sca-thumb').filter({hasText:'사례 1 ·'}).nth(1).click();
+    const answerButton=pupil.getByRole('button',{name:'정답 보기',exact:true});
+    await answerButton.click();
+    assert.equal(await answerButton.getAttribute('aria-pressed'),'true');
+    await pupil.waitForFunction(()=>getComputedStyle(document.querySelector('.sca-stage .reveal')).opacity==='1');
+    assert.equal(await pupil.getByRole('button',{name:'발표자 노트',exact:true}).count(),0);
+    await pupil.setViewportSize({width:360,height:800});
+    await capture(pupil,`case-student-${course}-360`);
+    assert.ok((await admin.request.put(grantPath,{data:{enabled:false}})).ok());
+    assert.equal((await student.request.get(`/api/edu/decks/${course}/Foundation`)).status(),404);
+  }
+  await pupil.setViewportSize({width:390,height:900});
+  pass('신규 사례의 수강생 360px 정답 공개·노트 제외·과목별 회수 차단');
   await education();
   await page.locator(".sca-access-list article").filter({hasText:"QA 교육 수강생"}).locator("summary").filter({hasText:"브루잉"}).click();
   const publish = page.getByRole("button", { name: "QA 교육 수강생 (9902) 브루잉 Foundation 열기", exact: true });
