@@ -26,7 +26,7 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL(".openai/hosting.json", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
-    readFile(new URL("public/og.png", root)),
+    readFile(new URL("public/brand/thecup-edu-share-v2.png", root)),
     readFile(new URL("public/brand/thecup-edu.jpg", root)),
     readFile(new URL("public/brand/monthly-coffee.png", root)),
   ]);
@@ -203,8 +203,12 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.doesNotMatch(`${page}\n${adminPage}\n${layout}\n${app}\n${bookingPortal}`, /codex-preview|Your site is taking shape|SkeletonPreview/i);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(packageJson, /"fflate": "0\.8\.3"/);
-  assert.equal(socialImage.readUInt32BE(16), 1536);
-  assert.equal(socialImage.readUInt32BE(20), 1024);
+  assert.equal(socialImage.readUInt32BE(16), 1200);
+  assert.equal(socialImage.readUInt32BE(20), 630);
+  assert.match(layout, /const shareTitle = "THE CUP EDU"/);
+  assert.match(layout, /const shareDescription = "COFFEE STATION"/);
+  assert.match(layout, /brand\/thecup-edu-share-v2\.png/);
+  assert.doesNotMatch(layout, /["']\/og\.png/);
   assert.equal(thecupLogo.readUInt16BE(0), 0xffd8);
   assert.equal(coffeeLogo.readUInt32BE(16), 284);
   assert.equal(coffeeLogo.readUInt32BE(20), 284);
