@@ -94,16 +94,78 @@ button:disabled { cursor: not-allowed; }
 .sca-member-access button:focus-visible,.sca-member-access input:focus-visible,.sca-member-access select:focus-visible { outline:3px solid #555; outline-offset:3px; }
 .sca-member-access button:disabled { opacity:.5; cursor:not-allowed; }
 .sca-access-notice:not(:empty),.sca-access-empty { padding:12px; background:#f5f5f5; line-height:1.6; }
-.sca-access-list article { display:grid; grid-template-columns:minmax(130px,1fr) minmax(0,4fr); gap:20px; padding:20px 0; border-top:1px solid #ddd; }
-.sca-access-person h3 { font-size:18px; margin:0 0 6px; overflow-wrap:anywhere; }
-.sca-access-person span,.sca-access-person small { display:block; font-size:13px; color:#555; margin-top:5px; }
-.sca-access-courses { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-.sca-access-courses button { text-align:left; border-radius:6px; padding:10px 12px; }
-.sca-access-courses button b,.sca-access-courses button span { display:block; overflow-wrap:anywhere; }
-.sca-access-courses button b { font-size:15px; }.sca-access-courses button span { font-size:12px; margin-top:4px; }
-.sca-access-courses button[aria-pressed="true"] { background:#222; border-color:#222; color:#fff; }
-.sca-access-pagination { display:flex; justify-content:center; align-items:center; gap:16px; margin-top:16px; }
-@media(max-width:600px) { .sca-member-access { padding:16px; } .sca-access-list article { grid-template-columns:1fr; gap:12px; } .sca-access-courses { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.sca-access-person h4 { font-size:16px; margin:0; overflow-wrap:anywhere; }
+.sca-access-person span { display:block; font-size:12px; color:#555; margin-top:4px; }
+.sca-bulk-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; margin-top: 20px; }
+.sca-bulk-layout > section { min-width: 0; }
+.sca-bulk-layout h3 { font-size: 17px; margin: 0 0 12px; }
+.sca-bulk-layout h3 small { color: #555; font-size: 13px; font-weight: 500; padding-left: 6px; }
+.sca-bulk-layout .sca-bulk-help { margin: 8px 0 14px; color: #555; font-size: 13px; line-height: 1.65; }
+.sca-bulk-selection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.sca-bulk-selection button { font-size: 13px; padding: 8px; }
+.sca-compact-list { border-bottom: 1px solid #ddd; }
+.sca-compact-list article { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 8px; border-top: 1px solid #ddd; padding: 10px 4px; }
+.sca-compact-list article.selected { background: #f2f2f2; }
+.sca-compact-list article > button { padding: 8px; font-size: 12px; white-space: nowrap; }
+.sca-current-levels { grid-column: 2 / -1; padding: 12px; background: #f8f8f8; font-size: 13px; }
+.sca-current-levels ul { margin: 8px 0 0; padding-left: 16px; line-height: 1.8; }
+.sca-current-levels p { margin: 8px 0 0; font-size: 13px; }
+.bulk-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-size: 14px; line-height: 1.4; min-width: 0; }
+.bulk-check input { flex: 0 0 18px; width: 18px; height: 18px; accent-color: #111; margin: 0; }
+.bulk-check:has(input:disabled) { color: #777; cursor: not-allowed; }
+.bulk-check.compact { justify-content: center; }
+.bulk-check.compact span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sca-bulk-level-panel { border-left: 1px solid #ddd; padding-left: 24px; scroll-margin-top: 160px; }
+.sca-bulk-courses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.sca-bulk-courses fieldset { min-width: 0; border: 1px solid #d5d5d5; border-radius: 6px; padding: 8px 10px; margin: 0; }
+.sca-bulk-courses legend { font-size: 14px; font-weight: 700; padding: 0 4px; overflow-wrap: anywhere; }
+.sca-bulk-level-choice { min-width: 0; }
+.sca-bulk-level-choice small { display: block; margin: -4px 0 6px 26px; font-size: 11px; color: #555; }
+.sca-bulk-apply { margin-top: 16px; padding: 16px; border: 1px solid #aaa; background: #f7f7f7; }
+.sca-bulk-apply > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.sca-bulk-apply button { font-size: 14px; padding: 10px; }
+.sca-bulk-apply button.solid { background: #111; color: #fff; border-color: #111; }
+.sca-bulk-apply p, .sca-bulk-apply small { font-size: 13px; line-height: 1.6; color: #444; }
+.sca-bulk-error { padding: 12px; border-left: 3px solid #991b1b; background: #fff5f5; color: #991b1b; font-size: 14px; }
+.sca-level-jump { display: none; }
+.sca-selected-preview { margin: 12px 0; font-size: 13px; }
+.sca-selected-preview summary { cursor: pointer; padding: 8px 0; }
+.sca-selected-preview p { max-height: 160px; overflow: auto; font-size: 13px; line-height: 1.8; }
+.member-list-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; font-size: 13px; }
+.member-list-pagination label, .member-list-pagination > div { display: flex; align-items: center; gap: 8px; }
+.member-list-pagination :is(button, select) { min-height: 44px; padding: 8px 10px; border: 1px solid #bbb; background: #fff; color: #222; font: inherit; }
+.student-list-tools { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; margin: 14px 0; }
+.student-list-tools .student-search { flex: 1; margin: 0; max-width: none; min-width: 180px; }
+.student-list-tools > label { display: grid; gap: 6px; }
+.student-list-tools select { min-height: 44px; border: 1px solid #aaa; padding: 8px 12px; background: #fff; color: #111; font: inherit; }
+.booking-compact-list { gap: 0; border-bottom: 1px solid #ddd; }
+.booking-compact-list article.booking-member-row { display: block; padding: 0; border: 0; border-top: 1px solid #ddd; }
+.booking-member-row-head { display: grid; grid-template-columns: minmax(0, 2fr) auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 10px 4px; }
+.booking-member-row-head h3 { margin: 0; overflow-wrap: anywhere; }
+.booking-member-row-head h3 small { color: #555; font-size: 13px; }
+.booking-member-row-head .member-state { font-size: 12px; white-space: nowrap; }
+.booking-member-row-head button { min-height: 44px; min-width: 68px; }
+.booking-member-station { font-size: 13px; color: #555; }
+.booking-member-row-details { background: #f8f8f8; padding: 16px; border-top: 1px solid #eee; }
+.booking-member-row-details .booking-member-actions { justify-content: flex-start; margin: 14px 0; }
+.booking-member-row-details .booking-member-actions button { min-height: 44px; }
+.booking-member-row-details blockquote { margin: 10px 0; font-size: 14px; color: #333; white-space: pre-wrap; overflow-wrap: anywhere; }
+.booking-member-row-details .booking-member-dates, .booking-member-row-details .booking-member-login :is(b, span) { font-size: 13px; color: #444; }
+@media(max-width:1100px) { .sca-bulk-layout { grid-template-columns: 1fr; } .sca-bulk-level-panel { border-left: 0; border-top: 1px solid #ddd; padding: 20px 0 0; } .sca-bulk-courses { grid-template-columns: repeat(3, minmax(0, 1fr)); } .sca-level-jump { display: block; width: 100%; margin-top: 16px; } }
+@media(max-width:600px) {
+  .sca-member-access { padding: 14px; }
+  .sca-bulk-courses { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .sca-bulk-courses fieldset { padding: 6px; }
+  .sca-bulk-courses .bulk-check { font-size: 14px; gap: 5px; }
+  .sca-bulk-apply > div { grid-template-columns: 1fr; }
+  .member-list-pagination { justify-content: center; }
+  .member-list-pagination select, .student-list-tools select, .sca-access-tools :is(input, select) { font-size: 16px; }
+  .booking-member-row-head { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .booking-member-row-head h3 { grid-column: 1; }
+  .booking-member-row-head button { grid-column: 2; grid-row: 1 / 3; }
+  .booking-member-row-head .member-state { grid-column: 1; justify-self: start; }
+  .booking-member-station { display: none; }
+}
 .sca-education { min-width: 0; }
 .sca-education-status { margin: 0; padding: 48px 0; color: var(--muted); text-align: center; font-size: 14px; }
 .sca-education .sca { border: 1px solid var(--line); background: #fff; }
@@ -111,11 +173,6 @@ button:disabled { cursor: not-allowed; }
   .portal-mobile-nav { grid-template-columns: repeat(5, 1fr); }
 }
 /* Course levels and original teaching images. */
-.sca-access-levels { border: 1px solid #d5d5d5; border-radius: 8px; padding: 4px 8px; min-width: 0; }
-.sca-access-levels summary { cursor: pointer; padding: 10px 2px; font-weight: 700; min-height: 44px; }
-.sca-access-levels summary span { display: block; font-size: 12px; font-weight: 500; color: #555; padding-top: 4px; }
-.sca-access-levels button { width: 100%; margin: 4px 0; min-height: 48px; }
-.sca-access-levels:focus-within { outline: 2px solid #555; outline-offset: 2px; }
 .sca-image-dialog { width: min(960px, 96vw); max-height: 94dvh; border: 1px solid #aaa; border-radius: 12px; padding: 16px; background: #fff; color: #222; }
 .sca-image-dialog::backdrop { background: #000b; }
 .sca-image-dialog form { display: flex; justify-content: flex-end; position: sticky; top: 0; }
@@ -142,7 +199,6 @@ button:disabled { cursor: not-allowed; }
 .booking-member-create-options summary { cursor: pointer; padding: 12px 0; min-height: 44px; font-size: 14px; font-weight: 700; }
 .booking-member-create-options > div { display: grid; align-items: start; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 8px 0; }
 .booking-member-create .booking-member-create-error { padding: 12px; color: #991b1b; background: #fff; border-left: 3px solid #991b1b; }
-.booking-admin-member-list article.editing { flex-wrap: wrap; }
 .booking-member-edit { flex: 1 0 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 4px; padding-top: 14px; border-top: 1px solid #e3e3e3; }
 .booking-member-edit label { display: grid; gap: 6px; min-width: 0; color: #333; font-size: 13px; font-weight: 700; }
 .booking-member-edit input, .booking-member-edit select, .booking-member-edit textarea { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #ccc; border-radius: 6px; background: #fff; color: #111; font: inherit; font-size: 14px; font-weight: 400; }

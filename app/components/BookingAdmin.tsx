@@ -1,6 +1,7 @@
 "use client";
 import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
+import { ListPagination } from "./ListPagination";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -291,6 +292,10 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
   const [search, setSearch] = useState("");
   const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("ALL");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [sortOrder, setSortOrder] = useState("RECENT");
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
   const createButton = useRef<HTMLButtonElement>(null);
@@ -301,7 +306,11 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
   const filteredMembers = memberFilter === "ALL"
     ? data.members
     : data.members.filter((member) => member.approvalStatus === memberFilter);
-  const visibleMembers = filteredMembers.filter(member => `${member.name} ${member.phoneLast4}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const visibleMembers = filteredMembers.filter(member => `${member.name} ${member.phoneLast4}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
+    .sort((a, b) => sortOrder === "NAME" ? a.name.localeCompare(b.name, "ko") || b.id - a.id : b.id - a.id);
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(visibleMembers.length / pageSize) - 1));
+  const pageMembers = visibleMembers.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  function resetListPage() { setPage(0); setEditingId(null); setExpandedId(null); }
 
   function approve(member: Member, approvedState: boolean) {
     const adminMemo = window.prompt(approvedState ? "상담 완료 메모(선택)" : "권한 회수 메모(선택)", member.adminMemo);
@@ -326,7 +335,7 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
             <div className="booking-member-create-trigger"><b>{data.members.length}명</b><button type="button" className="solid" ref={createButton} disabled={busy} aria-expanded={creating} aria-controls="student-create-form" onClick={() => { if (creating) closeCreate(); else { setNotice(""); setCreating(true); setEditingId(null); } }}>{creating ? "추가 닫기" : "+ 수강생 추가"}</button></div>
           </div>
           {creating && <MemberCreateForm stationTypes={stationTypes} busy={busy} act={act} onClose={closeCreate} onCreated={(name, approvedState) => {
-            setSearch(""); setMemberFilter("ALL"); closeCreate();
+            setSearch(""); setMemberFilter("ALL"); setSortOrder("RECENT"); resetListPage(); closeCreate();
             setNotice(`${name} 수강생을 ${approvedState ? "등록·승인했습니다. 이름·휴대폰 번호·현재 수강생 보안코드로 로그인할 수 있습니다." : "승인 대기로 등록했습니다. 승인 후 로그인할 수 있습니다."} 교육자료는 SCA 교육자료에서 과목·레벨별로 별도 설정해 주세요.`);
           }} />}
           {notice && <p role="status" className="student-login-guide">{notice}</p>}
@@ -340,31 +349,37 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
             {([[
               "ALL", "전체",
             ], ["APPROVED", "승인"], ["PENDING", "대기"], ["REVOKED", "회수"]] as const).map(([value, label]) => (
-              <button type="button" key={value} className={memberFilter === value ? "active" : ""} onClick={() => setMemberFilter(value)}>{label}</button>
+              <button type="button" key={value} className={memberFilter === value ? "active" : ""} onClick={() => { setMemberFilter(value); resetListPage(); }}>{label}</button>
             ))}
           </nav>
-          <label className="student-search">수강생 검색<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="이름 또는 연락처 끝 4자리" /></label>
-          <p className="student-login-guide">수강생 로그인에는 등록한 이름·휴대폰 번호·현재 수강생 보안코드가 모두 필요합니다. 직원 로그인은 사용할 수 없습니다. 반복 실패 시 최대 1분 후 다시 시도하세요.</p>
-          <div className="booking-admin-member-list">
-            {visibleMembers.length ? visibleMembers.map((member) => (
-              <article key={member.id} className={editingId === member.id ? "editing" : undefined}>
-                <div>
-                  <span className={`member-state ${member.approvalStatus.toLowerCase()}`}>{member.approvalStatus === "APPROVED" ? "승인 회원" : member.approvalStatus === "PENDING" ? "승인 대기" : "권한 회수"}</span>
+          <div className="student-list-tools"><label className="student-search">수강생 검색<input type="search" value={search} onChange={event => { setSearch(event.target.value); resetListPage(); }} placeholder="이름 또는 연락처 끝 4자리" /></label>
+            <label>정렬<select aria-label="정렬" value={sortOrder} onChange={e => { setSortOrder(e.target.value); resetListPage(); }}><option value="RECENT">최근 등록순</option><option value="NAME">이름순</option></select></label></div>
+          <div className="booking-admin-member-list booking-compact-list">
+            {pageMembers.length ? pageMembers.map((member) => (
+              <article key={member.id} className="booking-member-row">
+                <div className="booking-member-row-head">
                   <h3>{member.name} <small>· {member.phoneLast4}</small></h3>
-                  <p>{(stationLabel[member.desiredStationType] ?? member.desiredStationType) || "희망 스테이션 미정"}</p>
+                  <span className={`member-state ${member.approvalStatus.toLowerCase()}`}>{member.approvalStatus === "APPROVED" ? "승인 회원" : member.approvalStatus === "PENDING" ? "승인 대기" : "권한 회수"}</span>
+                  <span className="booking-member-station">{(stationLabel[member.desiredStationType] ?? member.desiredStationType) || "스테이션 미정"}</span>
+                  <button type="button" disabled={busy} aria-expanded={expandedId === member.id} aria-controls={`member-details-${member.id}`} onClick={() => { setExpandedId(expandedId === member.id ? null : member.id); setEditingId(null); }}>{expandedId === member.id ? "관리 닫기" : "관리"}</button>
+                </div>
+                {expandedId === member.id && <div className="booking-member-row-details" id={`member-details-${member.id}`}>
                   <p className="booking-member-dates">DB #{member.id} · 등록 {dateTime(member.createdAt)}{member.approvedAt ? ` · 권한 부여 ${dateTime(member.approvedAt)}` : ""}</p>
                   <p className="booking-member-login"><b>수강생 로그인 · {member.name}</b><span>등록 연락처 + 현재 수강생 보안코드</span></p>
-                  {member.consultationMemo && <blockquote>{member.consultationMemo}</blockquote>}
-                </div>
+                  {member.consultationMemo && <blockquote>상담 · {member.consultationMemo}</blockquote>}
+                  {member.adminMemo && <blockquote>관리자 · {member.adminMemo}</blockquote>}
                 <div className="booking-member-actions">
                   <button type="button" disabled={busy} aria-expanded={editingId === member.id} onClick={() => setEditingId(editingId === member.id ? null : member.id)}>{editingId === member.id ? "수정 닫기" : "정보 수정"}</button>
                   {member.approvalStatus === "APPROVED" ? <button disabled={busy} onClick={() => approve(member, false)}>권한 회수</button> : <button className="solid" disabled={busy} onClick={() => approve(member, true)}>상담 완료·승인</button>}
                   <button className="danger" disabled={busy} onClick={() => remove(member)}>계정 삭제</button>
                 </div>
                 {editingId === member.id && <MemberEditForm member={member} stationTypes={stationTypes} busy={busy} act={act} onClose={() => setEditingId(null)} />}
+                </div>}
               </article>
             )) : <Empty>{!data.members.length ? "등록된 수강생이 없습니다. 위의 ‘수강생 추가’ 버튼으로 등록하세요." : search ? "검색 결과가 없습니다. 이름이나 연락처 끝 4자리를 확인하세요." : "선택한 상태의 회원이 없습니다."}</Empty>}
           </div>
+          <ListPagination total={visibleMembers.length} page={currentPage} pageSize={pageSize} label="수강생 목록 페이지" disabled={busy}
+            onPageChange={n => { setPage(n); setExpandedId(null); setEditingId(null); }} onPageSizeChange={n => { setPageSize(n); resetListPage(); }} />
     </section>
   );
 }

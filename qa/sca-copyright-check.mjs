@@ -38,7 +38,7 @@ try {
   await checkMark('.sca-stage');
   assert.ok((await page.locator('.sca-stage').innerText()).includes('© 2016 SCA and WCR'));
   await page.locator('.sca-stage').screenshot({ path: `${folder}/flavor-wheel.png` });
-  await page.getByRole('button', { name: '발표 시작' }).click();
+  await page.getByRole('button', { name: '프레젠테이션 활성화' }).click();
   await page.locator('.sca-show__stage').waitFor();
   await checkMark('.sca-show__stage');
   await page.locator('.sca-show__stage').screenshot({ path: `${folder}/presentation.png` });

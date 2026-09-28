@@ -45,7 +45,7 @@ try {
     const file = await download;
     assert.equal(await file.failure(), null);
     await file.saveAs(`outputs/qa/${file.suggestedFilename()}`);
-    await page.getByRole("button", { name: "발표 시작" }).click();
+    await page.getByRole("button", { name: "프레젠테이션 활성화" }).click();
     await page.locator(".sca-show").waitFor();
     await page.keyboard.press("Escape");
     await page.locator(".sca-show").waitFor({ state: "detached" });
@@ -94,7 +94,7 @@ try {
       assert.deepEqual(clips,[],`${course}/${i}: clipped text`);
       await page.locator('.sca-stage').screenshot({path:`outputs/qa/${course}-${i}.png`});
       if(original.slides[i]?.caseId || original.slides[i]?.caseIndex || original.slides[i]?.beginnerGuide || original.slides[i]?.beginnerEdited){
-        await page.getByRole('button',{name:'발표 시작',exact:true}).click();
+        await page.getByRole('button',{name:'프레젠테이션 활성화',exact:true}).click();
         await page.locator('.sca-show__stage .sca-slide').waitFor();
         if(original.slides[i]?.layout==='question') await page.waitForFunction(()=>getComputedStyle(document.querySelector('.sca-show__stage .reveal')).opacity==='1');
         const fullscreenClips=await page.locator('.sca-show__stage .tx').evaluateAll(nodes=>nodes.filter(n=>n.scrollHeight>n.clientHeight+3).map(n=>n.textContent));
@@ -116,6 +116,7 @@ try {
   await page.locator(".booking-admin-tabs button.active").filter({ hasText: "상담·회원" }).waitFor();
   const member = page.locator(".booking-admin-member-list article").filter({ hasText: "QA 교육 수강생" });
   await member.waitFor();
+  await member.getByRole('button', { name: '관리', exact: true }).click();
   page.once("dialog", d => d.accept("로컬 테스트 승인"));
   await member.getByRole("button", { name: "상담 완료·승인" }).click();
   await member.getByRole("button", { name: "권한 회수" }).waitFor();
@@ -155,12 +156,13 @@ try {
   await pupil.setViewportSize({width:390,height:900});
   pass('신규 사례·쉬운 뜻·생활 예시의 수강생 360px 표시·정답 공개·노트 제외·과목별 회수 차단');
   await education();
-  await page.locator(".sca-access-list article").filter({hasText:"QA 교육 수강생"}).locator("summary").filter({hasText:"브루잉"}).click();
-  const publish = page.getByRole("button", { name: "QA 교육 수강생 (9902) 브루잉 Foundation 열기", exact: true });
+  await page.getByRole('checkbox', { name: 'QA 교육 수강생 (9902) 선택', exact: true }).check();
+  await page.getByRole('checkbox', { name: '브루잉 Foundation', exact: true }).check();
+  const publish = page.getByRole("button", { name: "선택 레벨 일괄 승인", exact: true });
   page.once("dialog", d => d.dismiss()); await publish.click();
   assert.equal((await api(student.request, "/api/edu/catalog")).courses.flatMap(c => c.levels).filter(l => l.deck).length, 0);
   page.once("dialog", d => d.accept()); await publish.click();
-  await page.getByRole("button", { name: "QA 교육 수강생 (9902) 브루잉 Foundation 닫기", exact: true }).waitFor();
+  await page.locator('.sca-access-notice').filter({ hasText: '일괄 승인했습니다' }).waitFor();
   await studentEducation();
   await pupil.locator(".sca-stage .sca-slide").waitFor();
   assert.match(await pupil.locator(".sca-head h1").innerText(), /Brewing Foundation/);
@@ -174,11 +176,12 @@ try {
   assert.deepEqual((await api(other.request,'/api/edu/catalog')).courses,[]);
   assert.equal((await other.request.get('/api/edu/decks/brewing/Foundation')).status(),404);
   await page.getByRole('button',{name:'목록 새로고침'}).click();
-  await page.locator('.sca-access-list article').filter({hasText:'QA 일반 예약'}).locator('summary').filter({hasText:'로스팅'}).click();
-  const openOther = page.getByRole('button',{name:'QA 일반 예약 (9906) 로스팅 Professional 열기',exact:true});
+  await page.getByRole('checkbox', { name: 'QA 일반 예약 (9906) 선택', exact: true }).check();
+  await page.getByRole('checkbox', { name: '로스팅 Professional', exact: true }).check();
+  const openOther = page.getByRole('button',{name:'선택 레벨 일괄 승인',exact:true});
   await openOther.waitFor();
   page.once('dialog',d=>d.accept()); await openOther.click();
-  await page.getByRole('button',{name:'QA 일반 예약 (9906) 로스팅 Professional 닫기',exact:true}).waitFor();
+  await page.locator('.sca-access-notice').filter({ hasText: '일괄 승인했습니다' }).waitFor();
   assert.deepEqual((await api(other.request,'/api/edu/catalog')).courses.map(c=>c.id),['roasting']);
   assert.deepEqual((await api(student.request,'/api/edu/catalog')).courses.map(c=>c.id),['brewing']);
   await page.getByLabel('수강생 찾기').fill('9906');
@@ -200,10 +203,11 @@ try {
   await pupil.setViewportSize({ width: 1440, height: 1000 });
   await capture(pupil, "sca-publication-student-pc");
   await pupil.setViewportSize({ width: 390, height: 900 });
-  await page.locator('.sca-access-list article').filter({hasText:'QA 교육 수강생'}).locator('summary').filter({hasText:'브루잉'}).click();
+  await page.getByRole('checkbox', { name: 'QA 교육 수강생 (9902) 선택', exact: true }).check();
+  await page.getByRole('checkbox', { name: '브루잉 Foundation', exact: true }).check();
   page.once("dialog", d => d.accept());
-  await page.getByRole("button", { name: "QA 교육 수강생 (9902) 브루잉 Foundation 닫기", exact: true }).click();
-  await page.getByRole("button", { name: "QA 교육 수강생 (9902) 브루잉 Foundation 열기", exact: true }).waitFor();
+  await page.getByRole("button", { name: "선택 레벨 일괄 해제", exact: true }).click();
+  await page.locator('.sca-access-notice').filter({ hasText: '일괄 해제했습니다' }).waitFor();
   await studentEducation();
   await pupil.getByText("열람 가능한 교육자료가 없습니다.", { exact: false }).waitFor();
   assert.equal((await student.request.get("/api/edu/decks/brewing/Foundation")).status(), 404);
@@ -213,6 +217,7 @@ try {
   pass("수강생별 과목·레벨 격리·일반 예약 회원 기본 비공개·열기/닫기·검색·학생 노트 제외");
   await page.getByRole("button", { name: "수강생 승인하러 가기" }).click();
   await member.waitFor();
+  await member.getByRole('button', { name: '관리', exact: true }).click();
   page.once("dialog", d => d.accept("로컬 테스트 회수"));
   await member.getByRole("button", { name: "권한 회수" }).click();
   await member.getByRole("button", { name: "상담 완료·승인" }).waitFor();

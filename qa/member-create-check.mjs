@@ -46,6 +46,7 @@ try {
   await form.getByRole('button', { name: '등록·승인', exact: true }).click();
   await form.waitFor({ state: 'detached' });
   let card = list.locator('article').filter({ hasText: 'QA 직접 추가' });
+  await card.getByRole('button', { name: '관리', exact: true }).click();
   await card.getByRole('button', { name: '권한 회수' }).waitFor();
   assert.match(await card.innerText(), /9902/);
   assert.equal((await api('/api/booking/admin')).members.length, 1);
@@ -85,6 +86,7 @@ try {
   await form.waitFor({ state: 'detached' });
   card = list.locator('article').filter({ hasText: 'QA 승인 대기' });
   await card.waitFor();
+  await card.getByRole('button', { name: '관리', exact: true }).click();
   assert.equal(await page.getByLabel('수강생 검색').inputValue(), '');
   assert.equal((await student.request.post('/api/member-auth/login', { data: { name: 'QA 승인 대기', phone: '01000009903', securityCode: '08372' } })).status(), 401);
   page.once('dialog', d => d.accept('로컬 승인'));
