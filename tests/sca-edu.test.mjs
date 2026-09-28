@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   deckForViewer,
+  applyStatusOverrides,
   deckKey,
   resolveEduViewer,
   visibleCatalog,
@@ -19,6 +20,22 @@ for (const course of catalog.courses) {
     if (entry.deck) decks[deckKey(course.id, entry.level)] = readJson(`decks/${entry.deck}`);
   }
 }
+
+test("visibility overrides take precedence without mutating catalog or publishing missing decks", () => {
+  const updated = applyStatusOverrides(catalog, [
+    { courseId: "brewing", level: "Foundation", status: "ready" },
+    { courseId: "unknown", level: "Foundation", status: "ready" },
+  ]);
+  assert.equal(catalog.courses.find(c => c.id === "brewing").levels[0].status, "review");
+  assert.equal(updated.courses.find(c => c.id === "brewing").levels[0].status, "ready");
+  assert.equal(visibleCatalog(updated, decks, "student").courses.flatMap(c => c.levels).filter(l => l.deck).length, 1);
+  const closed = applyStatusOverrides(updated, [{ courseId: "brewing", level: "Foundation", status: "review" }]);
+  assert.equal(deckForViewer(closed, decks, "student", "brewing", "Foundation"), null);
+  const missing = { program: "test", courses: [{ id: "empty", name: "Empty", ko: "", levels: [{ level: "Foundation", deck: null, status: "planned" }] }] };
+  assert.equal(applyStatusOverrides(missing, [{ courseId: "empty", level: "Foundation", status: "ready" }]).courses[0].levels[0].status, "planned");
+  assert.equal(Object.keys(decks).length, 16);
+  assert.ok(Object.values(decks).every(d => d.status === "review"));
+});
 
 test("only administrators and approved students can view education materials", () => {
   assert.deepEqual(resolveEduViewer({ name: "관리자", role: "admin" }, null), { name: "관리자", role: "admin" });

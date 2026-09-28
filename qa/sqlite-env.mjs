@@ -1,8 +1,12 @@
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 
 // A new isolated in-memory D1-compatible database for each QA server process.
 const database = globalThis.__thecupQaDatabase ??= new DatabaseSync(":memory:");
 database.exec("PRAGMA foreign_keys = ON");
+if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'edu_deck_visibility'").get()) {
+  database.exec(readFileSync(new URL("../drizzle/0016_workable_namora.sql", import.meta.url), "utf8"));
+}
 function prepare(sql, values = []) {
   const args = values.map((value) => value instanceof ArrayBuffer ? Buffer.from(value) : value);
   const execute = () => {

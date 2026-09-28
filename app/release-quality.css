@@ -81,6 +81,18 @@ button:disabled { cursor: not-allowed; }
 }
 
 /* SCA 교육자료 탭 (슬라이드 뷰어 자체 스타일은 lib/sca-edu/viewer.js가 주입) */
+.sca-approval-link { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:24px; }
+.sca-approval-link button, .sca-visibility button { background:#222; color:#fff; border:1px solid #222; padding:10px 14px; min-height:44px; font:inherit; cursor:pointer; }
+.sca-visibility { margin-bottom:24px; padding:20px; border:1px solid #ddd; background:#fff; }
+.sca-visibility h2 { margin:0 0 8px; font-size:20px; }
+.sca-visibility-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:16px; margin-top:20px; }
+.sca-visibility-grid section { min-width:0; border:1px solid #ddd; padding:16px; }
+.sca-visibility h3 { font-size:16px; margin:0 0 12px; overflow-wrap:anywhere; }
+.sca-visibility-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:10px 0; border-top:1px solid #eee; }
+.sca-visibility-row b, .sca-visibility-row small { display:block; font-size:14px; }
+.sca-visibility-row small { margin-top:4px; color:#555; }
+.sca-visibility button:disabled { opacity:.5; cursor:not-allowed; }
+@media(max-width:480px) { .sca-visibility { padding:12px; } .sca-visibility-grid section { padding:12px; } }
 .sca-education { min-width: 0; }
 .sca-education-status { margin: 0; padding: 48px 0; color: var(--muted); text-align: center; font-size: 14px; }
 .sca-education .sca { border: 1px solid var(--line); background: #fff; }

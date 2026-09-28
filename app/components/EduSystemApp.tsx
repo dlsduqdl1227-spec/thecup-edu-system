@@ -302,6 +302,7 @@ export function EduSystemApp() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [dataError, setDataError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+  const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members">("schedule");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<TabKey[]>([]);
@@ -428,8 +429,9 @@ export function EduSystemApp() {
   const allowedNav = allowedNavigation(user);
   const homeTab = allowedNav.find((item) => item.key === "dashboard")?.key ?? allowedNav[0]?.key ?? "record";
 
-  function navigateTo(nextTab: TabKey) {
+  function navigateTo(nextTab: TabKey, bookingSection: "schedule" | "members" = "schedule") {
     if (nextTab === activeTab) return;
+    if (nextTab === "booking") setOperationsEntry(bookingSection);
     setNavigationHistory((current) => [...current, activeTab]);
     setActiveTab(nextTab);
   }
@@ -526,9 +528,9 @@ export function EduSystemApp() {
               <RoastingView user={user} notify={setToast} />
             )}
             {activeTab === "booking" && (
-              <OperationsHub notify={setToast} />
+              <OperationsHub notify={setToast} initialSection={operationsEntry} />
             )}
-            {activeTab === "education" && <EducationView />}
+            {activeTab === "education" && <EducationView onApproveStudents={() => navigateTo("booking", "members")} />}
             {activeTab === "staff" && (
               <StaffView currentUserId={user.id} notify={setToast} />
             )}
@@ -553,20 +555,21 @@ export function EduSystemApp() {
   );
 }
 
-function EducationView() {
+function EducationView({ onApproveStudents }: { onApproveStudents: () => void }) {
   return (
     <section className="page-section">
       <PageHeader
         eyebrow="SCA Coffee Skills Program"
         title="SCA 교육자료"
-        description="과목·레벨별 수업 슬라이드를 웹에서 발표하고 PPTX로 내려받습니다. 검토 중·초안 자료는 관리자에게만 보이며, 공개(ready)로 바꾼 자료만 승인 수강생이 볼 수 있습니다."
+        description="과목·레벨별 수업 자료를 검토하고, 공개할 자료를 선택해 주세요."
       />
+      <div className="sca-approval-link"><button type="button" onClick={onApproveStudents}>수강생 승인하러 가기</button><p>승인된 수강생만, 공개로 바꾼 교육자료를 볼 수 있어요.</p></div>
       <ScaEducation />
     </section>
   );
 }
 
-function OperationsHub({ notify }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void }) {
+function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void; initialSection?: "schedule" | "members" }) {
   const [month, setMonth] = useState("");
   const [scheduleMonths, setScheduleMonths] = useState<string[]>([]);
   const selectedMonthLabel = month ? `${Number(month.slice(5))}월` : "일정 확인 중";
@@ -614,7 +617,7 @@ function OperationsHub({ notify }: { notify: (toast: { kind: "ok" | "error"; mes
           onMonthChange={setMonth}
           onScheduleMonthsChange={setScheduleMonths}
           embedded
-          initialTab="schedule"
+          initialTab={initialSection}
         />
       </div>
       <div id="operations-openings" className="operations-unified-section">

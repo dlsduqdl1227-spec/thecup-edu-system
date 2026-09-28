@@ -1,11 +1,22 @@
 import { sql } from "drizzle-orm";
-import { customType, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, primaryKey, customType, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const sqliteBlob = customType<{ data: ArrayBuffer }>({
   dataType() {
     return "blob";
   },
 });
+
+export const eduDeckVisibility = sqliteTable("edu_deck_visibility", {
+  courseId: text("course_id").notNull(),
+  level: text("level").notNull(),
+  status: text("status", { enum: ["review", "ready"] }).notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, table => [
+  primaryKey({ columns: [table.courseId, table.level] }),
+  check("edu_deck_visibility_status", sql`${table.status} IN ('review', 'ready')`),
+]);
 
 export const staff = sqliteTable("staff", {
   id: integer("id").primaryKey({ autoIncrement: true }),

@@ -2,15 +2,41 @@
 // 새 덱을 추가하면 1) decks/<course>/<level>.json 파일 2) catalog.json 항목 3) 아래 DECKS 등록.
 // 이 파일은 API 라우트에서만 import 한다. 클라이언트 컴포넌트에서 import 하면 덱이 공개 번들에 포함된다.
 import catalogJson from "./decks/catalog.json";
-import baristaFoundation from "./decks/barista-skills/foundation.json";
-import baristaIntermediate from "./decks/barista-skills/intermediate.json";
-import baristaProfessional from "./decks/barista-skills/professional.json";
+import introductionIntroduction from "./decks/introduction/introduction.json";
+import baristaSkillsFoundation from "./decks/barista-skills/foundation.json";
+import baristaSkillsIntermediate from "./decks/barista-skills/intermediate.json";
+import baristaSkillsProfessional from "./decks/barista-skills/professional.json";
+import brewingFoundation from "./decks/brewing/foundation.json";
+import brewingIntermediate from "./decks/brewing/intermediate.json";
+import brewingProfessional from "./decks/brewing/professional.json";
+import greenCoffeeFoundation from "./decks/green-coffee/foundation.json";
+import greenCoffeeIntermediate from "./decks/green-coffee/intermediate.json";
+import greenCoffeeProfessional from "./decks/green-coffee/professional.json";
+import roastingFoundation from "./decks/roasting/foundation.json";
+import roastingIntermediate from "./decks/roasting/intermediate.json";
+import roastingProfessional from "./decks/roasting/professional.json";
+import sensorySkillsFoundation from "./decks/sensory-skills/foundation.json";
+import sensorySkillsIntermediate from "./decks/sensory-skills/intermediate.json";
+import sensorySkillsProfessional from "./decks/sensory-skills/professional.json";
 import { deckKey, type Catalog, type Deck, type DeckMap } from "./catalog";
 
 export const EDU_CATALOG = catalogJson as Catalog;
 
 export const EDU_DECKS: DeckMap = {
-  [deckKey("barista-skills", "Foundation")]: baristaFoundation as Deck,
-  [deckKey("barista-skills", "Intermediate")]: baristaIntermediate as Deck,
-  [deckKey("barista-skills", "Professional")]: baristaProfessional as Deck,
+  [deckKey("introduction", "Introduction")]: introductionIntroduction as Deck,
+  [deckKey("barista-skills", "Foundation")]: baristaSkillsFoundation as Deck,
+  [deckKey("barista-skills", "Intermediate")]: baristaSkillsIntermediate as Deck,
+  [deckKey("barista-skills", "Professional")]: baristaSkillsProfessional as Deck,
+  [deckKey("brewing", "Foundation")]: brewingFoundation as Deck,
+  [deckKey("brewing", "Intermediate")]: brewingIntermediate as Deck,
+  [deckKey("brewing", "Professional")]: brewingProfessional as Deck,
+  [deckKey("green-coffee", "Foundation")]: greenCoffeeFoundation as Deck,
+  [deckKey("green-coffee", "Intermediate")]: greenCoffeeIntermediate as Deck,
+  [deckKey("green-coffee", "Professional")]: greenCoffeeProfessional as Deck,
+  [deckKey("roasting", "Foundation")]: roastingFoundation as Deck,
+  [deckKey("roasting", "Intermediate")]: roastingIntermediate as Deck,
+  [deckKey("roasting", "Professional")]: roastingProfessional as Deck,
+  [deckKey("sensory-skills", "Foundation")]: sensorySkillsFoundation as Deck,
+  [deckKey("sensory-skills", "Intermediate")]: sensorySkillsIntermediate as Deck,
+  [deckKey("sensory-skills", "Professional")]: sensorySkillsProfessional as Deck,
 };

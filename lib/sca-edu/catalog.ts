@@ -42,6 +42,18 @@ const LEVEL = /^[A-Za-z]{1,20}$/;
 
 export const deckKey = (courseId: string, level: string) => `${courseId}/${level}`;
 
+export type StatusOverride = { courseId: string; level: string; status: "review" | "ready" };
+
+export function applyStatusOverrides(catalog: Catalog, rows: StatusOverride[]): Catalog {
+  const overrides = new Map(rows.filter(row => row.status === "review" || row.status === "ready")
+    .map(row => [deckKey(row.courseId, row.level), row.status]));
+  return { ...catalog, courses: catalog.courses.map(course => ({ ...course,
+    levels: course.levels.map(entry => ({ ...entry,
+      status: entry.deck ? overrides.get(deckKey(course.id, entry.level)) ?? entry.status : entry.status,
+    })),
+  })) };
+}
+
 /** 운영자 세션(관리자만)과 승인 수강생 세션 중 교육 탭을 볼 수 있는 사람을 고른다. 관리자가 우선이다. */
 export function resolveEduViewer(
   staff: { name: string; role: string } | null,
@@ -98,6 +110,7 @@ export function deckForViewer(
   const entry = catalog.courses.find((course) => course.id === courseId)?.levels.find((item) => item.level === level);
   const deck = decks[deckKey(courseId, level)];
   if (!entry || !deck) return null;
-  if (role === "admin") return deck;
-  return STUDENT_VISIBLE.has(entry.status) ? studentDeck(deck) : null;
+  const effectiveDeck = { ...deck, status: entry.status };
+  if (role === "admin") return effectiveDeck;
+  return STUDENT_VISIBLE.has(entry.status) ? studentDeck(effectiveDeck) : null;
 }

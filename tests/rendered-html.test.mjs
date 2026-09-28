@@ -49,7 +49,9 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /아래 두 영역이 함께 자동 동기화/);
   assert.match(app, /id="operations-schedule"/);
   assert.match(app, /id="operations-openings"/);
-  assert.match(app, /initialTab="schedule"/);
+  assert.match(app, /initialTab=\{initialSection\}/);
+  assert.match(app, /initialSection = "schedule"/);
+  assert.match(app, /navigateTo\("booking", "members"\)/);
   assert.match(app, /<CourseOpeningsAdminView notify=\{notify\} month=\{month\} onMonthChange=\{setMonth\} embedded/);
   assert.doesNotMatch(app, /workspace === "booking"/);
   assert.match(bookingPortal, /수업 예정자/);

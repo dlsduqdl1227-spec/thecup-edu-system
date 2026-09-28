@@ -41,9 +41,11 @@
 ## SCA 교육자료
 
 - 위치: 관리자 `운영 관리 → SCA 교육자료`, 승인 수강생 `내 수강 화면 → 교육자료`
-- 자료: `lib/sca-edu/decks/` (현재 Barista Skills Foundation · Intermediate · Professional). 슬라이드 JSON은 Worker 코드에 함께 번들되므로 R2/KV 등 추가 비용이 없습니다. `public/`에 두지 않습니다.
+- 자료: `lib/sca-edu/decks/` — 커피 입문 1개와 바리스타·브루잉·생두·로스팅·센서리 각 3개, 총 16개 자료. 슬라이드 JSON은 서버 코드에 번들하며 `public/`에 두지 않습니다.
 - 권한: 관리자는 검토 중 자료까지 전체, 발표자 노트, PPTX 다운로드. 승인 수강생은 `ready` 자료만 웹에서 열람하며 노트·출처 메모는 서버에서 제거됩니다. 정규직원·시간강사 계정만으로는 열람할 수 없습니다.
-- 공개 절차: 관리자 화면에서 내용을 검토한 뒤 `lib/sca-edu/decks/catalog.json`의 해당 레벨 `status`를 `review`에서 `ready`로 바꾸고 배포합니다.
+- 공개 절차: 관리자 SCA 교육자료의 레벨별 `수강생에게 공개` / `공개 중지` 버튼으로 변경합니다. 별도 배포 없이 D1의 `edu_deck_visibility` 값이 적용되며, 설정이 없으면 catalog.json 상태를 사용합니다. 모든 자료의 기본값은 검토 중입니다.
+- `수강생 승인하러 가기` 버튼은 운영 · 개강 관리의 상담·회원 탭으로 연결됩니다.
+- DB 배포 시 `drizzle/0016_workable_namora.sql`의 신규 테이블만 추가합니다. 기존 회원·예약·매출 테이블은 변경하지 않습니다.
 - 새 자료 추가: ① `decks/<과목>/<레벨>.json` 작성 ② `catalog.json`에 경로 등록 ③ `lib/sca-edu/decks.ts`에 import 등록. `tests/sca-edu.test.mjs`가 누락을 검사합니다.
 - 디자인: 모든 슬라이드 흰 배경, 글자는 블랙·다크그레이·그레이. 색은 `lib/sca-edu/theme.js` 한 곳에서만 바꿉니다. PPTX는 발표 PC에 Pretendard 글꼴이 설치돼 있어야 화면과 같게 보입니다.
 - 보호: 보는 사람 이름 워터마크, 우클릭·드래그·선택·인쇄 차단, API `Cache-Control: private, no-store`. 화면 캡처 자체를 막을 수는 없습니다.
