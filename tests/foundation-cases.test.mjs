@@ -16,7 +16,7 @@ test('each foundation has six fictional evidence-question-solution cases within 
     assert.equal(deck.caseStudies.length, 6);
     assert.equal(new Set(deck.caseStudies.map(c=>c.id)).size, 6);
     assert.equal(deck.slides.filter(s=>s.caseIndex).length, 1);
-    assert.equal(deck.slides.filter(s=>!s.caseId && !s.caseIndex).length, baseCount);
+    assert.equal(deck.slides.filter(s=>!s.caseId && !s.caseIndex && !s.beginnerGuide).length, baseCount);
     const laid = layoutDeck(deck);
     for (const c of deck.caseStudies) {
       const indexes = deck.slides.flatMap((s,i)=>s.caseId===c.id ? [i] : []);

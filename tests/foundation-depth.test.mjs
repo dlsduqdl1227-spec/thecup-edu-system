@@ -6,8 +6,8 @@ import { layoutDeck } from '../lib/sca-edu/layouts.js';
 const load = course => JSON.parse(readFileSync(new URL(`../lib/sca-edu/decks/${course}/foundation.json`, import.meta.url), 'utf8'));
 test('expanded foundations retain their level, private status and curriculum coverage', () => {
   const water = load('water-maintenance'), sustainability = load('sustainability');
-  assert.equal(water.slides.length, 71);
-  assert.equal(sustainability.slides.length, 74);
+  assert.equal(water.slides.length, 95);
+  assert.equal(sustainability.slides.length, 93);
   const waterTopics = new Set(water.slides.flatMap(s => s.topicRefs ?? []));
   for (const section of Array.from({ length: 11 }, (_, i) => `1.${String(i + 1).padStart(2, '0')}`)) assert.ok(waterTopics.has(section), section);
   const sustainabilityTopics = new Set(sustainability.slides.flatMap(s => s.topicRefs ?? []));
@@ -17,7 +17,7 @@ test('expanded foundations retain their level, private status and curriculum cov
   for (const deck of [water, sustainability]) {
     assert.equal(deck.level, 'Foundation');
     assert.equal(deck.status, 'review');
-    assert.equal(deck.version, '1.2');
+    assert.equal(deck.version, '1.3');
     assert.ok(deck.slides.every(s => s.notes?.length > 20));
     const visible = JSON.stringify(deck.slides.map(slide => ({ ...slide, notes: undefined })));
     assert.ok(visible.includes('가상'));

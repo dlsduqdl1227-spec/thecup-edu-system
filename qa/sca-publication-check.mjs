@@ -93,13 +93,14 @@ try {
       const clips=await page.locator('.sca-stage .tx').evaluateAll(nodes=>nodes.filter(n=>n.scrollHeight>n.clientHeight+3).map(n=>n.textContent));
       assert.deepEqual(clips,[],`${course}/${i}: clipped text`);
       await page.locator('.sca-stage').screenshot({path:`outputs/qa/${course}-${i}.png`});
-      if(original.slides[i]?.caseId || original.slides[i]?.caseIndex){
+      if(original.slides[i]?.caseId || original.slides[i]?.caseIndex || original.slides[i]?.beginnerGuide || original.slides[i]?.beginnerEdited){
         await page.getByRole('button',{name:'발표 시작',exact:true}).click();
         await page.locator('.sca-show__stage .sca-slide').waitFor();
         if(original.slides[i]?.layout==='question') await page.waitForFunction(()=>getComputedStyle(document.querySelector('.sca-show__stage .reveal')).opacity==='1');
         const fullscreenClips=await page.locator('.sca-show__stage .tx').evaluateAll(nodes=>nodes.filter(n=>n.scrollHeight>n.clientHeight+3).map(n=>n.textContent));
         assert.deepEqual(fullscreenClips,[],`${course}/${i}: fullscreen text`);
-        await page.locator('.sca-show__stage').screenshot({path:`outputs/qa/case-${course}-${i}.png`});
+        const prefix=original.slides[i]?.beginnerGuide || original.slides[i]?.beginnerEdited ? 'beginner' : 'case';
+        await page.locator('.sca-show__stage').screenshot({path:`outputs/qa/${prefix}-${course}-${i}.png`});
         await page.keyboard.press('Escape');
         await page.locator('.sca-show').waitFor({state:'detached'});
       }
@@ -141,11 +142,18 @@ try {
     assert.equal(await pupil.getByRole('button',{name:'발표자 노트',exact:true}).count(),0);
     await pupil.setViewportSize({width:360,height:800});
     await capture(pupil,`case-student-${course}-360`);
+    const definition=JSON.parse(readFileSync(new URL(`../lib/sca-edu/decks/${course}/foundation.json`,import.meta.url),'utf8'));
+    const guide=definition.slides.find(s=>s.beginnerGuide && (course==='water-maintenance' ? s.title.includes('카트리지') : s.title.includes('사용량')));
+    await pupil.locator('.sca-thumb').filter({hasText:guide.title}).click();
+    const text=await pupil.locator('.sca-stage').innerText();
+    for(const row of guide.rows) for(const value of row) assert.ok(text.includes(value), `${course}: missing learner definition`);
+    assert.equal(await pupil.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    await pupil.screenshot({path:`outputs/qa/beginner-student-${course}-360.png`,fullPage:false});
     assert.ok((await admin.request.put(grantPath,{data:{enabled:false}})).ok());
     assert.equal((await student.request.get(`/api/edu/decks/${course}/Foundation`)).status(),404);
   }
   await pupil.setViewportSize({width:390,height:900});
-  pass('신규 사례의 수강생 360px 정답 공개·노트 제외·과목별 회수 차단');
+  pass('신규 사례·쉬운 뜻·생활 예시의 수강생 360px 표시·정답 공개·노트 제외·과목별 회수 차단');
   await education();
   await page.locator(".sca-access-list article").filter({hasText:"QA 교육 수강생"}).locator("summary").filter({hasText:"브루잉"}).click();
   const publish = page.getByRole("button", { name: "QA 교육 수강생 (9902) 브루잉 Foundation 열기", exact: true });
