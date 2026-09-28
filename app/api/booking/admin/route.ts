@@ -1,4 +1,4 @@
-import { AuthError, requireUser } from "../../../../lib/auth";
+import { AuthError, normalizePhone, phoneHash, requireUser } from "../../../../lib/auth";
 import {
   bookingDateTime,
   bookingMonthRange,
@@ -16,6 +16,13 @@ import {
 import { currentKoreanMonth } from "../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, isoDate, jsonError } from "../../../../lib/http";
+import {
+  describeMemberChanges,
+  type EditableMember,
+  loginChanged,
+  normalizeMemberName,
+  normalizeStationType,
+} from "../../../../lib/member-edit";
 
 export async function GET(request: Request) {
   try {
@@ -148,6 +155,7 @@ export async function POST(request: Request) {
     // Await inside this boundary so asynchronous validation stays a JSON 4xx response.
     if (action === "approveMember") return await approveMember(actor.id, payload);
     if (action === "deleteMember") return await deleteMember(actor.id, payload);
+    if (action === "updateMember") return await updateMember(actor.id, payload);
     if (action === "saveStation") return await saveStation(actor.id, payload);
     if (action === "generateSlots") return await generateSlots(actor.id, payload);
     if (action === "copyDate") return await copyDate(actor.id, payload);
@@ -205,6 +213,69 @@ async function deleteMember(actorId: number, payload: Record<string, unknown>) {
   ]);
   await audit(actorId, "delete_booking_member", "booking_member", String(memberId), `${member.name} 계정 삭제`);
   return Response.json({ ok: true });
+}
+
+async function updateMember(actorId: number, payload: Record<string, unknown>) {
+  const memberId = positiveBookingInteger(payload.memberId, "회원");
+  const db = getD1();
+  const before = await db
+    .prepare(
+      `SELECT name, phone_hash AS phoneHash, phone_last4 AS phoneLast4,
+              desired_station_type AS desiredStationType,
+              consultation_memo AS consultationMemo, admin_memo AS adminMemo
+       FROM booking_members WHERE id = ? AND deleted_at IS NULL`,
+    )
+    .bind(memberId)
+    .first<EditableMember>();
+  if (!before) throw new Error("회원을 찾을 수 없습니다.");
+
+  const after: EditableMember = {
+    name: normalizeMemberName(payload.name),
+    phoneHash: before.phoneHash,
+    phoneLast4: before.phoneLast4,
+    desiredStationType: normalizeStationType(payload.desiredStationType),
+    consultationMemo: optionalBookingText(payload.consultationMemo, 500),
+    adminMemo: optionalBookingText(payload.adminMemo, 500),
+  };
+  // 전체 번호는 저장하지 않는다. 새 번호를 입력했을 때만 해시와 뒷자리 4개를 바꾼다.
+  const newPhone = typeof payload.phone === "string" ? payload.phone.trim() : "";
+  if (newPhone) {
+    const phone = normalizePhone(newPhone);
+    after.phoneHash = await phoneHash(phone);
+    after.phoneLast4 = phone.slice(-4);
+    if (after.phoneHash !== before.phoneHash) {
+      const owner = await db
+        .prepare("SELECT deleted_at AS deletedAt FROM booking_members WHERE phone_hash = ? AND id <> ?")
+        .bind(after.phoneHash, memberId)
+        .first<{ deletedAt: string | null }>();
+      if (owner) {
+        throw new Error(owner.deletedAt
+          ? "삭제된 수강생 계정이 이 번호로 등록되어 있습니다. 번호를 다시 확인해 주세요."
+          : "이미 다른 수강생이 쓰는 휴대폰 번호입니다.");
+      }
+    }
+  }
+
+  const changes = describeMemberChanges(before, after);
+  if (!changes.length) return Response.json({ ok: true, changes });
+  const resetLogin = loginChanged(before, after);
+  const statements = [
+    db.prepare(
+      `UPDATE booking_members
+       SET name = ?, phone_hash = ?, phone_last4 = ?, desired_station_type = ?,
+           consultation_memo = ?, admin_memo = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND deleted_at IS NULL`,
+    ).bind(after.name, after.phoneHash, after.phoneLast4, after.desiredStationType, after.consultationMemo, after.adminMemo, memberId),
+  ];
+  if (resetLogin) statements.push(db.prepare("DELETE FROM member_sessions WHERE member_id = ?").bind(memberId));
+  try {
+    await db.batch(statements);
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE/i.test(error.message)) throw new Error("이미 다른 수강생이 쓰는 휴대폰 번호입니다.");
+    throw error;
+  }
+  await audit(actorId, "update_booking_member", "booking_member", String(memberId), `정보 수정: ${changes.join(", ")}`);
+  return Response.json({ ok: true, changes, resetLogin });
 }
 
 async function saveStation(actorId: number, payload: Record<string, unknown>) {

@@ -289,6 +289,8 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
 function MemberAdmin({ data, busy, act }: AdminProps) {
   const [search, setSearch] = useState("");
   const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("ALL");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const stationTypes = useMemo(() => [...new Set(data.stations.map((station) => station.type))], [data.stations]);
   const approved = data.members.filter((member) => member.approvalStatus === "APPROVED");
   const pending = data.members.filter((member) => member.approvalStatus === "PENDING");
   const revoked = data.members.filter((member) => member.approvalStatus === "REVOKED");
@@ -332,7 +334,7 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
           <p className="student-login-guide">수강생 로그인에는 등록한 이름·휴대폰 번호·현재 수강생 보안코드가 모두 필요합니다. 직원 로그인은 사용할 수 없습니다. 반복 실패 시 최대 1분 후 다시 시도하세요.</p>
           <div className="booking-admin-member-list">
             {visibleMembers.length ? visibleMembers.map((member) => (
-              <article key={member.id}>
+              <article key={member.id} className={editingId === member.id ? "editing" : undefined}>
                 <div>
                   <span className={`member-state ${member.approvalStatus.toLowerCase()}`}>{member.approvalStatus === "APPROVED" ? "승인 회원" : member.approvalStatus === "PENDING" ? "승인 대기" : "권한 회수"}</span>
                   <h3>{member.name} <small>· {member.phoneLast4}</small></h3>
@@ -342,13 +344,52 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
                   {member.consultationMemo && <blockquote>{member.consultationMemo}</blockquote>}
                 </div>
                 <div className="booking-member-actions">
+                  <button type="button" disabled={busy} aria-expanded={editingId === member.id} onClick={() => setEditingId(editingId === member.id ? null : member.id)}>{editingId === member.id ? "수정 닫기" : "정보 수정"}</button>
                   {member.approvalStatus === "APPROVED" ? <button disabled={busy} onClick={() => approve(member, false)}>권한 회수</button> : <button className="solid" disabled={busy} onClick={() => approve(member, true)}>상담 완료·승인</button>}
                   <button className="danger" disabled={busy} onClick={() => remove(member)}>계정 삭제</button>
                 </div>
+                {editingId === member.id && <MemberEditForm member={member} stationTypes={stationTypes} busy={busy} act={act} onClose={() => setEditingId(null)} />}
               </article>
             )) : <Empty>선택한 상태의 회원이 없습니다.</Empty>}
           </div>
     </section>
+  );
+}
+
+// 승인 뒤에도 이름·휴대폰 번호·메모를 언제든 고칠 수 있게 한다. 전체 번호는 저장하지 않으므로 뒷자리만 보여 준다.
+function MemberEditForm({ member, stationTypes, busy, act, onClose }: { member: Member; stationTypes: string[]; busy: boolean; act: AdminProps["act"]; onClose: () => void }) {
+  const typeOptions = member.desiredStationType && !stationTypes.includes(member.desiredStationType) ? [...stationTypes, member.desiredStationType] : stationTypes;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") ?? "").trim();
+    const phone = String(form.get("phone") ?? "").trim();
+    const loginNote = name !== member.name || phone ? "\n이름이나 휴대폰 번호가 바뀌면 수강생은 새 정보로 다시 로그인해야 해요." : "";
+    if (!window.confirm(`${member.name} 수강생 정보를 저장할까요?${loginNote}`)) return;
+    const saved = await act(
+      {
+        action: "updateMember",
+        memberId: member.id,
+        name,
+        phone,
+        desiredStationType: String(form.get("desiredStationType") ?? ""),
+        consultationMemo: String(form.get("consultationMemo") ?? ""),
+        adminMemo: String(form.get("adminMemo") ?? ""),
+      },
+      "수강생 정보를 수정했습니다.",
+    );
+    if (saved) onClose();
+  }
+  return (
+    <form className="booking-member-edit" onSubmit={submit} aria-label={`${member.name} 정보 수정`}>
+      <label>이름<input name="name" required maxLength={40} defaultValue={member.name} autoComplete="off" /></label>
+      <label>휴대폰 번호<input name="phone" type="tel" inputMode="tel" maxLength={13} placeholder={`현재 ****-${member.phoneLast4} · 바꿀 때만 입력`} autoComplete="off" /><small>보안을 위해 전체 번호는 저장하지 않아 뒷자리만 보여요.</small></label>
+      <label>희망 스테이션<select name="desiredStationType" defaultValue={member.desiredStationType}><option value="">미정</option>{typeOptions.map((type) => <option key={type} value={type}>{stationLabel[type] ?? type}</option>)}</select></label>
+      <label className="wide">상담 메모<textarea name="consultationMemo" maxLength={500} rows={3} defaultValue={member.consultationMemo} /></label>
+      <label className="wide">관리자 메모<textarea name="adminMemo" maxLength={500} rows={2} defaultValue={member.adminMemo} /></label>
+      <p className="wide">이름이나 휴대폰 번호를 바꾸면 수강생은 새 정보로 다시 로그인해야 해요.</p>
+      <div className="wide booking-member-edit-actions"><button type="button" disabled={busy} onClick={onClose}>취소</button><button className="solid" disabled={busy}>저장</button></div>
+    </form>
   );
 }
 

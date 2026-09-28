@@ -109,6 +109,36 @@ test("booking lifecycle keeps private, public and recruitment schedules consiste
     assert.equal(memberData.slots.find((row) => row.id === Number(overlapping.lastInsertRowid)).displayStatus, "RESERVED");
     assert.equal(memberData.slots.find((row) => row.stationId === 2 && row.startAt.startsWith("2099-10-12")).displayStatus, "RESERVED");
   });
+  await t.test("administrators can edit member details and a new phone ends old sessions", async () => {
+    const previousSecret = process.env.SESSION_SECRET;
+    process.env.SESSION_SECRET = previousSecret && previousSecret.trim().length >= 24 ? previousSecret : "qa-member-edit-secret-0123456789";
+    const phoneDigest = (digits) => createHash("sha256").update(`${process.env.SESSION_SECRET.trim()}:${digits}`).digest("hex");
+    const member2Status = async () => (await routes.memberGet(request("/api/booking/member", "thecup_member_session=member2"))).status;
+    try {
+      let response = await admin({ action: "updateMember", memberId: 2, name: "QA 2", phone: "", desiredStationType: "brewing", consultationMemo: "", adminMemo: "메모만 수정" });
+      assert.equal(response.status, 200, await response.clone().text());
+      assert.deepEqual((await response.json()).changes, ["희망 스테이션", "관리자 메모"]);
+      assert.equal(await member2Status(), 200);
+
+      sqlite.prepare("INSERT INTO booking_members (name, phone_hash, phone_last4, approval_status) VALUES ('QA 3', ?, '8888', 'APPROVED')").run(phoneDigest("01099998888"));
+      response = await admin({ action: "updateMember", memberId: 2, name: "QA 2", phone: "010-9999-8888", desiredStationType: "BREWING", adminMemo: "메모만 수정" });
+      assert.equal(response.status, 400);
+      assert.match((await response.json()).error, /다른 수강생/);
+      assert.equal(sqlite.prepare("SELECT phone_last4 FROM booking_members WHERE id = 2").get().phone_last4, "0000");
+      assert.equal(await member2Status(), 200);
+
+      response = await admin({ action: "updateMember", memberId: 2, name: "QA 2 변경", phone: "010-1234-5678", desiredStationType: "BREWING", adminMemo: "메모만 수정" });
+      assert.equal(response.status, 200, await response.clone().text());
+      const row = sqlite.prepare("SELECT name, phone_hash AS phoneHash, phone_last4 AS phoneLast4 FROM booking_members WHERE id = 2").get();
+      assert.deepEqual({ ...row }, { name: "QA 2 변경", phoneHash: phoneDigest("01012345678"), phoneLast4: "5678" });
+      assert.equal(await member2Status(), 401);
+      const log = sqlite.prepare("SELECT detail FROM audit_logs WHERE action = 'update_booking_member' ORDER BY id DESC").get();
+      assert.match(log.detail, /이름, 휴대폰\(뒷자리 5678\)/);
+      assert.doesNotMatch(log.detail, /01012345678|010-1234/);
+    } finally {
+      if (previousSecret === undefined) delete process.env.SESSION_SECRET; else process.env.SESSION_SECRET = previousSecret;
+    }
+  });
   await t.test("revocation invalidates existing sessions without erasing reservation history", async () => {
     assert.equal((await admin({ action: "approveMember", memberId: 1, approved: false })).status, 200);
     assert.equal((await routes.memberGet(request("/api/booking/member", "thecup_member_session=member1"))).status, 401);
