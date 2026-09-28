@@ -16,7 +16,12 @@ try {
   for (const path of ['/', '/admin']) {
     const response = await page.goto(path);
     assert.equal(response.status(), 200);
-    if (path === '/') await page.getByText('THE CUP EDU', { exact: true }).first().waitFor();
+    if (path === '/') {
+      await page.getByRole('link', { name: /운영자 로그인/ }).waitFor();
+      await page.getByRole('link', { name: /빈자리 보기/ }).waitFor();
+      await page.getByRole('link', { name: /수강생 로그인/ }).waitFor();
+      assert.equal(await page.locator('.portal-loading').count(), 0);
+    }
     for (const [property, expected] of [['og:title', 'THE CUP EDU'], ['og:description', 'COFFEE STATION'], ['og:image:width', '1200'], ['og:image:height', '630']]) {
       const tags = page.locator(`meta[property="${property}"]`);
       assert.equal(await tags.count(), 1, `${path} duplicate ${property}`);
