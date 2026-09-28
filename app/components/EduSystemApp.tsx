@@ -561,9 +561,9 @@ function EducationView({ onApproveStudents }: { onApproveStudents: () => void })
       <PageHeader
         eyebrow="SCA Coffee Skills Program"
         title="SCA 교육자료"
-        description="과목·레벨별 수업 자료를 검토하고, 공개할 자료를 선택해 주세요."
+        description="수강생별로 열람할 과목을 선택하고, 아래에서 수업 자료를 검토하세요."
       />
-      <div className="sca-approval-link"><button type="button" onClick={onApproveStudents}>수강생 승인하러 가기</button><p>승인된 수강생만, 공개로 바꾼 교육자료를 볼 수 있어요.</p></div>
+      <div className="sca-approval-link"><button type="button" onClick={onApproveStudents}>수강생 승인하러 가기</button><p>예약 승인과 교육자료 권한은 별도입니다. 승인 후 이 화면에서 과목을 열어 주세요.</p></div>
       <ScaEducation />
     </section>
   );

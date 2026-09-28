@@ -7,7 +7,7 @@ import { effectiveEduCatalog, privateEduResponse } from "../../../../lib/sca-edu
 export async function GET(request: Request) {
   try {
     const viewer = await requireEduViewer(request);
-    return privateEduResponse(Response.json(visibleCatalog(await effectiveEduCatalog(), EDU_DECKS, viewer.role)));
+    return privateEduResponse(Response.json(visibleCatalog(await effectiveEduCatalog(viewer), EDU_DECKS, viewer.role)));
   } catch (error) {
     return privateEduResponse(jsonError(error));
   }

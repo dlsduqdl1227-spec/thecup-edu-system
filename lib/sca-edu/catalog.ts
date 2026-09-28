@@ -5,6 +5,17 @@ export type EduRole = "admin" | "student";
 export type DeckStatus = "planned" | "draft" | "review" | "ready";
 
 export type EduViewer = { name: string; role: EduRole };
+// Internal only: /me serializes name and role explicitly, never the member ID.
+export type EduSessionViewer = EduViewer & { memberId?: number };
+
+export type EduMemberAccess = {
+  id: number;
+  name: string;
+  phoneLast4: string;
+  approvalStatus: "PENDING" | "APPROVED" | "REVOKED";
+  courses: string[];
+};
+export type EduMemberList = { members: EduMemberAccess[] };
 
 export type CatalogLevel = { level: string; deck: string | null; status: DeckStatus };
 export type Catalog = {
@@ -52,6 +63,16 @@ export function applyStatusOverrides(catalog: Catalog, rows: StatusOverride[]): 
       status: entry.deck ? overrides.get(deckKey(course.id, entry.level)) ?? entry.status : entry.status,
     })),
   })) };
+}
+
+/** Reservation approval or legacy global ready status alone never opens a course. */
+export function applyMemberCourseAccess(catalog: Catalog, courses: string[]): Catalog {
+  const allowed = new Set(courses);
+  return { ...catalog, courses: catalog.courses.filter(course => allowed.has(course.id)).map(course => ({
+    ...course,
+    levels: course.levels.filter(entry => entry.deck && (entry.status === "review" || entry.status === "ready"))
+      .map(entry => ({ ...entry, status: "ready" as const })),
+  })).filter(course => course.levels.length > 0) };
 }
 
 /** 운영자 세션(관리자만)과 승인 수강생 세션 중 교육 탭을 볼 수 있는 사람을 고른다. 관리자가 우선이다. */

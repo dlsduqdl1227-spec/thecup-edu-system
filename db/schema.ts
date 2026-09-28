@@ -62,6 +62,14 @@ export const bookingMembers = sqliteTable(
   (table) => [index("booking_members_deleted_status_idx").on(table.deletedAt, table.approvalStatus)],
 );
 
+export const eduMemberCourses = sqliteTable("edu_member_courses", {
+  memberId: integer("member_id").notNull().references(() => bookingMembers.id, { onDelete: "cascade" }),
+  courseId: text("course_id").notNull(),
+  approvalStamp: text("approval_stamp").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, table => [primaryKey({ columns: [table.memberId, table.courseId] })]);
+
 export const memberSessions = sqliteTable(
   "member_sessions",
   {

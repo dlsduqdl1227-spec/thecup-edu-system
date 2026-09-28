@@ -11,7 +11,7 @@ export async function GET(
   try {
     const viewer = await requireEduViewer(request);
     const { course, level } = await context.params;
-    const deck = deckForViewer(await effectiveEduCatalog(), EDU_DECKS, viewer.role, course, level);
+    const deck = deckForViewer(await effectiveEduCatalog(viewer), EDU_DECKS, viewer.role, course, level);
     if (!deck) return privateEduResponse(Response.json({ error: "교육자료를 찾을 수 없습니다." }, { status: 404 }));
     return privateEduResponse(Response.json(deck));
   } catch (error) {

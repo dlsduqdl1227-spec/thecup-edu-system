@@ -7,12 +7,20 @@ database.exec("PRAGMA foreign_keys = ON");
 if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'edu_deck_visibility'").get()) {
   database.exec(readFileSync(new URL("../drizzle/0016_workable_namora.sql", import.meta.url), "utf8"));
 }
+let educationSchemaReady = false;
 function prepare(sql, values = []) {
   const args = values.map((value) => value instanceof ArrayBuffer ? Buffer.from(value) : value);
   const execute = () => {
     const statement = database.prepare(sql);
     if (statement.columns().length) return { success: true, results: statement.all(...args), meta: {} };
     const result = statement.run(...args);
+    // The grant cleanup trigger needs the existing member table, created during bootstrap.
+    if (!educationSchemaReady && database.prepare("SELECT name FROM sqlite_master WHERE name = 'booking_members'").get()) {
+      if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'edu_member_courses'").get()) {
+        database.exec(readFileSync(new URL("../drizzle/0017_wealthy_gertrude_yorkes.sql", import.meta.url), "utf8"));
+      }
+      educationSchemaReady = true;
+    }
     return { success: true, results: [], meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } };
   };
   return {
