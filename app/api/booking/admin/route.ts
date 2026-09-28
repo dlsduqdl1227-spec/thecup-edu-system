@@ -153,6 +153,7 @@ export async function POST(request: Request) {
     const payload = (await request.json()) as Record<string, unknown>;
     const action = bookingText(payload.action, "작업", 50);
     // Await inside this boundary so asynchronous validation stays a JSON 4xx response.
+    if (action === "createMember") return await createMember(actor.id, payload);
     if (action === "approveMember") return await approveMember(actor.id, payload);
     if (action === "deleteMember") return await deleteMember(actor.id, payload);
     if (action === "updateMember") return await updateMember(actor.id, payload);
@@ -170,6 +171,47 @@ export async function POST(request: Request) {
     throw new Error("지원하지 않는 관리자 작업입니다.");
   } catch (error) {
     return jsonError(error);
+  }
+}
+
+async function createMember(actorId: number, payload: Record<string, unknown>) {
+  const name = normalizeMemberName(payload.name);
+  const phone = normalizePhone(typeof payload.phone === "string" ? payload.phone : "");
+  const hashedPhone = await phoneHash(phone);
+  const approvalStatus = payload.approvalStatus;
+  if (approvalStatus !== "APPROVED" && approvalStatus !== "PENDING") {
+    throw new Error("등록 시 승인 상태를 선택해 주세요.");
+  }
+  const desiredStationType = normalizeStationType(payload.desiredStationType);
+  const consultationMemo = optionalBookingText(payload.consultationMemo, 500);
+  const adminMemo = optionalBookingText(payload.adminMemo, 500);
+  const db = getD1();
+  const existing = await db.prepare("SELECT deleted_at AS deletedAt FROM booking_members WHERE phone_hash = ?")
+    .bind(hashedPhone).first<{ deletedAt: string | null }>();
+  if (existing) throw new AuthError(existing.deletedAt
+    ? "삭제된 수강생 계정에 등록된 번호입니다. 기존 이력 보호를 위해 자동 재등록하지 않습니다. 번호를 확인해 주세요."
+    : "이미 등록된 휴대폰 번호입니다. 수강생 목록에서 이름 또는 끝 4자리로 검색해 주세요.", 409);
+  const approved = approvalStatus === "APPROVED";
+  try {
+    // Create the account and audit record together; never overwrite an existing student or grant education access.
+    const [result] = await db.batch([
+      db.prepare(`INSERT INTO booking_members
+        (name, phone_hash, phone_last4, approval_status, consultation_status,
+         desired_station_type, consultation_memo, admin_memo, approved_by, approved_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END)`)
+        .bind(name, hashedPhone, phone.slice(-4), approvalStatus, approved ? "COMPLETED" : "REQUESTED",
+          desiredStationType, consultationMemo, adminMemo, approved ? actorId : null, approved ? 1 : 0),
+      db.prepare(`INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, detail)
+        SELECT ?, 'create_booking_member', 'booking_member', CAST(id AS TEXT), ?
+        FROM booking_members WHERE phone_hash = ?`)
+        .bind(actorId, approved ? "관리자 직접 등록 · 승인" : "관리자 직접 등록 · 승인 대기", hashedPhone),
+    ]);
+    return Response.json({ ok: true, id: Number(result.meta.last_row_id), approvalStatus }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE.*booking_members\.phone_hash/i.test(error.message)) {
+      throw new AuthError("이미 등록된 휴대폰 번호입니다. 수강생 목록을 다시 확인해 주세요.", 409);
+    }
+    throw error;
   }
 }
 

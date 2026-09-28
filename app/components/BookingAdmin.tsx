@@ -93,7 +93,7 @@ export function BookingAdmin({
     return () => { window.clearInterval(refresh); window.removeEventListener("focus", load); cancelLoad(); };
   }, [load, cancelLoad]);
 
-  async function act(body: Record<string, unknown>, success: string) {
+  async function act(body: Record<string, unknown>, success: string, onError?: (message: string) => void) {
     if (submitting.current) return false;
     submitting.current = true;
     setBusy(true);
@@ -104,6 +104,7 @@ export function BookingAdmin({
       notify({ kind: "ok", message: result.created === undefined ? success : `${result.created}개 일정 생성 · ${result.skipped ?? 0}개 중복·겹침 제외` });
       return true;
     } catch (error) {
+      onError?.(errorMessage(error));
       notify({ kind: "error", message: errorMessage(error) });
       return false;
     } finally {
@@ -290,6 +291,9 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
   const [search, setSearch] = useState("");
   const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("ALL");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState("");
+  const createButton = useRef<HTMLButtonElement>(null);
   const stationTypes = useMemo(() => [...new Set(data.stations.map((station) => station.type))], [data.stations]);
   const approved = data.members.filter((member) => member.approvalStatus === "APPROVED");
   const pending = data.members.filter((member) => member.approvalStatus === "PENDING");
@@ -311,12 +315,21 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
     if (!window.confirm(`${member.name} 수강생 계정을 삭제할까요?\n로그인은 즉시 차단되며 기존 예약·결제 이력은 보존됩니다.`)) return;
     void act({ action: "deleteMember", memberId: member.id }, "수강생 계정을 삭제했습니다. 기존 운영 이력은 보존됩니다.");
   }
+  function closeCreate() {
+    setCreating(false);
+    createButton.current?.focus();
+  }
   return (
     <section className="booking-member-database">
           <div className="booking-admin-section-title">
-            <div><span>STUDENT DATABASE</span><h2>상담·수강생 목록</h2><p>상담 신청·수강 확정으로 등록된 수강생입니다. 직원 계정은 포함하지 않습니다.</p></div>
-            <b>{data.members.length}명</b>
+            <div><span>STUDENT DATABASE</span><h2>상담·수강생 목록</h2><p>상담 신청자와 직접 등록한 수강생을 관리합니다. 직원 계정은 포함하지 않습니다.</p></div>
+            <div className="booking-member-create-trigger"><b>{data.members.length}명</b><button type="button" className="solid" ref={createButton} disabled={busy} aria-expanded={creating} aria-controls="student-create-form" onClick={() => { if (creating) closeCreate(); else { setNotice(""); setCreating(true); setEditingId(null); } }}>{creating ? "추가 닫기" : "+ 수강생 추가"}</button></div>
           </div>
+          {creating && <MemberCreateForm stationTypes={stationTypes} busy={busy} act={act} onClose={closeCreate} onCreated={(name, approvedState) => {
+            setSearch(""); setMemberFilter("ALL"); closeCreate();
+            setNotice(`${name} 수강생을 ${approvedState ? "등록·승인했습니다. 이름·휴대폰 번호·현재 수강생 보안코드로 로그인할 수 있습니다." : "승인 대기로 등록했습니다. 승인 후 로그인할 수 있습니다."} 교육자료는 SCA 교육자료에서 과목·레벨별로 별도 설정해 주세요.`);
+          }} />}
+          {notice && <p role="status" className="student-login-guide">{notice}</p>}
           <div className="booking-member-db-summary">
             <div><span>전체 등록</span><strong>{data.members.length}</strong></div>
             <div><span>승인 회원</span><strong>{approved.length}</strong></div>
@@ -350,10 +363,42 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
                 </div>
                 {editingId === member.id && <MemberEditForm member={member} stationTypes={stationTypes} busy={busy} act={act} onClose={() => setEditingId(null)} />}
               </article>
-            )) : <Empty>선택한 상태의 회원이 없습니다.</Empty>}
+            )) : <Empty>{!data.members.length ? "등록된 수강생이 없습니다. 위의 ‘수강생 추가’ 버튼으로 등록하세요." : search ? "검색 결과가 없습니다. 이름이나 연락처 끝 4자리를 확인하세요." : "선택한 상태의 회원이 없습니다."}</Empty>}
           </div>
     </section>
   );
+}
+
+function MemberCreateForm({ stationTypes, busy, act, onClose, onCreated }: {
+  stationTypes: string[]; busy: boolean; act: AdminProps["act"]; onClose: () => void;
+  onCreated: (name: string, approved: boolean) => void;
+}) {
+  const [error, setError] = useState("");
+  const [approvalStatus, setApprovalStatus] = useState("APPROVED");
+  const nameInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { nameInput.current?.focus(); }, []);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const name = String(values.name ?? "").trim().replace(/\s+/g, " ");
+    setError("");
+    const saved = await act({ ...values, name, action: "createMember", approvalStatus }, "수강생을 등록했습니다.", setError);
+    if (saved) onCreated(name, approvalStatus === "APPROVED");
+  }
+  return <form id="student-create-form" className="booking-member-edit booking-member-create" aria-label="수강생 추가" onSubmit={submit} onChange={() => { if (error) setError(""); }} aria-busy={busy}>
+    <div className="wide"><h3>수강생 직접 추가</h3><p>별도 아이디·이용권 없이 이름과 휴대폰 번호로 등록합니다.</p></div>
+    <label>이름<input ref={nameInput} name="name" required maxLength={40} autoComplete="off" placeholder="수강생 이름" disabled={busy} /></label>
+    <div className="booking-member-create-field"><label>휴대폰 번호<input name="phone" type="tel" inputMode="tel" required maxLength={13} autoComplete="off" placeholder="010-0000-0000" disabled={busy} aria-describedby="student-create-phone-help" /></label><small id="student-create-phone-help">로그인에 사용할 본인 번호를 입력하세요.</small></div>
+    <label>등록 상태<select name="approvalStatus" value={approvalStatus} onChange={event => setApprovalStatus(event.target.value)} disabled={busy}><option value="APPROVED">바로 승인 · 로그인 및 예약 가능</option><option value="PENDING">승인 대기 · 로그인 불가</option></select></label>
+    <details className="wide booking-member-create-options"><summary>추가 정보 (선택)</summary><div>
+      <label>희망 스테이션<select name="desiredStationType" defaultValue="" disabled={busy}><option value="">미정</option>{stationTypes.map(type => <option key={type} value={type}>{stationLabel[type] ?? type}</option>)}</select></label>
+      <label>상담 메모<textarea name="consultationMemo" maxLength={500} rows={2} disabled={busy} /></label>
+      <label>관리자 메모<textarea name="adminMemo" maxLength={500} rows={2} disabled={busy} /></label>
+    </div></details>
+    <p className="wide">{approvalStatus === "APPROVED" ? "등록 즉시 이름·휴대폰 번호·현재 수강생 보안코드로 로그인하고 예약할 수 있습니다." : "승인 대기로 저장합니다. 목록에서 승인해야 로그인할 수 있습니다."} 교육자료 열람 권한은 자동으로 부여하지 않습니다.</p>
+    {error && <p className="wide booking-member-create-error" role="alert">{error}</p>}
+    <div className="wide booking-member-edit-actions"><button type="button" disabled={busy} onClick={onClose}>취소</button><button className="solid" disabled={busy}>{busy ? "등록 중…" : approvalStatus === "APPROVED" ? "등록·승인" : "승인 대기로 등록"}</button></div>
+  </form>;
 }
 
 // 승인 뒤에도 이름·휴대폰 번호·메모를 언제든 고칠 수 있게 한다. 전체 번호는 저장하지 않으므로 뒷자리만 보여 준다.
@@ -420,7 +465,7 @@ function SettingsAdmin({ data, busy, act }: AdminProps) {
   return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>예약·현장결제 정책</h2><p>수강생은 승인 즉시 예약할 수 있으며 이용 당일 현장에서 결제합니다.</p></div><label>1회 현장결제 금액<input name="reservationPrice" type="number" min="1" defaultValue={data.settings.reservationPrice} required /><small>센터 재료비를 포함한 최종 결제 금액입니다.</small></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>수업 예정자가 상담 신청을 누르면 이 주소로 바로 이동합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
 }
 
-type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string) => Promise<boolean> };
+type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string, onError?: (message: string) => void) => Promise<boolean> };
 function Empty({ children }: { children: React.ReactNode }) { return <div className="booking-admin-empty">{children}</div>; }
 function rank(status: string) { return ["REQUESTED", "CONFIRMED", "COMPLETED", "NO_SHOW", "REJECTED", "CANCELLED"].indexOf(status); }
 function datesInMonth(month: string) {

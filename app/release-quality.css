@@ -127,6 +127,21 @@ button:disabled { cursor: not-allowed; }
 .student-login-guide { background: #f4f4f4; border-left: 3px solid #222; padding: 12px 16px; font-size: 14px; line-height: 1.7; color: #333; }
 
 /* 수강생 정보 수정 (상담·회원 목록) */
+.booking-member-database > .booking-admin-section-title { flex-wrap: wrap; gap: 16px; }
+.booking-member-create-trigger { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.booking-member-create-trigger b { font-size: 22px; }
+.booking-member-create-trigger button, .booking-member-create button { min-height: 44px; padding: 10px 16px; border: 1px solid #aaa; border-radius: 6px; background: #fff; color: #111; font: inherit; font-weight: 700; cursor: pointer; }
+.booking-member-create-trigger button.solid, .booking-member-create button.solid { background: #111; border-color: #111; color: #fff; }
+.booking-member-create-trigger button:disabled, .booking-member-create button:disabled { opacity: .6; cursor: wait; }
+.booking-member-create-trigger button:focus-visible, .booking-member-create :is(input, select, textarea, button, summary):focus-visible { outline: 2px solid #111; outline-offset: 3px; }
+.booking-member-edit.booking-member-create { align-items: start; padding: 20px; margin: 0 0 20px; border: 1px solid #bbb; border-radius: 8px; background: #fafafa; }
+.booking-member-edit.booking-member-create small { color: #555; }
+.booking-member-create h3 { margin: 0 0 8px; font-size: 18px; }
+.booking-member-create-field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.booking-member-create p { margin: 0; font-size: 14px; line-height: 1.65; color: #333; }
+.booking-member-create-options summary { cursor: pointer; padding: 12px 0; min-height: 44px; font-size: 14px; font-weight: 700; }
+.booking-member-create-options > div { display: grid; align-items: start; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 8px 0; }
+.booking-member-create .booking-member-create-error { padding: 12px; color: #991b1b; background: #fff; border-left: 3px solid #991b1b; }
 .booking-admin-member-list article.editing { flex-wrap: wrap; }
 .booking-member-edit { flex: 1 0 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 4px; padding-top: 14px; border-top: 1px solid #e3e3e3; }
 .booking-member-edit label { display: grid; gap: 6px; min-width: 0; color: #333; font-size: 13px; font-weight: 700; }
@@ -138,5 +153,8 @@ button:disabled { cursor: not-allowed; }
 .booking-member-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @media (max-width: 760px) {
   .booking-member-edit { grid-template-columns: 1fr; }
+  .booking-member-create-options > div { grid-template-columns: 1fr; }
+  .booking-member-edit.booking-member-create { padding: 14px; }
+  .booking-member-create input, .booking-member-create select, .booking-member-create textarea { font-size: 16px; }
   .booking-member-edit-actions button { flex: 1; min-height: 44px; }
 }
