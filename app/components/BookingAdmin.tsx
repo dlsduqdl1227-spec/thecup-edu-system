@@ -40,6 +40,7 @@ export function BookingAdmin({
   onScheduleMonthsChange,
   embedded = false,
   initialTab = "requests",
+  membersOnly = false,
 }: {
   notify: (message: { kind: "ok" | "error"; message: string }) => void;
   month?: string;
@@ -47,6 +48,7 @@ export function BookingAdmin({
   onScheduleMonthsChange?: (months: string[]) => void;
   embedded?: boolean;
   initialTab?: AdminTab;
+  membersOnly?: boolean;
 }) {
   const [internalMonth, setInternalMonth] = useState("");
   const month = controlledMonth ?? internalMonth;
@@ -115,6 +117,8 @@ export function BookingAdmin({
   const pending = data.reservations.filter((row) => row.status === "REQUESTED").length;
   const consultations = data.members.filter((row) => row.approvalStatus === "PENDING").length;
   const confirmed = data.reservations.filter((row) => row.status === "CONFIRMED").length;
+
+  if (membersOnly) return <section className="page-section booking-admin-page"><header className="booking-admin-heading"><div><span>STUDENT ACCOUNTS</span><h1>수강생 목록</h1><p>직원 목록과 별도로 관리하는 수강생 계정입니다. 승인된 수강생은 수강생 로그인 화면을 이용합니다.</p></div></header><MemberAdmin data={data} busy={busy} act={act} /></section>;
 
   return (
     <section className={embedded ? "page-section booking-admin-page integrated-admin-section" : "page-section booking-admin-page"}>
@@ -283,20 +287,22 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
 }
 
 function MemberAdmin({ data, busy, act }: AdminProps) {
+  const [search, setSearch] = useState("");
   const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("ALL");
   const approved = data.members.filter((member) => member.approvalStatus === "APPROVED");
   const pending = data.members.filter((member) => member.approvalStatus === "PENDING");
   const revoked = data.members.filter((member) => member.approvalStatus === "REVOKED");
-  const visibleMembers = memberFilter === "ALL"
+  const filteredMembers = memberFilter === "ALL"
     ? data.members
     : data.members.filter((member) => member.approvalStatus === memberFilter);
+  const visibleMembers = filteredMembers.filter(member => `${member.name} ${member.phoneLast4}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
 
   function approve(member: Member, approvedState: boolean) {
     const adminMemo = window.prompt(approvedState ? "상담 완료 메모(선택)" : "권한 회수 메모(선택)", member.adminMemo);
     if (adminMemo === null) return;
     void act(
       { action: "approveMember", memberId: member.id, approved: approvedState, adminMemo },
-      approvedState ? "승인했습니다. 이제 본인 이름과 등록 연락처로 바로 로그인할 수 있습니다." : "회원 권한을 회수했습니다.",
+      approvedState ? "승인했습니다. 수강생 로그인에서 이름·등록 연락처·현재 수강생 보안코드를 입력해 주세요." : "회원 권한을 회수했습니다.",
     );
   }
   function remove(member: Member) {
@@ -306,7 +312,7 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
   return (
     <section className="booking-member-database">
           <div className="booking-admin-section-title">
-            <div><span>MEMBER DATABASE</span><h2>상담·수강생 DB</h2><p>상담 승인 또는 개강 모집의 수강 확정과 동시에 자동 저장됩니다.</p></div>
+            <div><span>STUDENT DATABASE</span><h2>상담·수강생 목록</h2><p>상담 신청·수강 확정으로 등록된 수강생입니다. 직원 계정은 포함하지 않습니다.</p></div>
             <b>{data.members.length}명</b>
           </div>
           <div className="booking-member-db-summary">
@@ -322,6 +328,8 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
               <button type="button" key={value} className={memberFilter === value ? "active" : ""} onClick={() => setMemberFilter(value)}>{label}</button>
             ))}
           </nav>
+          <label className="student-search">수강생 검색<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="이름 또는 연락처 끝 4자리" /></label>
+          <p className="student-login-guide">수강생 로그인에는 등록한 이름·휴대폰 번호·현재 수강생 보안코드가 모두 필요합니다. 직원 로그인은 사용할 수 없습니다. 반복 실패 시 최대 1분 후 다시 시도하세요.</p>
           <div className="booking-admin-member-list">
             {visibleMembers.length ? visibleMembers.map((member) => (
               <article key={member.id}>
@@ -330,7 +338,7 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
                   <h3>{member.name} <small>· {member.phoneLast4}</small></h3>
                   <p>{(stationLabel[member.desiredStationType] ?? member.desiredStationType) || "희망 스테이션 미정"}</p>
                   <p className="booking-member-dates">DB #{member.id} · 등록 {dateTime(member.createdAt)}{member.approvedAt ? ` · 권한 부여 ${dateTime(member.approvedAt)}` : ""}</p>
-                  <p className="booking-member-login"><b>로그인 아이디 · {member.name}</b><span>등록 연락처와 함께 사용</span></p>
+                  <p className="booking-member-login"><b>수강생 로그인 · {member.name}</b><span>등록 연락처 + 현재 수강생 보안코드</span></p>
                   {member.consultationMemo && <blockquote>{member.consultationMemo}</blockquote>}
                 </div>
                 <div className="booking-member-actions">

@@ -148,13 +148,13 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /카카오톡 상담/);
   assert.match(portal, /window\.setInterval\(\(\) => void loadAvailability\(\), 30_000\)/);
   assert.match(admin, /name="kakaoChatUrl"/);
-  assert.match(admin, /상담·수강생 DB/);
+  assert.match(admin, /상담·수강생 목록/);
   assert.match(admin, /권한 부여/);
   assert.match(admin, /계정 삭제/);
   assert.match(admin, /예약별 현장결제/);
   assert.match(admin, /1회 현장결제 금액/);
   assert.doesNotMatch(admin, /이용권 발급|월 이용권 가격/);
-  assert.match(admin, /로그인 아이디 · \{member\.name\}/);
+  assert.match(admin, /수강생 로그인 · \{member\.name\}/);
   assert.doesNotMatch(admin, /ID 변경|setMemberLoginId/);
   assert.match(portal, /예약은 운영자 승인 후 확정/);
   assert.match(admin, /내부평가 결과는 후보 선정으로 자동 연결되지 않습니다/);

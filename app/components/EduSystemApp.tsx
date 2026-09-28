@@ -26,7 +26,7 @@ import { LoginSecuritySettings } from "./LoginSecuritySettings";
 import { ScaEducation } from "./ScaEducation";
 
 type Role = "admin" | "employee" | "instructor";
-type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "education" | "staff";
+type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "education" | "staff" | "students";
 
 type User = {
   id: number;
@@ -267,7 +267,8 @@ const navItems: Array<{
   { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
   { key: "booking", label: "운영 · 개강 관리", short: "운영", adminOnly: true },
   { key: "education", label: "SCA 교육자료", short: "교육", adminOnly: true },
-  { key: "staff", label: "직원 · 권한", short: "직원", adminOnly: true },
+  { key: "students", label: "수강생 목록", short: "수강생", adminOnly: true },
+  { key: "staff", label: "직원 목록 · 권한", short: "직원", adminOnly: true },
 ];
 
 const permissionOptions: Array<{
@@ -532,8 +533,9 @@ export function EduSystemApp() {
             )}
             {activeTab === "education" && <EducationView onApproveStudents={() => navigateTo("booking", "members")} />}
             {activeTab === "staff" && (
-              <StaffView currentUserId={user.id} notify={setToast} />
+              <StaffView currentUserId={user.id} notify={setToast} onStudents={() => navigateTo("students")} />
             )}
+            {activeTab === "students" && <BookingAdmin notify={setToast} initialTab="members" membersOnly />}
           </>
         )}
       </main>
@@ -559,11 +561,11 @@ function EducationView({ onApproveStudents }: { onApproveStudents: () => void })
   return (
     <section className="page-section">
       <PageHeader
-        eyebrow="SCA Coffee Skills Program"
+        eyebrow="SCA Education"
         title="SCA 교육자료"
-        description="수강생별로 열람할 과목을 선택하고, 아래에서 수업 자료를 검토하세요."
+        description="수강생별로 과목과 레벨을 선택하고, 아래에서 수업 자료를 확인하세요."
       />
-      <div className="sca-approval-link"><button type="button" onClick={onApproveStudents}>수강생 승인하러 가기</button><p>예약 승인과 교육자료 권한은 별도입니다. 승인 후 이 화면에서 과목을 열어 주세요.</p></div>
+      <div className="sca-approval-link"><button type="button" onClick={onApproveStudents}>수강생 승인하러 가기</button><p>예약 승인과 교육자료 권한은 별도입니다. 승인 후 이 화면에서 과목의 레벨을 열어 주세요.</p></div>
       <ScaEducation />
     </section>
   );
@@ -3176,9 +3178,11 @@ function CourseOpeningForm({
 function StaffView({
   currentUserId,
   notify,
+  onStudents,
 }: {
   currentUserId: number;
   notify: (toast: { kind: "ok" | "error"; message: string }) => void;
+  onStudents: () => void;
 }) {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [audits, setAudits] = useState<AuditLog[]>([]);
@@ -3273,8 +3277,9 @@ function StaffView({
       <PageHeader
         eyebrow="권한 관리"
         title="직원 권한 관리"
-        description="직원 구분과 메뉴 권한을 수정하거나 더 이상 사용하지 않는 계정을 안전하게 삭제합니다."
+        description="관리자·정규직원·시간강사 계정만 관리합니다. 수강생 계정과 직원 계정은 별도로 구분됩니다."
       />
+      <div className="sca-approval-link"><button type="button" onClick={onStudents}>수강생 목록으로 이동</button><p>수강생은 이 화면의 직원으로 등록하지 마세요. 수강생 목록에서 승인 여부를 확인하세요.</p></div>
       <LoginSecuritySettings />
       <div className="staff-layout">
         <article className="panel staff-form">

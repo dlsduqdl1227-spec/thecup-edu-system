@@ -1,0 +1,279 @@
+{
+  "id": "sustainability-foundation",
+  "course": "Coffee Sustainability",
+  "level": "Foundation",
+  "status": "review",
+  "version": "1.0",
+  "updated": "2026-09-28",
+  "sources": [
+    "https://sca.coffee/education/courses",
+    "https://education.sca.coffee/s/Course-Catalog_CSusP.pdf",
+    "https://ico.org/market-development-toolkit/page/index/8/3-p-s-of-sustainability/37"
+  ],
+  "sourceNote": "SCA 공개 과정 범위와 ICO 자료를 참고한 더컵에듀 기초 수업 자료입니다. 공식 AST 전체 교재나 시험을 대체하지 않으며 활동과 계산 예시는 별도로 작성했습니다.",
+  "slides": [
+    {
+      "layout": "cover",
+      "eyebrow": "SCA Coffee Sustainability",
+      "title": "커피 지속가능성",
+      "level": "Foundation",
+      "subtitle": "사람과 환경, 경제를 함께 살펴보는 커피의 지속가능성",
+      "notes": "https://sca.coffee/education/courses (2026-09-28 확인). 현행 공개 페이지는 12시간이며 구 카탈로그의 8시간과 다릅니다. 평가 기준은 현행 AST 안내를 확인합니다."
+    },
+    {
+      "layout": "agenda",
+      "title": "이번 과정의 학습 목표",
+      "items": [
+        "지속가능성의 의미",
+        "가치사슬과 이해관계자",
+        "환경·경제·사회 과제",
+        "실천 방식과 한계",
+        "우리 현장의 개선 계획"
+      ],
+      "notes": "https://education.sca.coffee/s/Course-Catalog_CSusP.pdf Foundation 범위 및 https://sca.coffee/education/courses"
+    },
+    {
+      "layout": "features",
+      "title": "함께 살펴볼 세 영역",
+      "items": [
+        {
+          "title": "환경",
+          "body": "물·토양·생물다양성과 기후 영향을 살펴봅니다."
+        },
+        {
+          "title": "경제",
+          "body": "비용·수입·가격 변동과 생계를 살펴봅니다."
+        },
+        {
+          "title": "사회",
+          "body": "노동 조건과 기회, 의사결정 참여를 살펴봅니다."
+        }
+      ],
+      "notes": "https://ico.org/market-development-toolkit/page/index/8/3-p-s-of-sustainability/37 People, Prices & Profits, Planet을 요약."
+    },
+    {
+      "layout": "steps",
+      "title": "커피 가치사슬의 참여자",
+      "steps": [
+        {
+          "title": "생산",
+          "body": "농가와 노동자"
+        },
+        {
+          "title": "가공·거래",
+          "body": "가공업체·수출입업체"
+        },
+        {
+          "title": "로스팅",
+          "body": "로스터와 구매 담당"
+        },
+        {
+          "title": "소비",
+          "body": "카페와 고객"
+        }
+      ],
+      "note": "실제 연결은 지역과 거래 방식에 따라 달라집니다.",
+      "notes": "https://education.sca.coffee/s/Course-Catalog_CSusP.pdf 이해관계자 학습 목표에 따른 자체 단순화 모형."
+    },
+    {
+      "layout": "points",
+      "title": "의사결정과 영향",
+      "points": [
+        "누가 가격과 품질 조건을 정하는지 질문합니다.",
+        "변화의 비용과 위험을 누가 부담하는지 확인합니다.",
+        "현장 의견을 계획과 평가에 포함합니다."
+      ],
+      "notes": "https://education.sca.coffee/s/Course-Catalog_CSusP.pdf 권력 관계 학습 범위에 따른 자체 토론 질문."
+    },
+    {
+      "layout": "points",
+      "title": "환경 과제",
+      "points": [
+        "기후 변화는 생산 조건과 소득에 영향을 줍니다.",
+        "농장의 토양·물·생물다양성을 함께 살펴봅니다.",
+        "가공과 소비 단계의 자원 사용도 점검합니다."
+      ],
+      "notes": "https://ico.org/market-development-toolkit/page/index/8/3-p-s-of-sustainability/37의 환경·기후 설명 요약. 국가별 수치나 전망을 단정하지 않음."
+    },
+    {
+      "layout": "compare",
+      "title": "매출과 소득의 구분",
+      "left": {
+        "title": "받은 금액",
+        "tag": "수입",
+        "bullets": [
+          "판매량과 가격으로 결정되는 금액",
+          "비용 차감 전 금액"
+        ]
+      },
+      "right": {
+        "title": "남는 금액",
+        "tag": "비용 차감 후",
+        "bullets": [
+          "생산·운영 비용을 고려한 금액",
+          "가구 생활에 충분한지는 별도 질문"
+        ]
+      },
+      "note": "더 높은 판매가격이 곧 충분한 생활소득을 뜻하지는 않습니다.",
+      "notes": "https://ico.org/market-development-toolkit/page/index/8/3-p-s-of-sustainability/37의 생계 논의를 위한 자체 회계 개념 예시."
+    },
+    {
+      "layout": "points",
+      "title": "사회 과제",
+      "points": [
+        "안전한 노동 조건과 적절한 보상을 확인합니다.",
+        "배경에 따라 참여 기회가 제한되는지 봅니다.",
+        "현장 당사자가 문제를 알릴 수 있어야 합니다."
+      ],
+      "notes": "https://education.sca.coffee/s/Course-Catalog_CSusP.pdf 노동·성평등·불평등 주제의 자체 점검 질문. 법적 판단이나 인증 기준을 대체하지 않음."
+    },
+    {
+      "layout": "question",
+      "q": "친환경 포장으로 바꾸면 모든 과제를 해결한 걸까요?",
+      "a": "아닙니다. 생산·거래·노동·운영의 영향도 함께 살펴야 합니다.",
+      "notes": "더컵에듀 자체 토론 질문."
+    },
+    {
+      "layout": "points",
+      "title": "실천 사례를 읽는 질문",
+      "points": [
+        "해결하려는 문제는 무엇인가요?",
+        "어느 지역의 누구에게 영향을 주나요?",
+        "성과를 어떻게 확인했나요?",
+        "다른 부담이나 한계는 없나요?"
+      ],
+      "notes": "더컵에듀 자체 사례 읽기 활동."
+    },
+    {
+      "layout": "points",
+      "title": "인증과 협력",
+      "points": [
+        "인증마다 다루는 범위와 확인 방식이 다릅니다.",
+        "표시된 주장과 실제 확인 자료를 구분합니다.",
+        "생산자·구매자·기관의 협력 방식도 살펴봅니다."
+      ],
+      "notes": "https://education.sca.coffee/s/Course-Catalog_CSusP.pdf 조직·인증·산업 도구 학습 범위. 최신 규정은 해당 발급기관에서 확인."
+    },
+    {
+      "layout": "points",
+      "title": "순환적 자원 활용",
+      "points": [
+        "폐기물을 줄일 수 있는 지점을 찾습니다.",
+        "부산물 활용 시 품질·위생·운송 조건을 확인합니다.",
+        "새 활용 방식에도 비용과 환경 부담이 생길 수 있습니다."
+      ],
+      "notes": "ICO CDR 2022/23 소개 https://ico.org/coffee-development-report-2/ . 적용 질문은 자체 구성."
+    },
+    {
+      "layout": "table",
+      "title": "매장에서 기록할 수 있는 지표",
+      "columns": [
+        "관찰 대상",
+        "기록 예시",
+        "함께 볼 기준"
+      ],
+      "widths": [
+        3,
+        3,
+        4
+      ],
+      "rows": [
+        [
+          "추출·판매 손실",
+          "폐기 커피 g/일",
+          "판매량과 투입량"
+        ],
+        [
+          "에너지",
+          "전력량 kWh/일",
+          "영업시간·주문 수"
+        ],
+        [
+          "일회용품",
+          "사용 개수/일",
+          "포장 주문 수"
+        ],
+        [
+          "작업 환경",
+          "안전 점검·의견",
+          "개선 조치·확인일"
+        ]
+      ],
+      "notes": "더컵에듀 자체 실습 틀. 공식 인증 지표나 산업 평균 아님."
+    },
+    {
+      "layout": "chart",
+      "title": "손실률 비교 연습",
+      "lead": "원두 투입량 대비 폐기량의 가상 사례",
+      "chart": {
+        "kind": "bar",
+        "alt": "1주차 투입 10kg 중 폐기 0.8kg는 8%, 2주차 12kg 중 0.72kg는 6%",
+        "categories": [
+          "1주차",
+          "2주차"
+        ],
+        "series": [
+          {
+            "name": "폐기 비율",
+            "values": [
+              8,
+              6
+            ]
+          }
+        ],
+        "min": 0,
+        "max": 10,
+        "xLabel": "비교 기간",
+        "yLabel": "폐기량 / 투입량 (%)"
+      },
+      "explanation": [
+        "1주차: 0.8 ÷ 10 = 8%",
+        "2주차: 0.72 ÷ 12 = 6%",
+        "2%p 감소, 상대 감소율 25%"
+      ],
+      "note": "수업용 가상 수치입니다. 실제 성과나 환경 영향의 감소율이 아닙니다.",
+      "notes": "더컵에듀 자체 산술 연습. (8-6)/8=25%. 판매량·품질·측정 범위도 토론."
+    },
+    {
+      "layout": "steps",
+      "title": "작은 개선 계획",
+      "steps": [
+        {
+          "title": "문제",
+          "body": "관찰한 문제 한 가지"
+        },
+        {
+          "title": "기준",
+          "body": "현재 상태와 측정 범위"
+        },
+        {
+          "title": "실행",
+          "body": "담당자·기한·필요 자원"
+        },
+        {
+          "title": "확인",
+          "body": "결과와 의도하지 않은 영향"
+        }
+      ],
+      "note": "한 번의 활동으로 전체 지속가능성을 달성했다고 표현하지 않습니다.",
+      "notes": "더컵에듀 자체 실천 계획 활동."
+    },
+    {
+      "layout": "question",
+      "q": "폐기량 감소 보고에서 더 확인할 것은 무엇일까요?",
+      "a": "투입량·판매량·품질·측정 범위를 함께 확인합니다. 총량과 비율을 구분합니다.",
+      "notes": "더컵에듀 자체 질문. 앞 장 가상 사례 복습."
+    },
+    {
+      "layout": "summary",
+      "title": "핵심 정리",
+      "points": [
+        "환경·경제·사회의 관계를 함께 봅니다.",
+        "영향을 받는 사람의 의견을 확인합니다.",
+        "주장과 측정 근거를 구분합니다.",
+        "작은 계획부터 기록하고 평가합니다."
+      ],
+      "notes": "https://sca.coffee/education/courses 과정 범위. 정리는 더컵에듀 자체 작성."
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   deckForViewer,
   applyStatusOverrides,
-  applyMemberCourseAccess,
+  applyMemberLevelAccess,
   deckKey,
   resolveEduViewer,
   visibleCatalog,
@@ -37,19 +37,20 @@ test("visibility overrides take precedence without mutating catalog or publishin
   assert.equal(deckForViewer(closed, decks, "student", "brewing", "Foundation"), null);
   const missing = { program: "test", courses: [{ id: "empty", name: "Empty", ko: "", levels: [{ level: "Foundation", deck: null, status: "planned" }] }] };
   assert.equal(applyStatusOverrides(missing, [{ courseId: "empty", level: "Foundation", status: "ready" }]).courses[0].levels[0].status, "planned");
-  assert.equal(Object.keys(decks).length, 16);
+  assert.equal(Object.keys(decks).length, 18);
   assert.ok(Object.values(decks).every(d => d.status === "review"));
 });
 
 test("member course grants deny all by default and never expose drafts or mutate review status", () => {
-  assert.equal(applyMemberCourseAccess(catalog, []).courses.length, 0);
-  const opened = applyMemberCourseAccess(catalog, ['brewing', 'unknown']);
+  assert.equal(applyMemberLevelAccess(catalog, []).courses.length, 0);
+  const opened = applyMemberLevelAccess(catalog, [{ courseId: 'brewing', level: 'Foundation' }, { courseId: 'unknown', level: 'Foundation' }]);
   assert.deepEqual(opened.courses.map(c => c.id), ['brewing']);
+  assert.deepEqual(opened.courses[0].levels.map(l => l.level), ['Foundation']);
   assert.ok(opened.courses[0].levels.every(l => l.status === 'ready'));
-  assert.ok(catalog.courses[2].levels.every(l => l.status === 'review'));
+  assert.ok(catalog.courses.find(c => c.id === 'brewing').levels.every(l => l.status === 'review'));
   const drafts = structuredClone(catalog);
   drafts.courses.find(c => c.id === 'brewing').levels.forEach(l => l.status = 'draft');
-  assert.equal(applyMemberCourseAccess(drafts, ['brewing']).courses.length, 0);
+  assert.equal(applyMemberLevelAccess(drafts, [{ courseId: 'brewing', level: 'Foundation' }]).courses.length, 0);
 });
 
 test("only administrators and approved students can view education materials", () => {

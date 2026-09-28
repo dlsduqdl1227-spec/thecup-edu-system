@@ -1,0 +1,374 @@
+{
+  "id": "water-maintenance-foundation",
+  "course": "Water & Preventive Maintenance",
+  "level": "Foundation",
+  "status": "review",
+  "version": "1.0",
+  "updated": "2026-09-28",
+  "sources": [
+    "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본",
+    "https://sca.coffee/education/courses"
+  ],
+  "sourceNote": "SCA 강사 가이드의 학습 목표를 바탕으로 구성한 더컵에듀 수업 자료입니다. 장비별 작업과 교체 주기는 제조사 지침을 따릅니다. 공식 시험 문항은 포함하지 않았습니다.",
+  "slides": [
+    {
+      "layout": "cover",
+      "eyebrow": "SCA Coffee Technicians Program",
+      "title": "물과 예방정비",
+      "level": "Foundation",
+      "subtitle": "수질을 측정하고 장비의 이상을 일찍 발견하는 기초 과정",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 3–4쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "agenda",
+      "title": "이번 과정의 학습 목표",
+      "items": [
+        "안전한 작업 범위",
+        "물의 주요 지표",
+        "수질 측정과 Water Chart",
+        "정수 방식과 필터 관리",
+        "장비별 예방정비",
+        "기록과 이상 대응"
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 7–42쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "points",
+      "title": "작업 전 안전 확인",
+      "points": [
+        "전원·급수·압력·열원을 먼저 확인합니다.",
+        "패널을 열거나 그라인더를 분해할 때는 전원을 차단합니다.",
+        "화학제품의 안전자료와 제조사 지침을 확인합니다.",
+        "교육받지 않은 전기·압력 계통 작업은 기술자에게 맡깁니다."
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 7–10, 37, 46쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "table",
+      "title": "물에서 구분해서 볼 지표",
+      "columns": [
+        "지표",
+        "무엇을 나타내나",
+        "단위"
+      ],
+      "widths": [
+        2,
+        5,
+        3
+      ],
+      "rows": [
+        [
+          "총경도",
+          "칼슘·마그네슘의 환산 농도",
+          "ppm as CaCO₃"
+        ],
+        [
+          "알칼리도",
+          "산을 중화하는 능력",
+          "ppm as CaCO₃"
+        ],
+        [
+          "EC",
+          "전기를 전도하는 정도",
+          "µS/cm"
+        ],
+        [
+          "TDS 추정값",
+          "EC와 환산계수로 계산한 추정량",
+          "ppm / mg/L"
+        ],
+        [
+          "pH",
+          "산성·염기성의 정도",
+          "pH"
+        ]
+      ],
+      "note": "TDS 숫자 하나로 경도와 알칼리도를 대신할 수 없습니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 13–16, 22–25쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "points",
+      "title": "맛 기준과 장비 기준",
+      "points": [
+        "음용수의 위생과 냄새부터 확인합니다.",
+        "브루잉 수질 범위와 제조사 권장 수질을 함께 봅니다.",
+        "스케일·부식 위험은 물의 구성과 장비 조건에 따라 달라집니다.",
+        "권장 범위 안에서도 실제 커피 맛을 비교합니다."
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 17–18쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "image",
+      "courseId": "water-maintenance",
+      "asset": "sca-water",
+      "aspect": 0.7072222222222222,
+      "title": "SCA Water Chart",
+      "alt": "SCA 공식 Water Chart 원본. 가로축 알칼리도, 세로축 총경도. 단위 ppm CaCO3.",
+      "explanation": [
+        "가로축: 알칼리도",
+        "세로축: 총경도",
+        "두 측정값의 교차점에서 물을 비교합니다.",
+        "검은 실선과 파란 점선은 서로 다른 권장 영역입니다."
+      ],
+      "caption": "출처: SCA Water Chart, 보유 강사 자료 원본",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 17, 25 및 SCA Water Chart-A4.pdf쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "steps",
+      "title": "물 샘플 측정 순서",
+      "steps": [
+        {
+          "title": "채수",
+          "body": "원수·처리수 위치와 날짜를 구분합니다."
+        },
+        {
+          "title": "측정",
+          "body": "교정된 도구로 경도·알칼리도·pH·EC를 잽니다."
+        },
+        {
+          "title": "기록",
+          "body": "값·단위·온도·EC 환산계수를 적습니다."
+        },
+        {
+          "title": "비교",
+          "body": "차트와 제조사 기준을 대조합니다."
+        }
+      ],
+      "note": "측정 도구 사용법과 시약 유효기간을 확인합니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 22–25, 47쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "points",
+      "title": "TDS 미터의 한계",
+      "points": [
+        "EC 기반 TDS는 직접 측정한 총 용존 고형물량이 아닙니다.",
+        "미네랄 조성·온도·환산계수가 결과에 영향을 줍니다.",
+        "총경도와 알칼리도는 별도 적정 도구로 확인합니다.",
+        "기기끼리 비교할 때는 설정과 단위부터 맞춥니다."
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 22쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "table",
+      "title": "정수 방식의 역할",
+      "columns": [
+        "방법",
+        "주요 역할",
+        "확인할 점"
+      ],
+      "widths": [
+        2,
+        4,
+        4
+      ],
+      "rows": [
+        [
+          "침전물 필터",
+          "부유 입자 제거",
+          "용존 성분은 별도 확인"
+        ],
+        [
+          "활성탄",
+          "염소·냄새 관련 성분 저감",
+          "일반적으로 경도 제거용이 아님"
+        ],
+        [
+          "연수",
+          "칼슘·마그네슘 저감",
+          "알칼리도와 TDS도 다시 측정"
+        ],
+        [
+          "역삼투(RO)",
+          "용존 성분을 넓게 저감",
+          "재광물화·블렌딩 후 최종 수질"
+        ],
+        [
+          "재광물화",
+          "광물 성분 보충",
+          "첨가 후 측정·위생 관리"
+        ]
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 19–21쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "chart",
+      "title": "처리 전후의 물 비교",
+      "lead": "차트 좌표 연습용 가상 샘플",
+      "chart": {
+        "kind": "scatter",
+        "alt": "샘플 A는 알칼리도 120 총경도 180, B는 알칼리도 50 총경도 80 ppm CaCO3",
+        "xValues": [
+          120,
+          50
+        ],
+        "series": [
+          {
+            "name": "샘플",
+            "values": [
+              180,
+              80
+            ]
+          }
+        ],
+        "categories": [
+          "A",
+          "B"
+        ],
+        "min": 0,
+        "max": 250,
+        "xMin": 0,
+        "xMax": 150,
+        "xLabel": "알칼리도 (ppm CaCO₃)",
+        "yLabel": "총경도 (ppm CaCO₃)"
+      },
+      "explanation": [
+        "A: 원수 측정값 가정",
+        "B: 처리수 측정값 가정",
+        "점의 이동과 처리 방식·설정을 함께 기록합니다."
+      ],
+      "note": "설명용 가상 수치입니다. 특정 필터의 성능이나 보장 수질이 아닙니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 25 (자체 가상 좌표 연습)쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "points",
+      "title": "필터 교체와 이력",
+      "points": [
+        "교체일·사용량·처리수 측정값을 함께 기록합니다.",
+        "급수 차단과 잔압 해소 등 제조사 순서를 따릅니다.",
+        "교체 후 정해진 플러싱과 누수 확인을 합니다.",
+        "사용량과 원수 수질에 따라 관리 주기가 달라집니다."
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 25–27쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "compare",
+      "title": "예방정비와 고장 후 수리",
+      "left": {
+        "title": "예방정비",
+        "tag": "계획된 관리",
+        "bullets": [
+          "정상 기능 유지를 위한 반복 점검",
+          "사용량·상태·제조사 기준에 따른 관리"
+        ]
+      },
+      "right": {
+        "title": "고장 후 수리",
+        "tag": "이상 발생 후 대응",
+        "bullets": [
+          "원인 확인과 기능 복구",
+          "위험 장비의 사용 중지와 기술자 점검"
+        ]
+      },
+      "note": "예방정비를 해도 모든 고장을 없앨 수는 없습니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 33–34쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "table",
+      "title": "장비별 점검 항목",
+      "columns": [
+        "장비",
+        "일상 확인",
+        "정비 시 확인"
+      ],
+      "widths": [
+        2,
+        4,
+        4
+      ],
+      "rows": [
+        [
+          "에스프레소 머신",
+          "외부 누수·오염·작동 이상",
+          "가스켓·밸브·배수"
+        ],
+        [
+          "배치 브루어",
+          "분사부·추출부·저장 용기",
+          "분사·수량·연결부"
+        ],
+        [
+          "그라인더",
+          "잔분·이상음·분쇄 편차",
+          "버 마모·체결 상태"
+        ],
+        [
+          "정수 시스템",
+          "누수·교체 기록·수질",
+          "카트리지·연결부·용량"
+        ]
+      ],
+      "note": "해당 장비 매뉴얼과 교육받은 작업 범위를 따릅니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 28–32, 38–42쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "points",
+      "title": "청소와 정비의 경계",
+      "points": [
+        "사용자 청소와 기술자 정비를 구분합니다.",
+        "장비에 맞는 세정제와 식품 접촉용 소모품을 사용합니다.",
+        "백플러싱 가능 여부와 방법은 제조사 지침을 확인합니다.",
+        "보호 장치를 분해·우회해서 장비를 사용하지 않습니다."
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 35–42, 46쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "table",
+      "title": "현장 점검 기록 예시",
+      "columns": [
+        "항목",
+        "기록 내용"
+      ],
+      "widths": [
+        3,
+        7
+      ],
+      "rows": [
+        [
+          "대상",
+          "장비명·모델·점검일·담당자"
+        ],
+        [
+          "수질",
+          "채수 위치·값·단위·도구"
+        ],
+        [
+          "작업",
+          "청소·점검·교체 내역"
+        ],
+        [
+          "이상",
+          "사진·발생 조건·사용 중지 여부"
+        ],
+        [
+          "후속",
+          "담당 기술자·재확인일"
+        ]
+      ],
+      "note": "실제 현장 데이터로 작성할 수 있는 수업용 기록 틀입니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 37–38, 47–49 (자체 기록 틀)쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "question",
+      "q": "TDS가 같으면 경도와 알칼리도도 같을까요?",
+      "a": "아닙니다. 같은 TDS 추정값이어도 성분 구성이 다를 수 있어 각각 측정해야 합니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 22 (자체 질문)쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "question",
+      "q": "누수와 전기 계통 이상이 함께 보이면 어떻게 할까요?",
+      "a": "작업과 사용을 중지하고 안전을 확보한 뒤 담당 기술자에게 점검을 요청합니다.",
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 37, 46 (자체 질문)쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    },
+    {
+      "layout": "summary",
+      "title": "핵심 정리",
+      "points": [
+        "수질 지표를 구분해서 측정합니다.",
+        "Water Chart와 제조사 기준을 함께 봅니다.",
+        "정비 주기는 사용량과 장비 상태에 맞춥니다.",
+        "작업 전 안전과 작업 후 기록을 빠뜨리지 않습니다."
+      ],
+      "notes": "SCA CTechP Water & Preventive Maintenance Foundation AST Guidebook V1.0 (English), 사용자 보유 2024-02-06 배포본, 7–42쪽. 제조사 작업 절차와 강사 감독을 따릅니다. 공식 시험 문항을 옮기지 않았습니다."
+    }
+  ]
+}

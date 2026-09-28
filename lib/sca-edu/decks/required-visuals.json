@@ -1,0 +1,229 @@
+[
+  {
+    "deckKey": "sensory-skills/Foundation",
+    "after": "플레이버 휠",
+    "slide": {
+      "layout": "image",
+      "title": "SCA 플레이버 휠",
+      "courseId": "sensory-skills",
+      "asset": "flavor-wheel-ko",
+      "aspect": 0.7727777777777778,
+      "alt": "SCA와 WCR의 한국어 커피 테이스터 플레이버 휠 원본 이미지",
+      "explanation": [
+        "안쪽의 큰 범주에서 바깥쪽의 구체적인 단어로 이동합니다.",
+        "느낀 향미와 가장 가까운 표현을 찾습니다.",
+        "WCR 어휘집의 레퍼런스와 함께 비교합니다."
+      ],
+      "caption": "© 2016 SCA and WCR · 한국어 V.2 원본",
+      "notes": "사용자 보유 Sensory Skills Pack/_Resources/Printable SCA Flavor Wheel/SCA_TasterWheel_Korean_8.5x11-Secured.pdf 전체 페이지. 원본 색상·글자·크레딧 보존."
+    }
+  },
+  {
+    "deckKey": "sensory-skills/Intermediate",
+    "after": "아로마 병으로 훈련하기",
+    "slide": {
+      "layout": "image",
+      "title": "SCA 플레이버 휠",
+      "courseId": "sensory-skills",
+      "asset": "flavor-wheel-ko",
+      "aspect": 0.7727777777777778,
+      "alt": "SCA와 WCR의 한국어 커피 테이스터 플레이버 휠 원본 이미지",
+      "explanation": [
+        "안쪽의 큰 범주에서 바깥쪽의 구체적인 단어로 이동합니다.",
+        "느낀 향미와 가장 가까운 표현을 찾습니다.",
+        "WCR 어휘집의 레퍼런스와 함께 비교합니다."
+      ],
+      "caption": "© 2016 SCA and WCR · 한국어 V.2 원본",
+      "notes": "사용자 보유 Sensory Skills Pack/_Resources/Printable SCA Flavor Wheel/SCA_TasterWheel_Korean_8.5x11-Secured.pdf 전체 페이지. 원본 색상·글자·크레딧 보존."
+    }
+  },
+  {
+    "deckKey": "sensory-skills/Professional",
+    "after": "플레이버 휠과 WCR 어휘집",
+    "slide": {
+      "layout": "image",
+      "title": "SCA 플레이버 휠",
+      "courseId": "sensory-skills",
+      "asset": "flavor-wheel-ko",
+      "aspect": 0.7727777777777778,
+      "alt": "SCA와 WCR의 한국어 커피 테이스터 플레이버 휠 원본 이미지",
+      "explanation": [
+        "안쪽의 큰 범주에서 바깥쪽의 구체적인 단어로 이동합니다.",
+        "느낀 향미와 가장 가까운 표현을 찾습니다.",
+        "WCR 어휘집의 레퍼런스와 함께 비교합니다."
+      ],
+      "caption": "© 2016 SCA and WCR · 한국어 V.2 원본",
+      "notes": "사용자 보유 Sensory Skills Pack/_Resources/Printable SCA Flavor Wheel/SCA_TasterWheel_Korean_8.5x11-Secured.pdf 전체 페이지. 원본 색상·글자·크레딧 보존."
+    }
+  },
+  {
+    "deckKey": "brewing/Foundation",
+    "after": "브루잉 컨트롤 차트 읽기",
+    "slide": {
+      "layout": "image",
+      "title": "SCA 브루잉 컨트롤 차트",
+      "courseId": "brewing",
+      "asset": "sca-brewing-2019",
+      "aspect": 0.7072222222222222,
+      "alt": "SCA Coffee Brewing Control Chart 원본. 가로축 추출 수율, 세로축 TDS 농도, 사선은 커피와 물의 무게 비율.",
+      "explanation": [
+        "가로축: 추출 수율 (%)",
+        "세로축: 음료 농도 TDS (%)",
+        "사선: 커피와 물의 무게 비율",
+        "차트의 위치와 실제 맛을 함께 확인합니다."
+      ],
+      "caption": "SCA · 2019 개정 Version 3 원본",
+      "notes": "보유 Brewing Pack/_additional material/SCA Brewing Chart - Revised March 2019-A4.pdf 전체 페이지. SCA Ideal은 이 차트에 표시된 범위이며 모든 커피의 맛을 보장하는 기준이 아닙니다."
+    }
+  },
+  {
+    "deckKey": "brewing/Foundation",
+    "after": "물이 맛과 장비를 바꿉니다",
+    "slide": {
+      "layout": "image",
+      "title": "SCA Water Chart",
+      "courseId": "brewing",
+      "asset": "sca-water",
+      "aspect": 0.7072222222222222,
+      "alt": "SCA Water Chart 원본. 가로축 알칼리도, 세로축 총경도. ppm CaCO3 단위.",
+      "explanation": [
+        "가로축: 알칼리도",
+        "세로축: 총경도",
+        "TDS 대신 두 값을 따로 측정합니다.",
+        "맛 기준과 장비 제조사 수질 기준을 함께 확인합니다."
+      ],
+      "caption": "출처: SCA Water Chart · 보유 자료 원본",
+      "notes": "보유 Brewing Pack/_additional material/SCA Water Chart-A4.pdf. 전체 페이지 보존. 검은 실선 SCA, 파란 점선 Colonna-Dashwood & Hendon 영역을 구분합니다."
+    }
+  },
+  {
+    "deckKey": "brewing/Intermediate",
+    "after": "브루잉 컨트롤 차트 읽기",
+    "slide": {
+      "layout": "image",
+      "title": "SCA 브루잉 컨트롤 차트",
+      "courseId": "brewing",
+      "asset": "sca-brewing-2019",
+      "aspect": 0.7072222222222222,
+      "alt": "SCA Coffee Brewing Control Chart 원본. 가로축 추출 수율, 세로축 TDS 농도, 사선은 커피와 물의 무게 비율.",
+      "explanation": [
+        "가로축: 추출 수율 (%)",
+        "세로축: 음료 농도 TDS (%)",
+        "사선: 커피와 물의 무게 비율",
+        "차트의 위치와 실제 맛을 함께 확인합니다."
+      ],
+      "caption": "SCA · 2019 개정 Version 3 원본",
+      "notes": "보유 Brewing Pack/_additional material/SCA Brewing Chart - Revised March 2019-A4.pdf 전체 페이지. SCA Ideal은 이 차트에 표시된 범위이며 모든 커피의 맛을 보장하는 기준이 아닙니다."
+    }
+  },
+  {
+    "deckKey": "brewing/Intermediate",
+    "after": "물을 읽는 세 가지 지표",
+    "slide": {
+      "layout": "image",
+      "title": "SCA Water Chart",
+      "courseId": "brewing",
+      "asset": "sca-water",
+      "aspect": 0.7072222222222222,
+      "alt": "SCA Water Chart 원본. 가로축 알칼리도, 세로축 총경도. ppm CaCO3 단위.",
+      "explanation": [
+        "가로축: 알칼리도",
+        "세로축: 총경도",
+        "TDS 대신 두 값을 따로 측정합니다.",
+        "맛 기준과 장비 제조사 수질 기준을 함께 확인합니다."
+      ],
+      "caption": "출처: SCA Water Chart · 보유 자료 원본",
+      "notes": "보유 Brewing Pack/_additional material/SCA Water Chart-A4.pdf. 전체 페이지 보존. 검은 실선 SCA, 파란 점선 Colonna-Dashwood & Hendon 영역을 구분합니다."
+    }
+  },
+  {
+    "deckKey": "brewing/Professional",
+    "after": "비율 컨트롤 차트, 이렇게 달라졌습니다",
+    "slide": {
+      "layout": "image",
+      "title": "SCA 브루잉 컨트롤 차트",
+      "courseId": "brewing",
+      "asset": "sca-brewing-2019",
+      "aspect": 0.7072222222222222,
+      "alt": "SCA Coffee Brewing Control Chart 원본. 가로축 추출 수율, 세로축 TDS 농도, 사선은 커피와 물의 무게 비율.",
+      "explanation": [
+        "가로축: 추출 수율 (%)",
+        "세로축: 음료 농도 TDS (%)",
+        "사선: 커피와 물의 무게 비율",
+        "차트의 위치와 실제 맛을 함께 확인합니다."
+      ],
+      "caption": "SCA · 2019 개정 Version 3 원본",
+      "notes": "보유 Brewing Pack/_additional material/SCA Brewing Chart - Revised March 2019-A4.pdf 전체 페이지. SCA Ideal은 이 차트에 표시된 범위이며 모든 커피의 맛을 보장하는 기준이 아닙니다."
+    }
+  },
+  {
+    "deckKey": "brewing/Professional",
+    "after": "SCA 권장 범위 (맛 기준)",
+    "slide": {
+      "layout": "image",
+      "title": "SCA Water Chart",
+      "courseId": "brewing",
+      "asset": "sca-water",
+      "aspect": 0.7072222222222222,
+      "alt": "SCA Water Chart 원본. 가로축 알칼리도, 세로축 총경도. ppm CaCO3 단위.",
+      "explanation": [
+        "가로축: 알칼리도",
+        "세로축: 총경도",
+        "TDS 대신 두 값을 따로 측정합니다.",
+        "맛 기준과 장비 제조사 수질 기준을 함께 확인합니다."
+      ],
+      "caption": "출처: SCA Water Chart · 보유 자료 원본",
+      "notes": "보유 Brewing Pack/_additional material/SCA Water Chart-A4.pdf. 전체 페이지 보존. 검은 실선 SCA, 파란 점선 Colonna-Dashwood & Hendon 영역을 구분합니다."
+    }
+  },
+  {
+    "deckKey": "roasting/Professional",
+    "after": "변화율(RoR) 계산하기",
+    "slide": {
+      "layout": "chart",
+      "title": "같은 온도, 다른 RoR",
+      "lead": "두 가상 프로파일의 구간별 상승률 비교",
+      "chart": {
+        "kind": "line",
+        "alt": "가상 A의 RoR은 12,10,8,6도/분, B는 6,8,10,12도/분. 4분 동안 모두 36도 상승.",
+        "categories": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "series": [
+          {
+            "name": "A",
+            "values": [
+              12,
+              10,
+              8,
+              6
+            ]
+          },
+          {
+            "name": "B",
+            "values": [
+              6,
+              8,
+              10,
+              12
+            ]
+          }
+        ],
+        "min": 0,
+        "max": 16,
+        "xLabel": "기록 구간 (분)",
+        "yLabel": "구간 평균 RoR (°C/분)"
+      },
+      "explanation": [
+        "둘 다 160°C에서 시작하면 4분 후 196°C입니다.",
+        "최종 온도가 같아도 중간 경로는 다릅니다.",
+        "이벤트와 커핑 결과를 함께 비교합니다."
+      ],
+      "note": "계산용 가상 데이터입니다. 권장 곡선이나 맛의 우열을 뜻하지 않습니다.",
+      "notes": "보유 SCA Coffee Roasting Measurements and Analysis의 변화율 개념을 활용한 자체 차분 예제. 12+10+8+6 = 6+8+10+12 = 36°C."
+    }
+  }
+]

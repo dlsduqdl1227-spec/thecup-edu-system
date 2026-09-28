@@ -1,6 +1,18 @@
 {
-  "program": "SCA Coffee Skills Program",
+  "program": "SCA Education",
   "courses": [
+    {
+      "id": "water-maintenance",
+      "name": "Water & Preventive Maintenance",
+      "ko": "물과 예방정비",
+      "levels": [{ "level": "Foundation", "deck": "water-maintenance/foundation.json", "status": "review" }]
+    },
+    {
+      "id": "sustainability",
+      "name": "Coffee Sustainability",
+      "ko": "지속가능성",
+      "levels": [{ "level": "Foundation", "deck": "sustainability/foundation.json", "status": "review" }]
+    },
     {
       "id": "introduction",
       "name": "Introduction to Coffee",

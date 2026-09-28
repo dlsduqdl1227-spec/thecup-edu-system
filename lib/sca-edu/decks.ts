@@ -3,6 +3,9 @@
 // 이 파일은 API 라우트에서만 import 한다. 클라이언트 컴포넌트에서 import 하면 덱이 공개 번들에 포함된다.
 import catalogJson from "./decks/catalog.json";
 import visuals from "./decks/visuals.json";
+import requiredVisuals from "./decks/required-visuals.json";
+import waterFoundation from "./decks/water-maintenance/foundation.json";
+import sustainabilityFoundation from "./decks/sustainability/foundation.json";
 import { withVisuals } from "./with-visuals";
 import introductionIntroduction from "./decks/introduction/introduction.json";
 import baristaSkillsFoundation from "./decks/barista-skills/foundation.json";
@@ -25,6 +28,8 @@ import { deckKey, type Catalog, type Deck, type DeckMap } from "./catalog";
 export const EDU_CATALOG = catalogJson as Catalog;
 
 const SOURCE_DECKS: DeckMap = {
+  [deckKey("water-maintenance", "Foundation")]: waterFoundation as Deck,
+  [deckKey("sustainability", "Foundation")]: sustainabilityFoundation as Deck,
   [deckKey("introduction", "Introduction")]: introductionIntroduction as Deck,
   [deckKey("barista-skills", "Foundation")]: baristaSkillsFoundation as Deck,
   [deckKey("barista-skills", "Intermediate")]: baristaSkillsIntermediate as Deck,
@@ -43,4 +48,4 @@ const SOURCE_DECKS: DeckMap = {
   [deckKey("sensory-skills", "Professional")]: sensorySkillsProfessional as Deck,
 };
 
-export const EDU_DECKS: DeckMap = withVisuals(SOURCE_DECKS, visuals);
+export const EDU_DECKS: DeckMap = withVisuals(withVisuals(SOURCE_DECKS, visuals), requiredVisuals);

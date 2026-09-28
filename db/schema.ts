@@ -70,6 +70,23 @@ export const eduMemberCourses = sqliteTable("edu_member_courses", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, table => [primaryKey({ columns: [table.memberId, table.courseId] })]);
 
+export const eduMemberLevels = sqliteTable("edu_member_levels", {
+  memberId: integer("member_id").notNull().references(() => bookingMembers.id, { onDelete: "cascade" }),
+  courseId: text("course_id").notNull(),
+  level: text("level").notNull(),
+  approvalStamp: text("approval_stamp").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, table => [primaryKey({ columns: [table.memberId, table.courseId, table.level] })]);
+
+// Licensed teaching images are provisioned separately, never committed as public assets.
+export const eduAssets = sqliteTable("edu_assets", {
+  id: text("id").primaryKey(),
+  mime: text("mime").notNull(),
+  data: sqliteBlob("data").notNull(),
+  sha256: text("sha256").notNull(),
+});
+
 export const memberSessions = sqliteTable(
   "member_sessions",
   {

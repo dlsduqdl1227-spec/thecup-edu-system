@@ -13,7 +13,7 @@ export type EduMemberAccess = {
   name: string;
   phoneLast4: string;
   approvalStatus: "PENDING" | "APPROVED" | "REVOKED";
-  courses: string[];
+  levels: Array<{ courseId: string; level: string }>;
 };
 export type EduMemberList = { members: EduMemberAccess[] };
 
@@ -66,11 +66,11 @@ export function applyStatusOverrides(catalog: Catalog, rows: StatusOverride[]): 
 }
 
 /** Reservation approval or legacy global ready status alone never opens a course. */
-export function applyMemberCourseAccess(catalog: Catalog, courses: string[]): Catalog {
-  const allowed = new Set(courses);
-  return { ...catalog, courses: catalog.courses.filter(course => allowed.has(course.id)).map(course => ({
+export function applyMemberLevelAccess(catalog: Catalog, levels: Array<{ courseId: string; level: string }>): Catalog {
+  const allowed = new Set(levels.map(row => deckKey(row.courseId, row.level)));
+  return { ...catalog, courses: catalog.courses.map(course => ({
     ...course,
-    levels: course.levels.filter(entry => entry.deck && (entry.status === "review" || entry.status === "ready"))
+    levels: course.levels.filter(entry => allowed.has(deckKey(course.id, entry.level)) && entry.deck && (entry.status === "review" || entry.status === "ready"))
       .map(entry => ({ ...entry, status: "ready" as const })),
   })).filter(course => course.levels.length > 0) };
 }

@@ -1,5 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { createHash } from "node:crypto";
 
 // A new isolated in-memory D1-compatible database for each QA server process.
 const database = globalThis.__thecupQaDatabase ??= new DatabaseSync(":memory:");
@@ -18,6 +20,16 @@ function prepare(sql, values = []) {
     if (!educationSchemaReady && database.prepare("SELECT name FROM sqlite_master WHERE name = 'booking_members'").get()) {
       if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'edu_member_courses'").get()) {
         database.exec(readFileSync(new URL("../drizzle/0017_wealthy_gertrude_yorkes.sql", import.meta.url), "utf8"));
+      }
+      if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'edu_member_levels'").get()) {
+        database.exec(readFileSync(new URL("../drizzle/0018_big_dragon_man.sql", import.meta.url), "utf8"));
+        for (const id of ['flavor-wheel-ko','sca-brewing-2019','sca-water']) {
+          const file = resolve(process.env.EDU_QA_ASSET_DIR || 'outputs/sca-assets', `${id}.png`);
+          if (existsSync(file)) {
+            const data = readFileSync(file);
+            database.prepare('INSERT INTO edu_assets VALUES (?,?,?,?)').run(id,'image/png',data,createHash('sha256').update(data).digest('hex'));
+          }
+        }
       }
       educationSchemaReady = true;
     }
