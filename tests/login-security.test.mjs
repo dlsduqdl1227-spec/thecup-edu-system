@@ -22,7 +22,7 @@ test("server security codes protect both audiences and rotate existing sessions"
     export { POST as studentLogin } from './app/api/member-auth/login/route.ts';
     export { PATCH as change } from './app/api/auth/security-code/route.ts';
     export { ensureDatabase } from './lib/db';
-    export { phoneHash, getSessionUser, sha256, createSession, recordLoginFailure } from './lib/auth';
+    export { phoneHash, getSessionUser, sha256, createSession, recordLoginFailure, assertLoginAllowed } from './lib/auth';
     export { getMemberSession } from './lib/member-auth';
     export { readLoginSecurity, makeLoginSecurity, rotateLoginSecurity } from './lib/login-security';
   `, resolveDir: fileURLToPath(new URL("../", import.meta.url)), loader: "ts" }, bundle: true, write: false, platform: "node", format: "esm", plugins: [{ name: "isolated", setup(builder) {
@@ -67,6 +67,13 @@ test("server security codes protect both audiences and rotate existing sessions"
     assert.equal((await routes.change(req("/api/auth/security-code", { ...payload, currentOperatorCode: "9999" }, operatorCookie))).status, 403);
     assert.equal((await routes.change(req("/api/auth/security-code", { ...payload, confirmCode: "9999" }, operatorCookie))).status, 400);
   });
+  await t.test("staff and student identities do not cross login entrances", async () => {
+    assert.equal((await op("7319", "Student", phone)).status, 401);
+    const wrong = await routes.studentLogin(req("/api/member-auth/login", { name: "Staff", phone: "01000000002", securityCode: "00000" }));
+    assert.equal(wrong.status, 401);
+    assert.equal((await student("00000")).status, 200);
+    assert.equal((await op("7319")).status, 200);
+  });
   await t.test("student rotation invalidates student sessions only and never falls back to initial code", async () => {
     const result = await routes.change(req("/api/auth/security-code", { audience: "student", currentOperatorCode: "7319", newCode: "00123", confirmCode: "00123" }, operatorCookie));
     assert.equal(result.status, 200);
@@ -104,7 +111,21 @@ test("server security codes protect both audiences and rotate existing sessions"
   });
   await t.test("repeated bad codes are rate limited and failures increment atomically", async () => {
     for (let i = 0; i < 5; i++) assert.equal((await op("9999")).status, 401);
-    assert.equal((await op("845612")).status, 429);
+    const limited = await op("845612");
+    assert.equal(limited.status, 429);
+    assert.ok(Number(limited.headers.get("retry-after")) <= 60);
+    assert.match((await limited.json()).error, /최대 1분/);
+    const operatorHash = await routes.phoneHash(phone);
+    sqlite.prepare("UPDATE login_attempts SET window_start = ? WHERE identifier_hash = ?").run(new Date(Date.now()-61000).toISOString(), operatorHash);
+    assert.equal((await op("845612")).status, 200, "the former 15-minute lock expires after one minute");
+    for (let i = 0; i < 5; i++) assert.equal((await student("9999")).status, 401);
+    assert.equal((await student("00123")).status, 429);
+    sqlite.prepare("UPDATE login_attempts SET window_start = ? WHERE identifier_hash = ?").run(new Date(Date.now()-61000).toISOString(), `member:${operatorHash}`);
+    assert.equal((await student("00123")).status, 200);
+    for(let i=0;i<5;i++) await routes.recordLoginFailure('login-ip:student:shared-network');
+    await routes.assertLoginAllowed('login-ip:student:shared-network');
+    for(let i=5;i<30;i++) await routes.recordLoginFailure('login-ip:student:shared-network');
+    await assert.rejects(routes.assertLoginAllowed('login-ip:student:shared-network'), e => e.status === 429);
     await Promise.all(Array.from({ length: 7 }, () => routes.recordLoginFailure("parallel-test")));
     assert.equal(sqlite.prepare("SELECT attempt_count FROM login_attempts WHERE identifier_hash = 'parallel-test'").get().attempt_count, 7);
     const audits = sqlite.prepare("SELECT detail FROM audit_logs WHERE action = 'change_login_security_code'").all();

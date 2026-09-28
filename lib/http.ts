@@ -2,7 +2,8 @@ import { AuthError } from "./auth";
 
 export function jsonError(error: unknown): Response {
   if (error instanceof AuthError) {
-    return Response.json({ error: error.message }, { status: error.status });
+    return Response.json({ error: error.message }, { status: error.status,
+      headers: error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined });
   }
   const message = error instanceof Error ? error.message : "처리 중 오류가 발생했습니다.";
   if (message.includes("UNIQUE constraint failed: stations.name")) {

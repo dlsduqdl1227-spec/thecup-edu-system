@@ -9,8 +9,9 @@ import { hasCurrentSecurityVersion, readLoginSecurity } from "./login-security";
 
 const SESSION_COOKIE = "thecup_session";
 const SESSION_DAYS = 30;
-const LOGIN_WINDOW_MINUTES = 15;
+const LOGIN_WINDOW_MINUTES = 1;
 const MAX_LOGIN_ATTEMPTS = 5;
+const MAX_SHARED_IP_ATTEMPTS = 30;
 
 export function normalizePhone(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -180,8 +181,10 @@ export async function assertLoginAllowed(identifierHash: string): Promise<void> 
     .first<{ window_start: string; attempt_count: number }>();
   if (!row) return;
   const age = now - new Date(row.window_start).getTime();
-  if (age < LOGIN_WINDOW_MINUTES * 60000 && row.attempt_count >= MAX_LOGIN_ATTEMPTS) {
-    throw new AuthError("로그인 시도가 많습니다. 15분 후 다시 시도해 주세요.", 429);
+  const limit = identifierHash.startsWith("login-ip:") ? MAX_SHARED_IP_ATTEMPTS : MAX_LOGIN_ATTEMPTS;
+  if (age < LOGIN_WINDOW_MINUTES * 60000 && row.attempt_count >= limit) {
+    const remaining = Math.max(1, Math.min(60, Math.ceil((LOGIN_WINDOW_MINUTES * 60000 - age) / 1000)));
+    throw new AuthError(`로그인 시도가 많습니다. ${remaining}초 후 다시 시도해 주세요. (최대 1분)`, 429, remaining);
   }
 }
 
@@ -212,6 +215,7 @@ export class AuthError extends Error {
   constructor(
     message: string,
     public status: number,
+    public retryAfterSeconds?: number,
   ) {
     super(message);
   }
