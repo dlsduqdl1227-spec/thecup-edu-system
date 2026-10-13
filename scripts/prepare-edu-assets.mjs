@@ -5,7 +5,9 @@ import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
 
 const directory = resolve(process.argv[2] || 'outputs/sca-assets');
-const ids = ['flavor-wheel-ko', 'sca-brewing-2019', 'sca-water'];
+const allowedIds = ['flavor-wheel-ko', 'flavor-wheel-en', 'sca-brewing-2019', 'sca-water'];
+const ids = process.argv.slice(3).length ? process.argv.slice(3) : ['flavor-wheel-ko', 'sca-brewing-2019', 'sca-water'];
+if (ids.some(id => !allowedIds.includes(id)) || new Set(ids).size !== ids.length) throw new Error('Unknown or duplicate education asset ID');
 const statements = [], manifest = [];
 for (const id of ids) {
   const data = await readFile(join(directory, `${id}.png`));

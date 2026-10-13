@@ -46,6 +46,7 @@ test("education course grants are per student, admin-only and independent of boo
   sqlite.exec(readFileSync(new URL("../drizzle/0017_wealthy_gertrude_yorkes.sql", import.meta.url), "utf8"));
   assert.deepEqual(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name).filter(n => !before.includes(n)), ["edu_deck_visibility", "edu_member_courses"]);
   sqlite.exec(readFileSync(new URL('../drizzle/0018_big_dragon_man.sql', import.meta.url), 'utf8'));
+  sqlite.exec(readFileSync(new URL('../drizzle/0019_education_slide_edits.sql', import.meta.url), 'utf8'));
   const staffCookies = [];
   for (const [i, role] of ["admin", "employee", "instructor"].entries()) {
     sqlite.prepare("INSERT INTO staff (id,name,phone_hash,phone_last4,role) VALUES (?,?,?,?,?)").run(i + 1, role, await routes.phoneHash(`0100000000${i + 1}`), `000${i + 1}`, role);

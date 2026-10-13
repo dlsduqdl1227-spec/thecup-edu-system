@@ -17,7 +17,7 @@ test('expanded foundations retain their level, private status and curriculum cov
   for (const deck of [water, sustainability]) {
     assert.equal(deck.level, 'Foundation');
     assert.equal(deck.status, 'review');
-    assert.equal(deck.version, '1.3');
+    assert.equal(deck.version, deck === water ? '1.3.1' : '1.3');
     assert.ok(deck.slides.every(s => s.notes?.length > 20));
     const visible = JSON.stringify(deck.slides.map(slide => ({ ...slide, notes: undefined })));
     assert.ok(visible.includes('가상'));

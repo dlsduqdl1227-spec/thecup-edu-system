@@ -2,6 +2,7 @@
 // 덱 JSON은 lib/sca-edu/decks.ts에서 서버 코드로 번들한다. public 폴더에 두지 않는다.
 
 export type EduRole = "admin" | "student";
+export type EducationLanguage = "ko" | "en";
 export type DeckStatus = "planned" | "draft" | "review" | "ready";
 
 export type EduViewer = { name: string; role: EduRole };
@@ -34,6 +35,8 @@ export type PublicCatalog = {
 };
 
 export type Deck = {
+  editing?: Record<string, { sourceHash: string; revision: number; customized: boolean; needsReview: boolean; previousSlide?: Deck['slides'][number] }>;
+  language?: EducationLanguage;
   id: string;
   course: string;
   level: string;
@@ -111,6 +114,7 @@ export function studentDeck(deck: Deck): Deck {
     status: deck.status,
     version: deck.version,
     updated: deck.updated,
+    ...(deck.language ? { language: deck.language } : {}),
     slides: deck.slides.map((slide) => {
       const copy: Record<string, unknown> & { layout: string } = { ...slide };
       delete copy.notes;

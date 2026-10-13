@@ -23,7 +23,7 @@ function prepare(sql, values = []) {
       }
       if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'edu_member_levels'").get()) {
         database.exec(readFileSync(new URL("../drizzle/0018_big_dragon_man.sql", import.meta.url), "utf8"));
-        for (const id of ['flavor-wheel-ko','sca-brewing-2019','sca-water']) {
+        for (const id of ['flavor-wheel-ko','flavor-wheel-en','sca-brewing-2019','sca-water']) {
           const file = resolve(process.env.EDU_QA_ASSET_DIR || 'outputs/sca-assets', `${id}.png`);
           if (existsSync(file)) {
             const data = readFileSync(file);
@@ -32,6 +32,7 @@ function prepare(sql, values = []) {
         }
       }
       educationSchemaReady = true;
+      database.exec(readFileSync(new URL('../drizzle/0019_education_slide_edits.sql', import.meta.url), 'utf8'));
     }
     return { success: true, results: [], meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } };
   };

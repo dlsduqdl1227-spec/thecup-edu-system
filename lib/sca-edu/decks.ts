@@ -7,6 +7,8 @@ import requiredVisuals from "./decks/required-visuals.json";
 import waterFoundation from "./decks/water-maintenance/foundation.json";
 import sustainabilityFoundation from "./decks/sustainability/foundation.json";
 import { withVisuals } from "./with-visuals";
+import terminology from "./decks/terminology.json";
+import { prepareEditableDeck } from "./slide-editor";
 import introductionIntroduction from "./decks/introduction/introduction.json";
 import baristaSkillsFoundation from "./decks/barista-skills/foundation.json";
 import baristaSkillsIntermediate from "./decks/barista-skills/intermediate.json";
@@ -48,4 +50,11 @@ const SOURCE_DECKS: DeckMap = {
   [deckKey("sensory-skills", "Professional")]: sensorySkillsProfessional as Deck,
 };
 
-export const EDU_DECKS: DeckMap = withVisuals(withVisuals(SOURCE_DECKS, visuals), requiredVisuals);
+// Preserve the IDs and property order used by the live editor's source hashes.
+const composed = withVisuals(withVisuals(Object.fromEntries(Object.entries(SOURCE_DECKS).map(([key, deck]) => [key, {
+  ...deck,
+  slides: deck.slides.flatMap((slide, i) => [{ ...slide, slideId: `source-${i + 1}` },
+    ...(i === 0 ? [{ ...terminology, slideId: "terminology" }] : [])]),
+}])), visuals.map((entry, i) => ({ ...entry, slide: { ...entry.slide, slideId: `chart-${i + 1}` } }))),
+requiredVisuals.map((entry, i) => ({ ...entry, slide: { ...entry.slide, slideId: `required-${i + 1}` } })));
+export const EDU_DECKS: DeckMap = Object.fromEntries(Object.entries(composed).map(([key, deck]) => [key, prepareEditableDeck(deck as Deck)]));

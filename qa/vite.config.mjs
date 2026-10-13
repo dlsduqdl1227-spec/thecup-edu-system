@@ -10,5 +10,5 @@ process.env.STUDENT_INITIAL_SECURITY_CODE = "08372";
 export default defineConfig({
   plugins: [vinext()],
   resolve: { alias: { "cloudflare:workers": fileURLToPath(new URL("./sqlite-env.mjs", import.meta.url)) } },
-  server: { host: "127.0.0.1", port: 5173, strictPort: true },
+  server: { host: "127.0.0.1", port: 5173, strictPort: true, watch: { ignored: ['**/outputs/**'] } },
 });

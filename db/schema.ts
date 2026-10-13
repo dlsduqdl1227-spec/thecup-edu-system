@@ -447,3 +447,15 @@ export const loginAttempts = sqliteTable("login_attempts", {
   windowStart: text("window_start").notNull(),
   attemptCount: integer("attempt_count").notNull().default(0),
 });
+
+// Existing production education editor table (restored from the 2026-09-30 release).
+export const eduSlideEdits = sqliteTable("edu_slide_edits", {
+  courseId: text("course_id").notNull(),
+  level: text("level").notNull(),
+  slideId: text("slide_id").notNull(),
+  sourceHash: text("source_hash").notNull(),
+  slideJson: text("slide_json").notNull(),
+  revision: integer("revision").notNull().default(1),
+  updatedBy: integer("updated_by").notNull().references(() => staff.id),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, table => [primaryKey({ columns: [table.courseId, table.level, table.slideId] })]);

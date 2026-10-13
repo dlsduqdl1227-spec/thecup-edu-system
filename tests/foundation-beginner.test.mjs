@@ -14,7 +14,7 @@ test('beginner explanations pair every term with a plain meaning and visible eve
     assert.equal(deck.level, 'Foundation');
     assert.equal(deck.status, 'review');
     assert.equal(deck.caseStudies.length, 6);
-    assert.equal(deck.version, '1.3');
+    assert.equal(deck.version, deck === water ? '1.3.1' : '1.3');
     for (const slide of guides) {
       assert.equal(slide.layout, 'table');
       assert.deepEqual(slide.columns, ['수업 용어','쉬운 뜻','생활 속 예시']);

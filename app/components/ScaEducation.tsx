@@ -60,9 +60,13 @@ export function ScaEducation() {
         const handle = viewerModule.mountScaEducation(host, {
           user: viewer,
           catalog,
-          loadDeck: (courseId, level) =>
-            requestJson<Deck>(`/api/edu/decks/${encodeURIComponent(courseId)}/${encodeURIComponent(level)}`),
+          loadDeck: (courseId, level, language) =>
+            requestJson<Deck>(`/api/edu/decks/${encodeURIComponent(courseId)}/${encodeURIComponent(level)}?lang=${language}`),
           loadPptxLib: viewer.role === "admin" ? loadPptxBundle : undefined,
+          saveSlide: viewer.role === 'admin' ? (courseId, level, slideId, edit) =>
+            requestJson<Deck>(`/api/edu/decks/${encodeURIComponent(courseId)}/${encodeURIComponent(level)}/slides/${encodeURIComponent(slideId)}`, {
+              method: 'PUT', body: JSON.stringify(edit),
+            }) : undefined,
         });
         destroy = handle.destroy;
         setState({ kind: "ready" });
