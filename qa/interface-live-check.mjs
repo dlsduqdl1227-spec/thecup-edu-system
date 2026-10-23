@@ -19,6 +19,9 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
   try{
     for(const [path,heading] of [['/','수업 예정자'],['/admin','직원 로그인'],['/?view=student','수강생 로그인']]){
       const r=await page.goto(path);assert.equal(r.status(),200);await page.getByRole('heading',{name:heading,exact:true}).waitFor();
+      // Finish link prefetches before the next full navigation. WebKit reports aborted
+      // cross-document prefetches as access-control errors even when each endpoint is 200.
+      await page.waitForLoadState('networkidle');
       assert.ok((await page.content()).includes(entry),'HTML uses tested release entry');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
       await page.screenshot({path:`${folder}/${name}-${heading}.png`});
