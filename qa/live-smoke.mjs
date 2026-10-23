@@ -25,7 +25,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, path);
     report.responses.push({ path, status: response.status() });
   }
-  for (const path of ["/api/dashboard", "/api/staff", "/api/booking/admin", "/api/booking/member", "/api/course-openings", "/api/roasting"]) {
+  for (const path of ["/api/dashboard", "/api/staff", "/api/booking/admin", "/api/booking/member", "/api/course-openings"]) {
     const response = await context.request.get(baseURL + path); assert.equal(response.status(), 401); report.responses.push({ path, status: response.status() });
   }
   report.checks.push("공개 화면 200 · 모바일 가로 넘침 없음 · 비로그인 관리자 API 401");

@@ -5,6 +5,7 @@ import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
 import { AccessibleDialog } from "./AccessibleDialog";
 import { ScaEducation } from "./ScaEducation";
+import { MobileNavigation } from "./MobileNavigation";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
@@ -211,13 +212,19 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
             {memberTab === "practice" && <MemberPractice data={memberData} reload={loadMemberData} notify={setMessage} />}
           </>}
         </section>
-        <nav className="portal-mobile-nav" aria-label="모바일 수강생 메뉴">
-          <button onClick={() => { setEntry(null); setShowHome(true); }}>홈</button>
-          <button className={memberTab === "schedule" ? "active" : ""} onClick={() => setMemberTab("schedule")}>스케줄</button>
-          <button className={memberTab === "reservations" ? "active" : ""} onClick={() => setMemberTab("reservations")}>내 예약</button>
-          <button className={memberTab === "practice" ? "active" : ""} onClick={() => setMemberTab("practice")}>기록</button>
-          <button className={memberTab === "education" ? "active" : ""} onClick={() => setMemberTab("education")}>교육</button>
-        </nav>
+        <MobileNavigation
+          className="portal-mobile-nav"
+          label="모바일 수강생 메뉴"
+          items={[
+            { key: "home", label: "홈" },
+            { key: "schedule", label: "스케줄" },
+            { key: "reservations", label: "내 예약" },
+            { key: "practice", label: "실습 기록" },
+            { key: "education", label: "교육자료" },
+          ]}
+          activeKey={memberTab}
+          onSelect={key => { if (key === "home") { setEntry(null); setShowHome(true); } else setMemberTab(key as MemberTab); }}
+        />
         {message && <Toast value={message} close={() => setMessage(null)} />}
       </main>
     );

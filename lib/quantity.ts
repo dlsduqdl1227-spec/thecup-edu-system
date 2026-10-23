@@ -1,5 +1,5 @@
 const quantityNumber = new Intl.NumberFormat("ko-KR", {
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 6,
 });
 
 export type InventoryDisplayAmount = {

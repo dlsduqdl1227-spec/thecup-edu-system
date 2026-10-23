@@ -35,16 +35,8 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   for (const path of ["/api/exports/inventory", "/api/exports/finance"]) { const response = await admin.request.get(path); assert.ok(response.ok()); assert.match(response.headers()["content-type"], /spreadsheetml/); assert.ok((await response.body()).length > 1000); }
   check("재고·매출 Excel 다운로드");
-  await nav("로스팅 프로파일");
-  await page.getByRole("button", { name: "선택값 복사해 입력" }).click();
-  await save(page, page.getByRole("button", { name: "새 프로파일로 저장" }), "/api/roasting");
-  const before = await api(admin.request, "/api/roasting");
-  await save(page, page.locator(".profile-list-item").first().getByRole("button", { name: /아래로 이동/ }), "/api/roasting/order", "PUT");
-  const after = await api(admin.request, "/api/roasting");
-  assert.equal(after.profiles[1].id, before.profiles[0].id);
-  page.once("dialog", (dialog) => dialog.accept());
-  await save(page, page.locator(".profile-hero").getByRole("button", { name: "삭제", exact: true }), `/api/roasting/${before.profiles[0].id}`, "DELETE");
-  check("프로파일 복사 · 목록 순서 저장 · 복사본 삭제");
+  assert.equal((await admin.request.get("/api/roasting")).status(),404);
+  check("종료된 프로파일 API 접근 불가");
   await nav("운영 · 개강 관리");
   await page.getByLabel("기준 월").fill("2026-10");
   await page.getByRole("button", { name: "새 과정", exact: true }).click();
@@ -83,7 +75,7 @@ try {
   await publicPage.getByRole("heading", { name: "개강 현황을 준비하고 있습니다." }).waitFor();
   await capture(publicPage, "public-openings-hidden");
   check("삭제된 과정 재노출 방지 · 공개 전체 숨김");
-  await nav("직원 · 권한");
+  await nav("직원 목록 · 권한");
   const suffix = String(Date.now()).slice(-8);
   const name = `QA 강사 ${suffix}`;
   await page.locator('input[name="name"]').fill(name);
@@ -93,7 +85,7 @@ try {
   await publicPage.goto("/admin");
   await publicPage.getByRole("heading", { name: `${name}님의 수업 기록`, exact: true }).waitFor();
   assert.equal(await publicPage.locator(".side-nav button").count(), 1);
-  for (const path of ["/api/booking/admin", "/api/course-openings", "/api/staff", "/api/roasting"]) assert.equal((await guest.request.get(path)).status(), 403);
+  for (const path of ["/api/booking/admin", "/api/course-openings", "/api/staff"]) assert.equal((await guest.request.get(path)).status(), 403);
   await capture(publicPage, "instructor-restricted-desktop");
   check("실제 강사 계정 로그인 · 권한 없는 메뉴/API 차단");
   assert.deepEqual(report.pageErrors, []);

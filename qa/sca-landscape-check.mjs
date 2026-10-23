@@ -41,9 +41,9 @@ async function geometry(label, target = page) {
 }
 try {
   await mkdir(folder, { recursive: true });
-  const bootstrap = await context.request.post('/api/auth/bootstrap', { data: { name: 'QA Landscape Admin', phone: '01000009902', code: 'local-browser-qa', securityCode: '7319' } });
+  const bootstrap = await context.request.post('/api/auth/bootstrap', { data: { name: 'QA 운영자', phone: '01000009901', code: 'local-browser-qa', securityCode: '7319' } });
   if (bootstrap.status() !== 201) {
-    const login = await context.request.post('/api/auth/login', { data: { name: 'QA Landscape Admin', phone: '01000009902', securityCode: '7319' } });
+    const login = await context.request.post('/api/auth/login', { data: { name: 'QA 운영자', phone: '01000009901', securityCode: '7319' } });
     assert.equal(login.status(), 200, await login.text());
   }
   // iPhone browsers may reject / not support requestFullscreen. The overlay must work independently.
@@ -159,7 +159,7 @@ try {
     await pupil.locator('input[name="phone"]').fill(phone);
     await pupil.getByLabel('보안코드', { exact: true }).fill('08372');
     await pupil.getByRole('button', { name: '로그인', exact: true }).click();
-    await pupil.locator('.portal-mobile-nav').getByRole('button', { name: '교육', exact: true }).click();
+    await pupil.locator('.portal-mobile-nav').getByRole('button', { name: '교육자료', exact: true }).click();
     await pupil.locator('[data-act="show"]').click();
     await geometry('student-portrait', pupil);
     await pupil.setViewportSize({ width: 667, height: 375 });

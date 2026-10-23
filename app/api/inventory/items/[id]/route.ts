@@ -9,7 +9,7 @@ import {
   textValue,
 } from "../../../../../lib/http";
 
-const categories = ["green", "roasted", "gusto", "milk", "other"];
+const categories = ["roasted", "gusto", "milk"];
 
 type InventoryItemRecord = {
   id: number;
@@ -34,7 +34,7 @@ async function readItem(db: D1Database, id: number): Promise<InventoryItemRecord
               i.legacy_key AS legacyKey,
               (SELECT COUNT(*) FROM inventory_movements m WHERE m.item_id = i.id) AS movementCount
        FROM inventory_items i
-       WHERE i.id = ? AND i.active = 1`,
+       WHERE i.id = ? AND i.active = 1 AND i.category IN ('roasted','gusto','milk')`,
     )
     .bind(id)
     .first<InventoryItemRecord>();

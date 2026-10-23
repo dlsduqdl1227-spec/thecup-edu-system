@@ -41,7 +41,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /brand\/thecup-edu\.jpg/);
   assert.match(app, /brand\/monthly-coffee\.png/);
   assert.match(app, /수업 사용 기록/);
-  assert.match(app, /로스팅 프로파일/);
+  assert.doesNotMatch(app, /function RoastingView|key: "roasting"|api\/roasting/);
+  assert.match(app, /MobileNavigation/);
   assert.match(app, /운영 · 개강 관리/);
   assert.match(app, /BookingAdmin/);
   assert.match(app, /OperationsHub/);
@@ -60,51 +61,17 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(bookingPortal, /portal-calendar/);
   assert.match(bookingPortal, /href="\/\?view=visitor#portal-entry-content"/);
   assert.match(bookingPortal, /href="\/\?view=student#portal-entry-content"/);
-  assert.match(app, /복사해서 새로 만들기/);
-  assert.match(app, /프로파일 복사본 만들기/);
-  assert.match(app, /mode === "edit" \? "PATCH" : "POST"/);
-  assert.match(app, /새 프로파일로 저장/);
-  assert.match(app, /프로파일 목록/);
-  assert.match(app, /끌어서 이동 · ↑↓ 버튼/);
-  assert.match(app, /api\/roasting\/order/);
-  assert.match(app, /draggable=\{!savingOrder\}/);
-  assert.match(app, /자동 계산 디벨롭/);
-  assert.match(app, /터닝포인트/);
-  assert.match(app, /한눈에 따라하기/);
-  assert.match(app, /실제 화력 조절 기록/);
-  assert.match(app, /getGasAdjustments/);
-  assert.match(app, /화력 높임/);
-  assert.match(app, /화력 낮춤/);
-  assert.match(app, /RoastFlowCard/);
-  assert.match(app, /StableNumberInput/);
-  assert.match(app, /실제 로스팅 순서대로/);
-  assert.match(app, /key=\{point\.stableId\}/);
-  assert.doesNotMatch(app, /key=\{`\$\{index\}-\$\{point\.seconds\}`\}/);
-  assert.match(app, /왼쪽 축 ℃ · 오른쪽 축 bar/);
-  assert.doesNotMatch(app, /옐로잉|yellowingSeconds/);
-  assert.match(app, /가스나 온도가 바뀌는 순간만 세부 포인트/);
-  assert.match(app, /가스 압력/);
-  assert.match(app, /chargeGasPressure/);
-  assert.match(app, /`\$\{minutes\}분 \$\{remainingSeconds\}초`/);
-  assert.doesNotMatch(app, /가스 압력\(%\)|투입 80%/);
-  assert.match(app, /로스팅\(원두\)/);
   assert.match(app, /새 품목 입고/);
   assert.match(app, /create_item_with_stock/);
   assert.match(app, /재고 작업 선택/);
   assert.match(app, /재고 현황/);
   assert.match(app, /QUICK ENTRY/);
   assert.match(app, /입고 등록/);
-  assert.match(app, /새 프로파일 바로 입력/);
-  assert.match(app, /roast-form-shortcuts/);
   assert.match(app, /financeCategoryOptions/);
   assert.match(app, /PresetOrCustomField/);
   assert.match(app, /기타 분류명을 입력하세요/);
-  assert.match(app, /roastOriginOptions/);
   assert.match(app, /inventoryUnitOptions/);
-  assert.match(app, /생두 재고/);
   assert.match(app, /원두 재고/);
-  assert.match(app, /생두 출고와 완성 원두 입고를 함께 반영/);
-  assert.match(app, /inline-roast-workflow/);
   assert.doesNotMatch(app, /\{ key: "roasting", label: "로스팅" \}/);
   assert.doesNotMatch(app, /\{ key: "new", label: "새 품목" \}/);
   assert.match(app, /소비기한 임박순/);
@@ -173,29 +140,13 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(styles, /\.inventory-sections/);
   assert.match(styles, /\.inventory-section-heading/);
   assert.match(styles, /\.inventory-entry-switch/);
-  assert.match(styles, /\.inline-roast-workflow/);
-  assert.match(styles, /\.profile-drag-handle/);
-  assert.match(styles, /\.profile-order-actions/);
   assert.match(styles, /\.export-button/);
   assert.match(styles, /\.quantity-helper/);
   assert.match(styles, /\.inventory-overview-controls/);
   assert.match(styles, /\.inventory-sort-control/);
   assert.match(styles, /\.inventory-card-controls/);
   assert.match(styles, /\.inventory-item-modal-actions/);
-  assert.match(styles, /\.duration-input/);
-  assert.match(styles, /\.chart-point-list/);
-  assert.match(styles, /\.roast-bean-grid/);
-  assert.match(styles, /\.roast-flow-list/);
-  assert.match(styles, /\.roast-flow-card/);
-  assert.match(styles, /\.roast-follow-guide/);
-  assert.match(styles, /\.roast-step-card/);
-  assert.match(styles, /\.roast-gas-guide/);
-  assert.match(styles, /\.roast-gas-list/);
-  assert.match(styles, /\.roast-gas-pressure/);
-  assert.match(styles, /\.copy-profile-notice/);
-  assert.match(styles, /\.live-development/);
   assert.match(styles, /body \{[\s\S]*?font-size: 16px/);
-  assert.match(styles, /\.roast-flow-fields/);
   assert.doesNotMatch(styles, /\.point-row|\.milestone-grid/);
   assert.match(styles, /\.mobile-history-nav/);
   assert.match(styles, /\.staff-delete-button/);
@@ -372,7 +323,7 @@ test("public course openings are read-only, privacy-safe and iframe-ready", asyn
 });
 
 test("guards critical identity, date and persistence edge cases", async () => {
-  const [http, database, auth, bootstrap, login, staff, finance, inventory, milkPurchase, receiptStorage, roasting, roastingOrder, permissionsMigration, legacyMigration, deletionMigration, dashboard] = await Promise.all([
+  const [http, database, auth, bootstrap, login, staff, finance, inventory, milkPurchase, receiptStorage, permissionsMigration, legacyMigration, deletionMigration, dashboard] = await Promise.all([
     readFile(new URL("lib/http.ts", root), "utf8"),
     readFile(new URL("lib/db.ts", root), "utf8"),
     readFile(new URL("lib/auth.ts", root), "utf8"),
@@ -383,8 +334,6 @@ test("guards critical identity, date and persistence edge cases", async () => {
     readFile(new URL("app/api/inventory/route.ts", root), "utf8"),
     readFile(new URL("app/api/inventory/milk-purchase/route.ts", root), "utf8"),
     readFile(new URL("lib/receipt-storage.ts", root), "utf8"),
-    readFile(new URL("app/api/roasting/route.ts", root), "utf8"),
-    readFile(new URL("app/api/roasting/order/route.ts", root), "utf8"),
     readFile(new URL("drizzle/0001_melted_scalphunter.sql", root), "utf8"),
     readFile(new URL("drizzle/0005_clean_red_skull.sql", root), "utf8"),
     readFile(new URL("drizzle/0006_nappy_winter_soldier.sql", root), "utf8"),
@@ -411,20 +360,11 @@ test("guards critical identity, date and persistence edge cases", async () => {
   assert.match(inventory, /create_item_with_stock/);
   assert.match(inventory, /initialQuantity/);
   assert.match(inventory, /DELETE FROM inventory_items/);
-  assert.match(inventory, /item\.category === "green" && movementType === "out"/);
+  assert.match(inventory, /!categories\.includes\(item\.category\)/);
   assert.match(milkPurchase, /INSERT INTO receipt_files/);
   assert.match(milkPurchase, /makeRoomForReceipt/);
   assert.match(receiptStorage, /receipt_deleted_at = CURRENT_TIMESTAMP/);
   assert.match(receiptStorage, /DELETE FROM receipt_files/);
-  assert.match(roasting, /requirePermission\(request, "roasting"\)/);
-  assert.match(roasting, /sqlite_sequence WHERE name = 'roasting_profiles'/);
-  assert.match(roasting, /COALESCE\(p\.sort_order, 2147483647\)/);
-  assert.match(roastingOrder, /requireUser\(request, \["admin"\]\)/);
-  assert.match(roastingOrder, /profileIds/);
-  assert.match(roastingOrder, /UPDATE roasting_profiles SET sort_order/);
-  const roastingParser = await readFile(new URL("lib/roasting.ts", root), "utf8");
-  assert.match(roastingParser, /point\.gasPressure > 5/);
-  assert.match(roastingParser, /가스 압력\(0~5bar\)/);
   assert.match(permissionsMigration, /ADD `can_finance`/);
   assert.match(permissionsMigration, /WHERE `role` IN \('admin', 'employee'\)/);
   assert.match(legacyMigration, /ADD `legacy_key`/);
@@ -470,7 +410,7 @@ test("guards critical identity, date and persistence edge cases", async () => {
   assert.match(dashboard, /AS additionalIncome/);
   assert.match(dashboard, /ORDER BY t\.transaction_date DESC, t\.id DESC/);
   assert.doesNotMatch(dashboard, /ORDER BY t\.id DESC LIMIT 40/);
-  assert.match(dashboard, /turningPointSeconds/);
+  assert.doesNotMatch(dashboard, /FROM roasting_profiles|profiles: profiles.results/);
   assert.match(dashboard, /기존 재고 기록/);
   assert.match(dashboard, /소비기한/);
   assert.doesNotMatch(dashboard, /`유효 \$\{entry\.expiry_date\}`/);

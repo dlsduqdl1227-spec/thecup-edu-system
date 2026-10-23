@@ -78,7 +78,7 @@ export async function GET(request: Request) {
           `SELECT category, name, lot, process, expiry_date AS expiryDate,
                   unit, quantity, reorder_level AS reorderLevel
            FROM inventory_items
-           WHERE active = 1
+           WHERE active = 1 AND category IN ('milk','roasted','gusto')
            ORDER BY category, name`,
         )
         .all<InventoryRow>(),

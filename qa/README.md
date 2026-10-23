@@ -25,10 +25,14 @@ npm test
 
 - `browser-audit`: 주요 화면과 반응형 상태 18개
 - `release-check`: 로그인, 상담 승인, 예약·취소·월 전환, 선택형 입력, 영수증 등 12개 흐름
-- `management-check`: 재고, 다운로드, 프로파일, 모집 공개·삭제, 강사 권한 등 6개 흐름
+- `management-check`: 재고, 다운로드, 종료된 프로파일 API 차단, 모집 공개·삭제, 강사 권한 흐름
+- `interface-check`: `node qa/interface-check.mjs` 또는 `--webkit`. 로컬 관리자 8개 메뉴, 원두/우유 범위, 프로파일 API 404, 320–1024px 아이콘 메뉴·44px 터치 영역·가로 넘침, 전체 메뉴/Escape/화면 회전, 승인 수강생 메뉴와 로스팅 교육 보존을 확인합니다.
 - `security-check`: 보안코드 실제 폼 로그인·변경·기존 세션 무효화. 로컬 테스트 코드는 운영자 `7319`, 수강생 `08372`이며 실제 운영 값이 아닙니다.
 - `live-smoke`: 운영 공개 화면·API·휴강 시간·카카오톡·외부 출처 iframe 검증. 쓰기 요청은 하지 않습니다.
 - `tests/booking-integrity.test.mjs`: 실제 API 코드를 격리 SQLite에서 실행하여 예약 중복·시간 겹침·승인·결제·회원 회수·삭제를 검증합니다.
+- `inventory-zero-check`: 새 로컬 QA 서버에서 `node qa/inventory-zero-check.mjs` 실행. 입고·출고·실사 0 처리, 확인 취소, 소진 목록/재입고, 0.001kg 표시, 초과 출고, 저장 실패/동시 변경, PC·768px·360px를 검증합니다. 기존 테스트와 함께 실행할 때는 이 스크립트 전에 서버를 재시작하세요.
+- `tests/inventory-zero.test.mjs`: 0/빈 입력 구분, 단위별 실사, 재고·기록 보존, 동시 변경 방어, DB 저장/감사 실패의 전체 롤백을 격리 DB에서 검사합니다.
+- `sca-orientation-check`: `node qa/sca-orientation-check.mjs`. 로컬 QA 관리자 등록 후 실행합니다. Chromium/WebKit에서 전체화면 거부·방향 API 미지원·세로 고정을 재현하고 수동 가로 보기, 안전 영역, 320–844px, 터치·자동 복귀·한영 전환을 검증합니다.
 
 스크린샷과 상세 결과는 Git에서 제외된 `outputs/qa`에 생성됩니다. 브라우저 검수 파일의 운영 주소를 로컬 변경 테스트에 사용하지 마세요.
 
@@ -36,4 +40,4 @@ npm test
 
 운영 배포는 루트 `wrangler.jsonc`를 사용합니다. `qa/vite.config.mjs`는 배포용이 아닙니다. 운영 DB 바인딩과 `SESSION_SECRET`을 유지하며, 이번 검수 수정에는 스키마 마이그레이션이 없습니다.
 
-현재 테스트는 Chromium 기반입니다. iOS Safari·Android 실기기의 카메라/앨범 선택 UI, HEIC 변환과 대규모 동시 접속은 별도 확인이 필요합니다. Creatorlink 테스트는 해당 출처를 로컬에서 재현해 실제 운영 iframe을 여는 방식이며 외부 홈페이지 자체를 수정하지 않습니다.
+모바일 메뉴 및 프레젠테이션은 Chromium과 WebKit에서도 검증합니다. iOS Safari·Android 실기기의 카메라/앨범 선택 UI, HEIC 변환과 대규모 동시 접속은 별도 확인이 필요합니다. Creatorlink 테스트는 해당 출처를 로컬에서 재현해 실제 운영 iframe을 여는 방식이며 외부 홈페이지 자체를 수정하지 않습니다.

@@ -17,6 +17,7 @@ import {
   kilogramsToInventoryQuantity,
 } from "../../lib/quantity";
 import { compareInventoryItems, type InventorySort } from "../../lib/inventory-sort";
+import { inventoryChange, readStockQuantity } from "../../lib/inventory-movement";
 import { BookingAdmin } from "./BookingAdmin";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
 import { requestJson } from "../../lib/api-client";
@@ -24,9 +25,10 @@ import { useRequestGuard } from "../../lib/use-request-guard";
 import { AccessibleDialog } from "./AccessibleDialog";
 import { LoginSecuritySettings } from "./LoginSecuritySettings";
 import { ScaEducation } from "./ScaEducation";
+import { MobileNavigation, NavigationIcon } from "./MobileNavigation";
 
 type Role = "admin" | "employee" | "instructor";
-type TabKey = "dashboard" | "record" | "inventory" | "finance" | "roasting" | "booking" | "openings" | "education" | "staff" | "students";
+type TabKey = "dashboard" | "record" | "inventory" | "finance" | "booking" | "openings" | "education" | "staff" | "students";
 
 type User = {
   id: number;
@@ -97,48 +99,12 @@ type FinanceTransaction = {
   inventoryMovementId: number | null;
 };
 
-type RoastPoint = {
-  seconds: number;
-  beanTemp: number;
-  gasPressure: number;
-};
-
-type RoastProfile = {
-  id: number;
-  beanName: string;
-  origin: string;
-  process: string;
-  batchWeight: number;
-  chargeTemp: number;
-  turningPointSeconds: number;
-  firstCrackSeconds: number;
-  dropTemp: number;
-  totalSeconds: number;
-  developmentSeconds: number;
-  developmentRatio: number;
-  gasNotes: string;
-  notes: string;
-  createdByName: string;
-  points: RoastPoint[];
-  ror: {
-    turningToCrack: number;
-    development: number;
-  };
-};
-
-type RoastEditorState =
-  | { mode: "create" }
-  | { mode: "edit"; profile: RoastProfile }
-  | { mode: "copy"; profile: RoastProfile }
-  | null;
-
 type DashboardData = {
   user: User;
   finance: FinanceMonth[];
   inventory: InventoryItem[];
   movements: Movement[];
   transactions: FinanceTransaction[];
-  profiles: Array<Omit<RoastProfile, "points" | "ror">>;
   legacyInventoryCount: number;
 };
 
@@ -219,7 +185,6 @@ const won = new Intl.NumberFormat("ko-KR", {
   currency: "KRW",
   maximumFractionDigits: 0,
 });
-const number = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 1 });
 
 const roleLabel: Record<Role, string> = {
   admin: "관리자",
@@ -229,7 +194,7 @@ const roleLabel: Record<Role, string> = {
 
 const categoryLabel: Record<InventoryItem["category"], string> = {
   green: "생두",
-  roasted: "원두 · 자체 로스팅",
+  roasted: "원두",
   gusto: "원두 · 구스토",
   milk: "우유",
   other: "기타",
@@ -247,7 +212,6 @@ const financeCategoryOptions = {
   income: ["수강료", "스테이션 이용료", "교육 · 세미나", "원두 · 상품 판매", "시험 · 평가비"],
   expense: ["생두 · 원두", "우유 · 식자재", "교육 · 세미나 운영", "장비 · 소모품", "광고 · 홍보", "임차 · 관리비", "교통 · 출장", "수수료 · 세금"],
 } as const;
-const roastOriginOptions = ["", "에티오피아", "콜롬비아", "브라질", "과테말라", "케냐", "코스타리카", "인도네시아", "블렌드"] as const;
 const coffeeProcessOptions = ["", "Washed", "Natural", "Honey", "Anaerobic", "Wet Hulled", "Blend"] as const;
 const inventoryUnitOptions = ["kg", "g", "팩", "개", "병", "박스"] as const;
 
@@ -264,7 +228,6 @@ const navItems: Array<{
   { key: "record", label: "수업 사용 기록", short: "수업 기록" },
   { key: "inventory", label: "재고 관리", short: "재고", permission: "canInventory" },
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
-  { key: "roasting", label: "로스팅 프로파일", short: "로스팅", permission: "canRoasting" },
   { key: "booking", label: "운영 · 개강 관리", short: "운영", adminOnly: true },
   { key: "education", label: "SCA 교육자료", short: "교육", adminOnly: true },
   { key: "students", label: "수강생 목록", short: "수강생", adminOnly: true },
@@ -277,8 +240,7 @@ const permissionOptions: Array<{
   description: string;
 }> = [
   { field: "canFinance", label: "매출", description: "매출 내역과 매출·지출 등록" },
-  { field: "canInventory", label: "재고", description: "생두·원두 재고와 입출고" },
-  { field: "canRoasting", label: "로스팅", description: "프로파일 열람" },
+  { field: "canInventory", label: "재고", description: "원두·우유 재고와 입출고" },
 ];
 
 function allowedNavigation(user: User) {
@@ -459,14 +421,15 @@ export function EduSystemApp() {
           <Link href="/?home=1">스테이션 홈</Link>
         </nav>
         <nav className="side-nav" aria-label="주요 메뉴">
-          {allowedNav.map((item, index) => (
+          {allowedNav.map((item) => (
             <button
               type="button"
               key={item.key}
               className={activeTab === item.key ? "nav-item active" : "nav-item"}
+              aria-current={activeTab === item.key ? "page" : undefined}
               onClick={() => navigateTo(item.key)}
             >
-              <span>{String(index + 1).padStart(2, "0")}</span>
+              <NavigationIcon name={item.key} />
               {item.label}
             </button>
           ))}
@@ -525,9 +488,6 @@ export function EduSystemApp() {
                 notify={setToast}
               />
             )}
-            {activeTab === "roasting" && (
-              <RoastingView user={user} notify={setToast} />
-            )}
             {activeTab === "booking" && (
               <OperationsHub notify={setToast} initialSection={operationsEntry} />
             )}
@@ -540,18 +500,10 @@ export function EduSystemApp() {
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="모바일 메뉴">
-        {allowedNav.map((item) => (
-          <button
-            type="button"
-            key={item.key}
-            className={activeTab === item.key ? "active" : ""}
-            onClick={() => navigateTo(item.key)}
-          >
-            {item.short}
-          </button>
-        ))}
-      </nav>
+      <MobileNavigation className="bottom-nav" label="모바일 메뉴"
+        items={allowedNav.map(item => ({ key: item.key, label: item.short, title: item.label }))}
+        primaryKeys={["dashboard", "inventory", "booking", "education"]}
+        activeKey={activeTab} onSelect={key => navigateTo(key as TabKey)} />
       {toast && <Toast toast={toast} />}
     </div>
   );
@@ -1188,53 +1140,61 @@ function InventoryView({
   onUpdated: () => Promise<void>;
   notify: (toast: { kind: "ok" | "error"; message: string }) => void;
 }) {
-  const greenItems = data.inventory.filter((item) => item.category === "green");
-  const roastedItems = data.inventory.filter((item) => item.category === "roasted");
   const beanItems = data.inventory.filter((item) => item.category === "roasted" || item.category === "gusto");
   const [busy, setBusy] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [itemBusy, setItemBusy] = useState(false);
   const [inventoryTab, setInventoryTab] = useState<"overview" | "movement" | "history">("movement");
   const [entryMode, setEntryMode] = useState<"existing" | "new">("existing");
-  const [newItemCategory, setNewItemCategory] = useState<InventoryItem["category"]>("green");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "green" | "beans" | "support">("all");
+  const [newItemCategory, setNewItemCategory] = useState<InventoryItem["category"]>("roasted");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "beans" | "milk">("all");
   const [inventorySort, setInventorySort] = useState<InventorySort>("expiry");
-  const [movementItemId, setMovementItemId] = useState(data.inventory[0]?.id ?? 0);
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [stockFilter, setStockFilter] = useState("available");
+  const [movementQuantity, setMovementQuantity] = useState("");
+  const [movementNotice, setMovementNotice] = useState("");
+  const [movementSaveError, setMovementSaveError] = useState("");
+  const movementBusy = useRef(false);
+  const [movementItemId, setMovementItemId] = useState(data.inventory.find(item => item.quantity > 0)?.id ?? data.inventory[0]?.id ?? 0);
   const [movementType, setMovementType] = useState<"in" | "out" | "adjust">("in");
-  const [roastedOutputItemId, setRoastedOutputItemId] = useState(roastedItems[0]?.id ?? 0);
   const inventoryEntryRef = useRef<HTMLElement>(null);
   const movementItem = data.inventory.find((item) => item.id === movementItemId) ?? data.inventory[0];
-  const roastedOutputItem = roastedItems.find((item) => item.id === roastedOutputItemId) ?? roastedItems[0];
-  const isGreenRoast = movementItem?.category === "green" && movementType === "out";
+  const isZeroEntry = movementQuantity.trim() !== "" && Number(movementQuantity) === 0;
+  const effectiveMovementType = isZeroEntry ? "adjust" : movementType;
+  let movementPreview: { nextQuantity: number; delta: number; quantity: number } | null = null;
+  let movementError = "";
+  if (movementItem && movementQuantity.trim() !== "") {
+    try {
+      const entered = readStockQuantity(movementQuantity);
+      const quantity = movementItem.category === "roasted" || movementItem.category === "gusto"
+        ? readStockQuantity(kilogramsToInventoryQuantity(entered, movementItem.unit)) : entered;
+      movementPreview = { ...inventoryChange(Number(movementItem.quantity), quantity, effectiveMovementType), quantity };
+    } catch (error) { movementError = errorMessage(error); }
+  }
+  const stockedItems = data.inventory.filter(item => item.quantity > 0);
   const visibleItems = data.inventory
+    .filter(item => (stockFilter === "all" || (stockFilter === "empty" ? item.quantity <= 0 : item.quantity > 0))
+      && `${item.name} ${item.lot} ${item.process}`.toLocaleLowerCase().includes(inventorySearch.trim().toLocaleLowerCase()))
     .filter((item) => {
       if (categoryFilter === "all") return true;
       if (categoryFilter === "beans") return item.category === "roasted" || item.category === "gusto";
-      if (categoryFilter === "support") return item.category === "milk" || item.category === "other";
-      return item.category === "green";
+      return item.category === "milk";
     })
     .sort((left, right) => compareInventoryItems(left, right, inventorySort));
   const inventorySections = [
     {
-      key: "green",
-      eyebrow: "로스팅 전",
-      title: "생두 재고",
-      description: "로스팅 전 보관 중인 생두입니다. 출고는 로스팅 사용으로 기록됩니다.",
-      items: visibleItems.filter((item) => item.category === "green"),
-    },
-    {
       key: "beans",
       eyebrow: "수업 사용",
       title: "원두 재고",
-      description: "수업에 바로 사용하는 자체 로스팅 원두와 구스토 원두입니다.",
+      description: "수업에 사용하는 원두의 남은 수량을 kg 기준으로 확인하세요.",
       items: visibleItems.filter((item) => item.category === "roasted" || item.category === "gusto"),
     },
     {
-      key: "support",
-      eyebrow: "부자재",
-      title: "우유 · 기타 재고",
-      description: "수업에 사용하는 우유와 소모품입니다.",
-      items: visibleItems.filter((item) => item.category === "milk" || item.category === "other"),
+      key: "milk",
+      eyebrow: "수업 재료",
+      title: "우유 재고",
+      description: "소비기한과 남은 수량을 확인하고 입고·사용을 기록하세요.",
+      items: visibleItems.filter((item) => item.category === "milk"),
     },
   ].filter((section) => section.items.length > 0);
   const inventoryTabs = [
@@ -1244,18 +1204,20 @@ function InventoryView({
   ] as const;
   const categoryFilters = [
     { key: "all", label: "전체" },
-    { key: "green", label: "생두" },
     { key: "beans", label: "원두" },
-    { key: "support", label: "우유 · 기타" },
+    { key: "milk", label: "우유" },
   ] as const;
 
-  function openInventoryEntry(mode: "existing" | "new", type: "in" | "out" | "adjust" = "in") {
+  function openInventoryEntry(mode: "existing" | "new", type: "in" | "out" | "adjust" = "in", item?: InventoryItem) {
+    if (busy) return;
+    if (item) setMovementItemId(item.id);
+    setMovementQuantity(""); setMovementNotice(""); setMovementSaveError("");
     setInventoryTab("movement");
     setEntryMode(mode);
     setMovementType(type);
     window.requestAnimationFrame(() => {
       inventoryEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      const selector = mode === "new" ? 'input[name="name"]' : 'select[name="itemId"]';
+      const selector = mode === "new" ? 'input[name="name"]' : item ? 'input[name="quantity"]' : 'select[name="itemId"]';
       inventoryEntryRef.current?.querySelector<HTMLElement>(selector)?.focus();
     });
   }
@@ -1283,52 +1245,40 @@ function InventoryView({
 
   async function submitMovement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (movementBusy.current || !movementItem || !movementPreview) return;
+    const amount = inventoryItemAmount(movementItem);
+    if (movementPreview.nextQuantity === 0 && !window.confirm(`${movementItem.name}\n현재 ${amount.value}${amount.unit} → 0${amount.unit}\n\n재고 있는 품목 목록에서 제외합니다. 기존 입출고·실사 기록은 보관하며 ‘소진 품목’에서 다시 입고할 수 있습니다. 처리할까요?`)) return;
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    const enteredQuantity = Number(form.get("quantity"));
-    const storedQuantity = movementItem && (movementItem.category === "roasted" || movementItem.category === "gusto")
-      ? kilogramsToInventoryQuantity(enteredQuantity, movementItem.unit)
-      : form.get("quantity");
-    const enteredOutputQuantity = Number(form.get("outputQuantity"));
-    const storedOutputQuantity = roastedOutputItem
-      ? kilogramsToInventoryQuantity(enteredOutputQuantity, roastedOutputItem.unit)
-      : form.get("outputQuantity");
-    setBusy(true);
+    const storedQuantity = movementPreview.quantity;
+    movementBusy.current = true; setBusy(true); setMovementNotice(""); setMovementSaveError("");
     try {
-      const payload = isGreenRoast
-        ? {
-            greenItemId: movementItemId,
-            roastedItemId: roastedOutputItemId,
-            greenKg: form.get("quantity"),
-            outputGrams: storedOutputQuantity,
-            movementDate: form.get("movementDate"),
-            note: form.get("note"),
-          }
-        : {
-            ...Object.fromEntries(form.entries()),
-            action: "movement",
-            itemId: movementItemId,
-            movementType,
-            quantity: storedQuantity,
-          };
-      await requestJson(isGreenRoast ? "/api/inventory/roast" : "/api/inventory", {
+      const payload = {
+        ...Object.fromEntries(form.entries()), action: "movement", itemId: movementItem.id,
+        movementType: effectiveMovementType, quantity: storedQuantity, expectedQuantity: Number(movementItem.quantity),
+      };
+      await requestJson("/api/inventory", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
       formElement.reset();
-      setMovementType("in");
+      setMovementQuantity("");
       await onUpdated();
+      const next = inventoryItemAmount(movementItem, movementPreview.nextQuantity);
+      const message = movementPreview.nextQuantity === 0
+        ? `${movementItem.name} · 0${next.unit} 처리 완료. 기본 현황에서 제외하고 기존 기록은 보관했습니다.`
+        : `${movementItem.name} · 현재 재고 ${next.value}${next.unit}로 반영했습니다.`;
+      setMovementNotice(message);
       notify({
         kind: "ok",
-        message: isGreenRoast
-          ? "생두 출고와 완성 원두 입고를 함께 반영했습니다."
-          : "재고 변동을 반영했습니다.",
+        message,
       });
     } catch (error) {
+      setMovementSaveError(errorMessage(error));
       notify({ kind: "error", message: errorMessage(error) });
     } finally {
-      setBusy(false);
+      movementBusy.current = false; setBusy(false);
     }
   }
 
@@ -1384,28 +1334,13 @@ function InventoryView({
         action={<a className="export-button" href="/api/exports/inventory">전체 재고 Excel</a>}
       />
 
-      <section className="inventory-command-bar" aria-label="재고 빠른 입력">
-        <header><span>QUICK ENTRY</span><strong>어떤 작업을 할까요?</strong><p>선택하면 입력칸으로 바로 이동합니다.</p></header>
-        <div>
-          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "in" ? "active" : ""} onClick={() => openInventoryEntry("existing", "in")}><small>01</small><b>입고 등록</b><span>수량을 더합니다</span></button>
-          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "out" ? "active" : ""} onClick={() => openInventoryEntry("existing", "out")}><small>02</small><b>출고 · 사용</b><span>수업·로스팅 사용</span></button>
-          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "adjust" ? "active" : ""} onClick={() => openInventoryEntry("existing", "adjust")}><small>03</small><b>실사 조정</b><span>현재 수량으로 맞춤</span></button>
-          <button type="button" className={inventoryTab === "movement" && entryMode === "new" ? "active" : ""} onClick={() => openInventoryEntry("new")}><small>04</small><b>새 품목</b><span>등록과 입고를 한 번에</span></button>
-        </div>
-      </section>
-
-      <div className="inventory-summary inventory-summary-always">
-        <div><span>생두 품목</span><strong>{greenItems.length}<small>개</small></strong></div>
-        <div><span>원두 품목</span><strong>{beanItems.length}<small>개</small></strong></div>
-        <div className={data.inventory.some((item) => item.lowStock) ? "attention" : ""}><span>확인 필요</span><strong>{data.inventory.filter((item) => item.lowStock).length}<small>개</small></strong></div>
-      </div>
-
       <div className="inventory-tabs" role="tablist" aria-label="재고 작업 선택">
         {inventoryTabs.map((tab) => (
           <button
             type="button"
             role="tab"
             aria-selected={inventoryTab === tab.key}
+            disabled={busy}
             className={inventoryTab === tab.key ? "active" : ""}
             key={tab.key}
             onClick={() => setInventoryTab(tab.key)}
@@ -1415,8 +1350,33 @@ function InventoryView({
         ))}
       </div>
 
+      {inventoryTab === "movement" && (
+      <section className="inventory-command-bar" aria-label="재고 빠른 입력">
+        <header><span>QUICK ENTRY</span><strong>어떤 작업을 할까요?</strong><p>선택하면 입력칸으로 바로 이동합니다.</p></header>
+        <div>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "in" ? "active" : ""} onClick={() => openInventoryEntry("existing", "in")}><small>01</small><b>입고 등록</b><span>수량을 더합니다</span></button>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "out" ? "active" : ""} onClick={() => openInventoryEntry("existing", "out")}><small>02</small><b>출고 · 사용</b><span>사용한 수량을 뺍니다</span></button>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "existing" && movementType === "adjust" ? "active" : ""} onClick={() => openInventoryEntry("existing", "adjust")}><small>03</small><b>실사 조정</b><span>현재 수량으로 맞춤</span></button>
+          <button type="button" className={inventoryTab === "movement" && entryMode === "new" ? "active" : ""} onClick={() => openInventoryEntry("new")}><small>04</small><b>새 품목</b><span>등록과 입고를 한 번에</span></button>
+        </div>
+      </section>
+      )}
+
+      {inventoryTab === "overview" && (
+      <div className="inventory-summary inventory-summary-always">
+        <div><span>보유 우유</span><strong>{stockedItems.filter(item => item.category === "milk").length}<small>개 품목</small></strong></div>
+        <div><span>보유 원두</span><strong>{stockedItems.filter(item => item.category === "roasted" || item.category === "gusto").length}<small>개 품목</small></strong></div>
+        <div><span>소진 품목</span><strong>{data.inventory.length - stockedItems.length}<small>개</small></strong></div>
+      </div>
+      )}
+
       {inventoryTab === "overview" && (
         <div role="tabpanel">
+          <div className="inventory-find-tools">
+            <label>품목 검색<input type="search" value={inventorySearch} onChange={e => setInventorySearch(e.target.value)} placeholder="품목명 · LOT · 가공 방식" /></label>
+            <label>재고 상태<select aria-label="재고 상태" value={stockFilter} onChange={e => setStockFilter(e.target.value)}><option value="available">재고 있는 품목</option><option value="empty">소진 품목 (0)</option><option value="all">전체 품목</option></select></label>
+          </div>
+          <p className="inventory-zero-guide">잔량 0인 품목은 기본 현황에서 제외됩니다. ‘소진 품목’에서 재입고할 수 있고, 이전 기록은 ‘입출고 기록’에 남습니다.</p>
           <div className="inventory-overview-controls">
             <div className="inventory-filter" role="group" aria-label="재고 분류 필터">
               {categoryFilters.map((filter) => (
@@ -1461,7 +1421,7 @@ function InventoryView({
                         <div className="inventory-card-top">
                           <span className={`category-tag category-${item.category}`}>{categoryLabel[item.category]}</span>
                           <div className="inventory-card-controls">
-                            <span className={item.lowStock ? "stock-status low" : "stock-status"}>{item.lowStock ? "확인 필요" : "정상"}</span>
+                            <span className={item.lowStock ? "stock-status low" : "stock-status"}>{item.quantity === 0 ? "소진" : item.lowStock ? "확인 필요" : "정상"}</span>
                             {data.user.role === "admin" && <button type="button" onClick={() => setEditingItem(item)}>정보 수정</button>}
                           </div>
                         </div>
@@ -1474,8 +1434,9 @@ function InventoryView({
                           </div>
                         )}
                         <strong>{amount.value}<small>{amount.unit}</small></strong>
-                        <div className="stock-meter"><span style={{ width: `${Math.min(100, item.reorderLevel ? (item.quantity / (item.reorderLevel * 2)) * 100 : 100)}%` }} /></div>
+                        <div className="stock-meter"><span style={{ width: `${item.quantity <= 0 ? 0 : Math.min(100, item.reorderLevel ? (item.quantity / (item.reorderLevel * 2)) * 100 : 100)}%` }} /></div>
                         <p>최소 재고 {minimum.value}{minimum.unit}</p>
+                        <div className="inventory-card-actions"><button type="button" onClick={() => openInventoryEntry("existing", "in", item)}>입고</button><button type="button" disabled={item.quantity <= 0} onClick={() => openInventoryEntry("existing", "out", item)}>출고</button><button type="button" onClick={() => openInventoryEntry("existing", "adjust", item)}>실사</button></div>
                       </article>
                     );
                   })}
@@ -1483,7 +1444,8 @@ function InventoryView({
               </section>
             ))}
           </div>
-          {data.legacyInventoryCount > 0 && <p className="inventory-source-note">기존 더컵인벤토리의 입고·로스팅 기록과 현재 잔량을 그대로 연결했습니다.</p>}
+          {!visibleItems.length && <p className="inventory-empty-state">{inventorySearch ? "검색 결과가 없습니다. 품목명이나 LOT를 확인하세요." : stockFilter === "empty" ? "소진된 품목이 없습니다." : "표시할 재고가 없습니다. ‘소진 품목’을 확인하거나 새 품목을 입고하세요."}</p>}
+          {data.legacyInventoryCount > 0 && <p className="inventory-source-note">기존 원두·우유 기록과 현재 잔량을 그대로 연결했습니다.</p>}
         </div>
       )}
 
@@ -1491,67 +1453,60 @@ function InventoryView({
         <article ref={inventoryEntryRef} id="inventory-quick-entry" className="panel compact-form-panel inventory-workspace-panel" role="tabpanel">
           <div className="inventory-entry-switch segmented" role="group" aria-label="입출고 대상 선택">
             <label className={entryMode === "existing" ? "active" : ""}>
-              <input type="radio" checked={entryMode === "existing"} onChange={() => setEntryMode("existing")} />기존 품목
+              <input type="radio" disabled={busy} checked={entryMode === "existing"} onChange={() => setEntryMode("existing")} />기존 품목
             </label>
             <label className={entryMode === "new" ? "active" : ""}>
-              <input type="radio" checked={entryMode === "new"} onChange={() => setEntryMode("new")} />새 품목 입고
+              <input type="radio" disabled={busy} checked={entryMode === "new"} onChange={() => setEntryMode("new")} />새 품목 입고
             </label>
           </div>
 
           {entryMode === "existing" ? (
             <>
-              <div className="form-title"><div><h3>기존 품목 입출고</h3><p>생두 출고를 선택하면 로스팅된 원두 입고까지 한 번에 기록됩니다.</p></div></div>
+              <div className="form-title"><div><h3>기존 품목 입출고</h3><p>입고는 더할 수량, 출고는 사용할 수량, 실사는 실제 남은 수량을 입력하세요.</p></div></div>
+              {movementNotice && <p role="status" className="inventory-save-notice">{movementNotice}</p>}
+              {movementSaveError && <div className="inventory-input-error" role="alert"><p>{movementSaveError}</p><button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onUpdated(); setMovementSaveError(""); setMovementQuantity(""); } catch (error) { setMovementSaveError(errorMessage(error)); } finally { setBusy(false); } }}>현재 수량 다시 불러오기</button></div>}
               {movementItem && (() => {
                 const amount = inventoryItemAmount(movementItem);
                 return <div className="inventory-selected-item"><div><span>선택된 품목</span><strong>{movementItem.name}</strong></div><p>{categoryLabel[movementItem.category]}</p><b>{amount.value}<small>{amount.unit}</small></b></div>;
               })()}
               <form onSubmit={submitMovement}>
+                <fieldset className="inventory-form-fields" disabled={busy}>
                 <Field label="품목">
-                  <select name="itemId" required value={movementItemId} onChange={(event) => setMovementItemId(Number(event.target.value))}>
-                    {greenItems.length > 0 && <optgroup label="생두">{greenItems.map((item) => <option key={item.id} value={item.id}>{inventoryOptionLabel(item)}</option>)}</optgroup>}
+                  <select name="itemId" required value={movementItem?.id ?? ""} onChange={(event) => { setMovementItemId(Number(event.target.value)); setMovementQuantity(""); setMovementNotice(""); }}>
                     {beanItems.length > 0 && <optgroup label="원두">{beanItems.map((item) => <option key={item.id} value={item.id}>{inventoryOptionLabel(item)}</option>)}</optgroup>}
-                    {data.inventory.some((item) => item.category === "milk" || item.category === "other") && (
-                      <optgroup label="우유 · 기타">{data.inventory.filter((item) => item.category === "milk" || item.category === "other").map((item) => <option key={item.id} value={item.id}>{inventoryOptionLabel(item)}</option>)}</optgroup>
+                    {data.inventory.some((item) => item.category === "milk") && (
+                      <optgroup label="우유">{data.inventory.filter((item) => item.category === "milk").map((item) => <option key={item.id} value={item.id}>{inventoryOptionLabel(item)}</option>)}</optgroup>
                     )}
                   </select>
                 </Field>
                 <div className="two-columns">
                   <Field label="작업">
-                    <select name="movementType" value={movementType} onChange={(event) => setMovementType(event.target.value as "in" | "out" | "adjust")}>
+                    <select name="movementType" value={movementType} onChange={(event) => { setMovementType(event.target.value as "in" | "out" | "adjust"); setMovementQuantity(""); setMovementNotice(""); }}>
                       <option value="in">입고</option>
-                      <option value="out">{movementItem?.category === "green" ? "로스팅 사용 (출고)" : "출고/사용"}</option>
+                      <option value="out">출고/사용</option>
                       <option value="adjust">실사 수량으로 조정</option>
                     </select>
                   </Field>
-                  <Field label={`${movementType === "adjust" ? "실사 수량" : isGreenRoast ? "생두 투입량" : "수량"} (${movementItem && (movementItem.category === "roasted" || movementItem.category === "gusto") ? "kg" : movementItem?.unit ?? "단위"})`}>
-                    <input name="quantity" type="number" min={movementType === "adjust" ? "0" : "0.01"} step="0.01" required />
+                  <Field label={`${movementType === "adjust" ? "실사 수량" : "수량"} (${movementItem && (movementItem.category === "roasted" || movementItem.category === "gusto") ? "kg" : movementItem?.unit ?? "단위"})`}>
+                    <input name="quantity" type="text" inputMode="decimal" autoComplete="off" value={movementQuantity} required placeholder={movementType === "adjust" ? "실제 남은 수량 (없으면 0)" : "예: 0.5"} aria-describedby="stock-quantity-help" aria-invalid={Boolean(movementError)} onFocus={e => e.currentTarget.select()} onChange={e => setMovementQuantity(e.target.value)} onBlur={() => { try { setMovementQuantity(String(readStockQuantity(movementQuantity))); } catch { /* Keep incomplete input editable. */ } }} />
                   </Field>
                 </div>
-                {isGreenRoast && (
-                  <div className="inline-roast-workflow">
-                    <div className="inline-roast-heading"><strong>완성된 원두도 함께 입고</strong><span>두 번 입력할 필요 없이 자동으로 연결됩니다.</span></div>
-                    <div className="two-columns">
-                      <Field label="완성 원두 품목">
-                        <select name="roastedItemId" required value={roastedOutputItem?.id ?? ""} onChange={(event) => setRoastedOutputItemId(Number(event.target.value))}>
-                          {roastedItems.length > 0
-                            ? roastedItems.map((item) => <option key={item.id} value={item.id}>{inventoryOptionLabel(item)}</option>)
-                            : <option value="">새 품목 입고에서 원두를 먼저 등록하세요</option>}
-                        </select>
-                      </Field>
-                      <Field label="완성 원두 수량 (kg)">
-                        <input name="outputQuantity" type="number" min="0.01" step="0.01" required />
-                      </Field>
-                    </div>
-                  </div>
-                )}
+                <p id="stock-quantity-help" className="inventory-zero-guide">0을 입력하면 실사 잔량을 0으로 처리하고 이전 기록은 보관합니다.{movementItem && (["roasted", "gusto"].includes(movementItem.category) || movementItem.unit === "kg") && " kg 입력 예: 500g = 0.5kg, 100g = 0.1kg."}</p>
+                <div className="inventory-quantity-shortcuts"><button type="button" disabled={!movementItem} onClick={() => { setMovementType("adjust"); setMovementQuantity("0"); }}>재고 비우기 (0)</button>{movementItem && movementType === "out" && <button type="button" onClick={() => setMovementQuantity(String(["roasted", "gusto"].includes(movementItem.category) ? inventoryQuantityInKilograms(movementItem.quantity, movementItem.unit) : movementItem.quantity))}>남은 수량 전체 사용</button>}</div>
+                {movementError && <p role="alert" className="inventory-input-error">{movementError}</p>}
+                {movementPreview && movementItem && (() => {
+                  const before = inventoryItemAmount(movementItem), after = inventoryItemAmount(movementItem, movementPreview.nextQuantity);
+                  return <div className="inventory-balance-preview" role="status"><span>{isZeroEntry ? "실사 0 처리" : movementType === "adjust" ? "실사 반영 예정" : movementType === "in" ? "입고 반영 예정" : "출고 반영 예정"}</span><strong>{before.value}{before.unit} → {after.value}{after.unit}</strong>{movementPreview.nextQuantity === 0 && <p>소진 처리 · 기본 재고 목록에서 제외 · 이전 기록 보관</p>}</div>;
+                })()}
                 <Field label="날짜"><input name="movementDate" type="date" defaultValue={today} required /></Field>
-                <Field label="메모"><input name="note" placeholder={isGreenRoast ? "배치 또는 프로파일명" : "입고처, 출고·사용 사유"} /></Field>
-                <button className="secondary-button" disabled={busy || (isGreenRoast && !roastedOutputItem)}>{busy ? "반영 중…" : isGreenRoast ? "로스팅 재고 함께 반영" : "재고 반영"}</button>
+                <Field label="메모"><input name="note" placeholder="입고처, 출고·사용 사유" /></Field>
+                <button className="secondary-button" disabled={busy || !movementPreview}>{busy ? "반영 중…" : movementPreview?.nextQuantity === 0 ? "0으로 처리 · 목록에서 제외" : "재고 반영"}</button>
+                </fieldset>
               </form>
             </>
           ) : (
             <>
-              <div className="form-title"><div><h3>새 품목 입고</h3><p>목록에 없는 생두, 원두 또는 부자재를 등록하면서 입고합니다.</p></div></div>
+              <div className="form-title"><div><h3>새 품목 입고</h3><p>새 원두 또는 우유를 등록하면서 첫 입고를 함께 기록합니다.</p></div></div>
               <form onSubmit={(event) => submitJson(event, "/api/inventory", "새 품목과 입고 수량을 함께 반영했습니다.")}>
                 <input type="hidden" name="action" value="create_item_with_stock" />
                 <Field label="품목명"><input name="name" required placeholder="에티오피아 구지 워시드" /></Field>
@@ -1561,9 +1516,9 @@ function InventoryView({
                 </div>
                 <div className="two-columns">
                   <Field label="분류">
-                    <select name="category" value={newItemCategory} onChange={(event) => setNewItemCategory(event.target.value as InventoryItem["category"])}><option value="green">생두</option><option value="roasted">원두 · 자체 로스팅</option><option value="gusto">원두 · 구스토</option><option value="milk">우유</option><option value="other">기타</option></select>
+                    <select name="category" value={newItemCategory} onChange={(event) => setNewItemCategory(event.target.value as InventoryItem["category"])}><option value="roasted">원두</option><option value="gusto">원두 · 구스토</option><option value="milk">우유</option></select>
                   </Field>
-                  <PresetOrCustomField key={newItemCategory} name="unit" label="단위" options={inventoryUnitOptions} initialValue={newItemCategory === "milk" ? "팩" : newItemCategory === "other" ? "개" : "kg"} required customPlaceholder="사용할 단위를 입력하세요" />
+                  <PresetOrCustomField key={newItemCategory} name="unit" label="단위" options={inventoryUnitOptions} initialValue={newItemCategory === "milk" ? "팩" : "kg"} required customPlaceholder="사용할 단위를 입력하세요" />
                 </div>
                 <div className="two-columns">
                   <Field label="입고 수량"><input name="initialQuantity" type="number" min="0.01" step="0.01" required /></Field>
@@ -1613,7 +1568,7 @@ function InventoryView({
                     {classificationLocked ? (
                       <><input type="hidden" name="category" value={editingItem.category} /><input value={categoryLabel[editingItem.category]} disabled /></>
                     ) : (
-                      <select name="category" defaultValue={editingItem.category}><option value="green">생두</option><option value="roasted">로스팅(원두)</option><option value="gusto">구스토 원두</option><option value="milk">우유</option><option value="other">기타</option></select>
+                      <select name="category" defaultValue={editingItem.category}><option value="roasted">원두</option><option value="gusto">구스토 원두</option><option value="milk">우유</option></select>
                     )}
                   </Field>
                   <Field label="단위">
@@ -1822,854 +1777,6 @@ function FinanceView({
         </AccessibleDialog>
       )}
     </section>
-  );
-}
-
-function RoastingView({
-  user,
-  notify,
-}: {
-  user: User;
-  notify: (toast: { kind: "ok" | "error"; message: string }) => void;
-}) {
-  const [profiles, setProfiles] = useState<RoastProfile[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [editor, setEditor] = useState<RoastEditorState>(null);
-  const [loading, setLoading] = useState(true);
-  const [draggedProfileId, setDraggedProfileId] = useState<number | null>(null);
-  const [dragOverProfileId, setDragOverProfileId] = useState<number | null>(null);
-  const [savingOrder, setSavingOrder] = useState(false);
-
-  const load = useCallback(async (preferredId?: number) => {
-    try {
-      const result = await requestJson<{ profiles: RoastProfile[] }>("/api/roasting");
-      setProfiles(result.profiles);
-      setSelectedId((current) => {
-        if (preferredId && result.profiles.some((profile) => profile.id === preferredId)) return preferredId;
-        if (current && result.profiles.some((profile) => profile.id === current)) return current;
-        return result.profiles[0]?.id ?? null;
-      });
-    } catch (error) {
-      notify({ kind: "error", message: errorMessage(error) });
-    } finally {
-      setLoading(false);
-    }
-  }, [notify]);
-
-  useEffect(() => {
-    // Fetch the protected profile list when this workspace opens.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
-
-  const selected = profiles.find((profile) => profile.id === selectedId) ?? null;
-
-  async function deleteProfile(profile: RoastProfile) {
-    if (!window.confirm(`${profile.beanName} 프로파일을 삭제할까요?`)) return;
-    try {
-      await requestJson(`/api/roasting/${profile.id}`, { method: "DELETE" });
-      setSelectedId(null);
-      await load();
-      notify({ kind: "ok", message: "로스팅 프로파일을 삭제했습니다." });
-    } catch (error) {
-      notify({ kind: "error", message: errorMessage(error) });
-    }
-  }
-
-  async function moveProfile(profileId: number, targetIndex: number) {
-    if (savingOrder) return;
-    const sourceIndex = profiles.findIndex((profile) => profile.id === profileId);
-    const boundedTarget = Math.max(0, Math.min(targetIndex, profiles.length - 1));
-    if (sourceIndex < 0 || sourceIndex === boundedTarget) return;
-
-    const previous = profiles;
-    const next = [...profiles];
-    const [moved] = next.splice(sourceIndex, 1);
-    next.splice(boundedTarget, 0, moved);
-    setProfiles(next);
-    setSavingOrder(true);
-    try {
-      await requestJson("/api/roasting/order", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileIds: next.map((profile) => profile.id) }),
-      });
-      notify({ kind: "ok", message: "프로파일 목록 순서를 저장했습니다." });
-    } catch (error) {
-      setProfiles(previous);
-      notify({ kind: "error", message: errorMessage(error) });
-    } finally {
-      setSavingOrder(false);
-    }
-  }
-
-  if (editor) {
-    const sourceProfile = editor.mode === "create" ? null : editor.profile;
-    return (
-      <section className="page-section">
-        <RoastProfileForm
-          initial={sourceProfile}
-          mode={editor.mode}
-          onCancel={() => setEditor(null)}
-          onSaved={async (savedId) => {
-            setEditor(null);
-            await load(savedId);
-            notify({
-              kind: "ok",
-              message: editor.mode === "copy"
-                ? "복사한 프로파일을 새 프로파일로 저장했습니다."
-                : "로스팅 프로파일을 저장했습니다.",
-            });
-          }}
-          notify={notify}
-        />
-      </section>
-    );
-  }
-
-  return (
-    <section className="page-section">
-      <PageHeader
-        eyebrow="로스팅 기록"
-        title="로스팅 프로파일"
-        description="온도, bar 기준 가스 압력, 1차 크랙과 배출 시점을 기록하고 구간별 평균 ROR을 확인합니다."
-      />
-
-      {user.role === "admin" && (
-        <section className="roast-quick-start">
-          <div><span>QUICK PROFILE</span><h2>새 로스팅 기록을 바로 입력하세요.</h2><p>빈 양식으로 시작하거나 선택한 프로파일을 복사해 달라진 값만 수정할 수 있습니다.</p></div>
-          <div className="roast-quick-actions">
-            <button className="primary-button" onClick={() => setEditor({ mode: "create" })}>새 프로파일 바로 입력</button>
-            <button className="ghost-button" disabled={!selected} onClick={() => selected && setEditor({ mode: "copy", profile: selected })}>선택값 복사해 입력</button>
-          </div>
-        </section>
-      )}
-
-      {loading ? <div className="panel empty-state">프로파일을 불러오는 중입니다.</div> : profiles.length ? (
-        <div className="roast-layout">
-          <aside className="profile-sidebar">
-            <div className="profile-list-heading">
-              <strong>프로파일 목록</strong>
-              {user.role === "admin" && (
-                <span aria-live="polite">
-                  {savingOrder ? "순서 저장 중…" : "끌어서 이동 · ↑↓ 버튼"}
-                </span>
-              )}
-            </div>
-            <div className="profile-list" aria-label="로스팅 프로파일 순서">
-              {profiles.map((profile, index) => (
-                <div
-                  className={[
-                    "profile-list-item",
-                    user.role === "admin" ? "editable" : "",
-                    draggedProfileId === profile.id ? "dragging" : "",
-                    dragOverProfileId === profile.id && draggedProfileId !== profile.id ? "drag-over" : "",
-                  ].filter(Boolean).join(" ")}
-                  key={profile.id}
-                  onDragOver={(event) => {
-                    if (user.role !== "admin" || savingOrder) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                    if (dragOverProfileId !== profile.id) setDragOverProfileId(profile.id);
-                  }}
-                  onDrop={(event) => {
-                    if (user.role !== "admin" || savingOrder) return;
-                    event.preventDefault();
-                    const sourceId = Number(event.dataTransfer.getData("text/plain")) || draggedProfileId;
-                    setDraggedProfileId(null);
-                    setDragOverProfileId(null);
-                    if (sourceId) void moveProfile(sourceId, index);
-                  }}
-                >
-                  {user.role === "admin" && (
-                    <button
-                      type="button"
-                      className="profile-drag-handle"
-                      draggable={!savingOrder}
-                      disabled={savingOrder}
-                      aria-label={`${profile.beanName} 프로파일 순서 이동`}
-                      title="끌어서 원하는 위치로 이동"
-                      onDragStart={(event) => {
-                        setDraggedProfileId(profile.id);
-                        setDragOverProfileId(null);
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", String(profile.id));
-                      }}
-                      onDragEnd={() => {
-                        setDraggedProfileId(null);
-                        setDragOverProfileId(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "ArrowUp" && index > 0) {
-                          event.preventDefault();
-                          void moveProfile(profile.id, index - 1);
-                        }
-                        if (event.key === "ArrowDown" && index < profiles.length - 1) {
-                          event.preventDefault();
-                          void moveProfile(profile.id, index + 1);
-                        }
-                      }}
-                    >
-                      <span aria-hidden="true">⠿</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className={selectedId === profile.id ? "profile-card active" : "profile-card"}
-                    onClick={() => setSelectedId(profile.id)}
-                  >
-                    <span>{profile.origin || "ORIGIN"}</span>
-                    <strong>{profile.beanName}</strong>
-                    <small>{profile.process || "프로세스 미입력"} · {formatTime(profile.totalSeconds)}</small>
-                  </button>
-                  {user.role === "admin" && (
-                    <div className="profile-order-actions" aria-label={`${profile.beanName} 순서 조정`}>
-                      <button
-                        type="button"
-                        onClick={() => void moveProfile(profile.id, index - 1)}
-                        disabled={savingOrder || index === 0}
-                        aria-label={`${profile.beanName} 위로 이동`}
-                        title="위로 이동"
-                      >↑</button>
-                      <button
-                        type="button"
-                        onClick={() => void moveProfile(profile.id, index + 1)}
-                        disabled={savingOrder || index === profiles.length - 1}
-                        aria-label={`${profile.beanName} 아래로 이동`}
-                        title="아래로 이동"
-                      >↓</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </aside>
-          {selected && (
-            <article className="panel profile-detail">
-              <div className="profile-hero">
-                <div>
-                  <span className="eyebrow">{selected.origin || "산지 미입력"} · {selected.process || "가공 방식 미입력"}</span>
-                  <h2>{selected.beanName}</h2>
-                  <p>{number.format(selected.batchWeight)}kg 배치 · 작성 {selected.createdByName}</p>
-                </div>
-                {user.role === "admin" && (
-                  <div className="button-row">
-                    <button className="ghost-button" onClick={() => setEditor({ mode: "copy", profile: selected })}>복사해서 새로 만들기</button>
-                    <button className="ghost-button" onClick={() => setEditor({ mode: "edit", profile: selected })}>수정</button>
-                    <button className="ghost-button danger" onClick={() => void deleteProfile(selected)}>삭제</button>
-                  </div>
-                )}
-              </div>
-              <RoastFollowGuide profile={selected} />
-              <RoastCurve profile={selected} />
-              <div className="roast-metrics">
-                <Metric label="배치 중량" value={`${number.format(selected.batchWeight)}kg`} />
-                <Metric label="전체 시간" value={formatTime(selected.totalSeconds)} />
-                <Metric label="디벨롭" value={`${formatTime(selected.developmentSeconds)} · ${selected.developmentRatio}%`} accent />
-              </div>
-              <div className="ror-grid">
-                <div><span>터닝 → 1차 크랙 평균 ROR</span><strong>{selected.ror.turningToCrack}℃/분</strong><small>1분마다 올라간 평균 온도</small></div>
-                <div><span>1차 크랙 → 종료 평균 ROR</span><strong>{selected.ror.development}℃/분</strong><small>디벨롭 구간의 평균 온도 상승</small></div>
-              </div>
-              <div className="profile-notes">
-                <div><span>가스 운용</span><p>{selected.gasNotes || "기록 없음"}</p></div>
-                <div><span>컵 노트 · 주의사항</span><p>{selected.notes || "기록 없음"}</p></div>
-              </div>
-            </article>
-          )}
-        </div>
-      ) : (
-        <div className="panel empty-state">
-          <strong>아직 저장된 로스팅 프로파일이 없습니다.</strong>
-          <p>첫 프로파일을 등록하면 온도 곡선과 구간별 ROR이 여기에 표시됩니다.</p>
-          {user.role === "admin" && <button className="primary-button small" onClick={() => setEditor({ mode: "create" })}>첫 프로파일 만들기</button>}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RoastFollowGuide({ profile }: { profile: RoastProfile }) {
-  const chargePoint = roastPointAt(profile.points, 0, { beanTemp: profile.chargeTemp, gasPressure: 0 });
-  const charge = { ...chargePoint, beanTemp: chargePoint.beanTemp > 0 ? chargePoint.beanTemp : profile.chargeTemp };
-  const turning = roastPointAt(profile.points, profile.turningPointSeconds, { beanTemp: 0, gasPressure: 0 });
-  const firstCrack = roastPointAt(profile.points, profile.firstCrackSeconds, { beanTemp: 0, gasPressure: 0 });
-  const finish = roastPointAt(profile.points, profile.totalSeconds, { beanTemp: profile.dropTemp, gasPressure: 0 });
-  const gasAdjustments = getGasAdjustments(profile.points, profile.totalSeconds);
-  const steps = [
-    { label: "투입", description: "예열한 로스터에 원두를 넣는 시작 시점", seconds: 0, point: charge },
-    { label: "터닝포인트", description: "온도가 가장 낮아졌다가 다시 오르기 시작하는 시점", seconds: profile.turningPointSeconds, point: turning },
-    { label: "1차 크랙 시작", description: "원두에서 첫 크랙 소리가 들리기 시작하는 시점", seconds: profile.firstCrackSeconds, point: firstCrack },
-    { label: "종료", description: "로스팅을 마치고 원두를 배출하는 시점", seconds: profile.totalSeconds, point: finish },
-  ];
-
-  return (
-    <section className="roast-follow-guide" aria-labelledby="roast-follow-title">
-      <div className="roast-follow-heading">
-        <div><span className="eyebrow">한눈에 따라하기</span><h3 id="roast-follow-title">이 순서대로 확인하세요</h3></div>
-        <p>주요 시점과 실제 화력 변경 기록을 함께 보면서 진행하세요.</p>
-      </div>
-      <div className="roast-step-list">
-        {steps.map((step, index) => (
-          <article className="roast-step-card" key={step.label}>
-            <span className="roast-step-number">{String(index + 1).padStart(2, "0")}</span>
-            <div className="roast-step-copy"><h4>{step.label}</h4><p>{step.description}</p></div>
-            <dl>
-              <div><dt>시간</dt><dd>{formatTime(step.seconds)}</dd></div>
-              <div><dt>온도</dt><dd>{number.format(step.point.beanTemp)}℃</dd></div>
-              <div><dt>가스</dt><dd>{formatGasPressure(step.point.gasPressure)}</dd></div>
-            </dl>
-          </article>
-        ))}
-      </div>
-      <div className="roast-gas-guide">
-        <div className="roast-gas-heading">
-          <div>
-            <span>실제 화력 조절 기록</span>
-            <h4>가스를 바꾼 순간만 시간순으로 표시합니다</h4>
-          </div>
-          <strong>{gasAdjustments.length}개 기록</strong>
-        </div>
-        {gasAdjustments.length ? (
-          <ol className="roast-gas-list">
-            {gasAdjustments.map((adjustment) => {
-              const isStart = adjustment.previousGasPressure === null;
-              const increased = !isStart && adjustment.gasPressure > adjustment.previousGasPressure!;
-              const action = isStart ? "시작 화력" : increased ? "화력 높임" : "화력 낮춤";
-              return (
-                <li key={`${adjustment.seconds}-${adjustment.gasPressure}`}>
-                  <time>{formatTime(adjustment.seconds)}</time>
-                  <div className="roast-gas-action">
-                    <strong>{action}</strong>
-                    <span>원두 온도 {number.format(adjustment.beanTemp)}℃</span>
-                  </div>
-                  <div className="roast-gas-pressure">
-                    {!isStart && <small>{formatGasPressure(adjustment.previousGasPressure!)} →</small>}
-                    <strong>{formatGasPressure(adjustment.gasPressure)}</strong>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        ) : (
-          <p className="roast-gas-empty">저장된 화력 조절 기록이 없습니다.</p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function DurationInput({
-  value,
-  onChange,
-  ariaLabel,
-  name,
-  disabled = false,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  ariaLabel: string;
-  name?: string;
-  disabled?: boolean;
-}) {
-  const safeValue = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
-  const minutes = Math.floor(safeValue / 60);
-  const seconds = safeValue % 60;
-  const update = (nextMinutes: number, nextSeconds: number) => {
-    const normalizedMinutes = Math.max(0, Math.floor(Number.isFinite(nextMinutes) ? nextMinutes : 0));
-    const normalizedSeconds = Math.min(59, Math.max(0, Math.floor(Number.isFinite(nextSeconds) ? nextSeconds : 0)));
-    onChange((normalizedMinutes * 60) + normalizedSeconds);
-  };
-
-  return (
-    <div className="duration-input">
-      {name && <input type="hidden" name={name} value={safeValue} readOnly />}
-      <div className="duration-part">
-        <StableNumberInput
-          value={minutes}
-          onChange={(nextMinutes) => update(nextMinutes, seconds)}
-          min="0"
-          integer
-          disabled={disabled}
-          ariaLabel={`${ariaLabel} 분`}
-          required={!disabled}
-        />
-        <span>분</span>
-      </div>
-      <div className="duration-part">
-        <StableNumberInput
-          value={seconds}
-          onChange={(nextSeconds) => update(minutes, nextSeconds)}
-          min="0"
-          max="59"
-          integer
-          disabled={disabled}
-          ariaLabel={`${ariaLabel} 초`}
-          required={!disabled}
-        />
-        <span>초</span>
-      </div>
-    </div>
-  );
-}
-
-function StableNumberInput({
-  value,
-  onChange,
-  ariaLabel,
-  min,
-  max,
-  integer = false,
-  disabled = false,
-  required = true,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  ariaLabel: string;
-  min?: string;
-  max?: string;
-  integer?: boolean;
-  disabled?: boolean;
-  required?: boolean;
-}) {
-  const [draft, setDraft] = useState(() => formatEditableNumber(value));
-
-  function apply(raw: string) {
-    const pattern = integer ? /^\d*$/ : /^\d*(?:\.\d*)?$/;
-    if (!pattern.test(raw)) return;
-    setDraft(raw);
-    if (raw === "" || raw === ".") return;
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed)) onChange(clampNumber(parsed, min, max, integer));
-  }
-
-  function commit() {
-    const parsed = draft === "" || draft === "." ? value : Number(draft);
-    const normalized = clampNumber(Number.isFinite(parsed) ? parsed : value, min, max, integer);
-    setDraft(formatEditableNumber(normalized));
-    onChange(normalized);
-  }
-
-  return (
-    <input
-      type="text"
-      inputMode={integer ? "numeric" : "decimal"}
-      value={draft}
-      disabled={disabled}
-      required={required}
-      aria-label={ariaLabel}
-      onChange={(event) => apply(event.target.value)}
-      onBlur={commit}
-    />
-  );
-}
-
-type RoastFlowPoint = RoastPoint & {
-  stableId: string;
-  kind: "charge" | "turning" | "extra" | "firstCrack" | "finish";
-  title: string;
-  description: string;
-};
-
-type EditableRoastPoint = RoastPoint & { stableId: string };
-
-function RoastFlowCard({
-  index,
-  point,
-  onChange,
-  onRemove,
-}: {
-  index: number;
-  point: RoastFlowPoint;
-  onChange: (field: keyof RoastPoint, value: number) => void;
-  onRemove?: () => void;
-}) {
-  const charge = point.kind === "charge";
-  return (
-    <article className={`roast-flow-card ${point.kind}`}>
-      <div className="roast-flow-marker"><span>{String(index + 1).padStart(2, "0")}</span></div>
-      <div className="roast-flow-content">
-        <div className="roast-flow-heading">
-          <div><strong>{point.title}</strong><p>{point.description}</p></div>
-          {onRemove && <button type="button" className="remove-flow-point" onClick={onRemove}>이 포인트 삭제</button>}
-        </div>
-        <div className="roast-flow-fields">
-          <Field label="시간">
-            <DurationInput value={point.seconds} disabled={charge} onChange={(value) => onChange("seconds", value)} ariaLabel={`${point.title} 시간`} />
-          </Field>
-          <Field label="원두 온도">
-            <div className="input-suffix">
-              <StableNumberInput value={point.beanTemp} onChange={(value) => onChange("beanTemp", value)} min="0" ariaLabel={`${point.title} 원두 온도`} />
-              <span>℃</span>
-            </div>
-          </Field>
-          <Field label="가스 압력">
-            <div className="input-suffix">
-              <StableNumberInput value={point.gasPressure} onChange={(value) => onChange("gasPressure", value)} min="0" max="5" ariaLabel={`${point.title} 가스 압력`} />
-              <span>bar</span>
-            </div>
-          </Field>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function RoastProfileForm({
-  initial,
-  mode,
-  onCancel,
-  onSaved,
-  notify,
-}: {
-  initial: RoastProfile | null;
-  mode: "create" | "edit" | "copy";
-  onCancel: () => void;
-  onSaved: (savedId?: number) => Promise<void>;
-  notify: (toast: { kind: "ok" | "error"; message: string }) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const sourcePoints = initial?.points ?? [];
-  const initialTurningSeconds = initial?.turningPointSeconds ?? 90;
-  const initialFirstCrackSeconds = initial?.firstCrackSeconds ?? 480;
-  const initialTotalSeconds = initial?.totalSeconds ?? 600;
-  const initialCharge = roastPointAt(sourcePoints, 0, { beanTemp: initial?.chargeTemp ?? 185, gasPressure: 1.5 });
-  const initialTurning = roastPointAt(sourcePoints, initialTurningSeconds, { beanTemp: 95, gasPressure: 1.5 });
-  const initialFirstCrack = roastPointAt(sourcePoints, initialFirstCrackSeconds, { beanTemp: 190, gasPressure: 1 });
-  const initialFinish = roastPointAt(sourcePoints, initialTotalSeconds, { beanTemp: initial?.dropTemp ?? 204, gasPressure: 0.8 });
-  const [chargeTemp, setChargeTemp] = useState(initial?.chargeTemp ?? initialCharge.beanTemp);
-  const [chargeGasPressure, setChargeGasPressure] = useState(initialCharge.gasPressure);
-  const [turningPoint, setTurningPoint] = useState<RoastPoint>({ seconds: initialTurningSeconds, ...initialTurning });
-  const [firstCrackPoint, setFirstCrackPoint] = useState<RoastPoint>({ seconds: initialFirstCrackSeconds, ...initialFirstCrack });
-  const [finishPoint, setFinishPoint] = useState<RoastPoint>({ seconds: initialTotalSeconds, ...initialFinish });
-  const extraPointSequence = useRef(0);
-  const [extraPoints, setExtraPoints] = useState<EditableRoastPoint[]>(
-    sourcePoints
-      .filter((point) => ![0, initialTurningSeconds, initialFirstCrackSeconds, initialTotalSeconds].includes(point.seconds))
-      .map((point, index) => ({ ...point, stableId: `saved-extra-${index}` })),
-  );
-  const flowPoints: RoastFlowPoint[] = [
-    {
-      stableId: "charge",
-      kind: "charge" as const,
-      title: "투입",
-      description: "예열한 로스터에 생두를 넣는 시작점",
-      seconds: 0,
-      beanTemp: chargeTemp,
-      gasPressure: chargeGasPressure,
-    },
-    {
-      stableId: "turning",
-      kind: "turning" as const,
-      title: "터닝포인트",
-      description: "온도가 가장 낮아졌다가 다시 오르기 시작하는 시점",
-      ...turningPoint,
-    },
-    ...extraPoints.map((point) => ({
-      ...point,
-      kind: "extra" as const,
-      title: "세부 포인트",
-      description: "온도나 가스가 바뀌는 지점을 필요할 때만 기록",
-    })),
-    {
-      stableId: "first-crack",
-      kind: "firstCrack" as const,
-      title: "1차 크랙 시작",
-      description: "원두에서 첫 크랙 소리가 들리기 시작하는 시점",
-      ...firstCrackPoint,
-    },
-    {
-      stableId: "finish",
-      kind: "finish" as const,
-      title: "종료 · 배출",
-      description: "로스팅을 마치고 원두를 배출하는 시점",
-      ...finishPoint,
-    },
-  ].sort((left, right) => left.seconds - right.seconds || flowKindOrder(left.kind) - flowKindOrder(right.kind));
-  const points: RoastPoint[] = flowPoints.map(({ seconds, beanTemp, gasPressure }) => ({ seconds, beanTemp, gasPressure }));
-  const developmentSeconds = Math.max(0, finishPoint.seconds - firstCrackPoint.seconds);
-  const developmentRatio = finishPoint.seconds > 0
-    ? Math.round((developmentSeconds / finishPoint.seconds) * 1000) / 10
-    : 0;
-  const flowError = validateRoastFlow(points, turningPoint.seconds, firstCrackPoint.seconds, finishPoint.seconds);
-
-  function updateExtraPoint(stableId: string, field: keyof RoastPoint, value: number) {
-    setExtraPoints((current) => current.map((point) => point.stableId === stableId ? { ...point, [field]: value } : point));
-  }
-
-  function updateFlowPoint(point: RoastFlowPoint, field: keyof RoastPoint, value: number) {
-    if (point.kind === "charge") {
-      if (field === "beanTemp") setChargeTemp(value);
-      if (field === "gasPressure") setChargeGasPressure(value);
-      return;
-    }
-    if (point.kind === "turning") {
-      setTurningPoint((current) => ({ ...current, [field]: value }));
-      return;
-    }
-    if (point.kind === "firstCrack") {
-      setFirstCrackPoint((current) => ({ ...current, [field]: value }));
-      return;
-    }
-    if (point.kind === "finish") {
-      setFinishPoint((current) => ({ ...current, [field]: value }));
-      return;
-    }
-    updateExtraPoint(point.stableId, field, value);
-  }
-
-  function addPoint() {
-    const gaps = points.slice(0, -1).map((point, index) => ({
-      start: point.seconds,
-      end: points[index + 1].seconds,
-    }));
-    const largestGap = gaps.sort((left, right) => (right.end - right.start) - (left.end - left.start))[0];
-    if (!largestGap || largestGap.end - largestGap.start < 2) return;
-    const seconds = Math.round((largestGap.start + largestGap.end) / 2);
-    const estimate = interpolateRoastPoint(points, seconds);
-    extraPointSequence.current += 1;
-    setExtraPoints((current) => [
-      ...current,
-      { stableId: `new-extra-${extraPointSequence.current}`, seconds, ...estimate },
-    ]);
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (flowError) {
-      notify({ kind: "error", message: flowError });
-      return;
-    }
-    setBusy(true);
-    try {
-      const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-      const body = {
-        ...values,
-        id: mode === "edit" ? initial?.id : undefined,
-        chargeTemp,
-        turningPointSeconds: turningPoint.seconds,
-        firstCrackSeconds: firstCrackPoint.seconds,
-        totalSeconds: finishPoint.seconds,
-        dropTemp: finishPoint.beanTemp,
-        points,
-      };
-      const result = await requestJson<{ id?: number; ok?: boolean }>("/api/roasting", {
-        method: mode === "edit" ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      await onSaved(result.id ?? initial?.id);
-    } catch (error) {
-      notify({ kind: "error", message: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <>
-      <PageHeader
-        eyebrow="프로파일 작성"
-        title={mode === "copy" ? "프로파일 복사본 만들기" : mode === "edit" ? "로스팅 프로파일 수정" : "새 로스팅 프로파일"}
-        description={mode === "copy"
-          ? "기존 설정을 모두 복사했습니다. 원두명과 달라진 시점만 수정하면 새 프로파일로 저장됩니다."
-          : "주요 시점만 한 번 입력하면 온도·가스 포인트와 그래프가 자동으로 완성됩니다."}
-        action={<button className="ghost-button" onClick={onCancel}>목록으로</button>}
-      />
-      <form className="panel roast-form" onSubmit={submit}>
-        <nav className="roast-form-shortcuts" aria-label="프로파일 입력 단계">
-          <button type="button" onClick={() => document.getElementById("roast-basic")?.scrollIntoView({ behavior: "smooth", block: "start" })}><b>01</b><span>원두 정보</span></button>
-          <button type="button" onClick={() => document.getElementById("roast-flow")?.scrollIntoView({ behavior: "smooth", block: "start" })}><b>02</b><span>시간 · 온도 · 가스</span></button>
-          <button type="button" onClick={() => document.getElementById("roast-notes")?.scrollIntoView({ behavior: "smooth", block: "start" })}><b>03</b><span>노트와 저장</span></button>
-        </nav>
-        {mode === "copy" && initial && (
-          <div className="copy-profile-notice">
-            <div><span>복사한 원본</span><strong>{initial.beanName}</strong></div>
-            <p>원본은 그대로 보관됩니다. 새 원두명과 달라진 디벨롭·온도·가스 값만 확인한 뒤 저장하세요.</p>
-          </div>
-        )}
-        <div id="roast-basic" className="roast-form-section">
-          <span className="section-index">01 / 원두 정보</span>
-          <div className="roast-bean-grid standardized">
-            <Field label="원두명"><input name="beanName" defaultValue={mode === "copy" && initial ? `${initial.beanName} 복사본` : initial?.beanName} autoFocus required /></Field>
-            <Field label="배치 중량 (kg)"><input name="batchWeight" type="number" min="0.01" step="0.01" defaultValue={initial?.batchWeight ?? 1} required /></Field>
-            <PresetOrCustomField name="origin" label="산지" options={roastOriginOptions} initialValue={initial?.origin ?? ""} customPlaceholder="예: 에티오피아 구지" />
-            <PresetOrCustomField name="process" label="프로세스" options={coffeeProcessOptions} initialValue={initial?.process ?? ""} customPlaceholder="프로세스를 입력하세요" />
-          </div>
-        </div>
-        <div id="roast-flow" className="roast-form-section">
-          <div className="section-heading roast-flow-section-heading">
-            <div><span className="section-index">02 / 로스팅 흐름</span><p>실제 로스팅 순서대로 시간·온도·가스를 한 번씩만 입력하세요.</p></div>
-            <div className="live-development">
-              <span>자동 계산 디벨롭</span>
-              <strong>{formatTime(developmentSeconds)} · {developmentRatio}%</strong>
-            </div>
-          </div>
-          <div className="roast-flow-toolbar">
-            <p>기본 흐름은 투입·터닝포인트·1차 크랙·종료입니다. 가스나 온도가 바뀌는 순간만 세부 포인트를 추가하세요.</p>
-            <button type="button" className="ghost-button" onClick={addPoint}>중간 포인트 추가</button>
-          </div>
-          {flowError && <div className="roast-flow-error" role="alert">{flowError}</div>}
-          <div className="roast-flow-list">
-            {flowPoints.map((point, index) => (
-              <RoastFlowCard
-                key={point.stableId}
-                index={index}
-                point={point}
-                onChange={(field, value) => updateFlowPoint(point, field, value)}
-                onRemove={point.kind === "extra"
-                  ? () => setExtraPoints((current) => current.filter((item) => item.stableId !== point.stableId))
-                  : undefined}
-              />
-            ))}
-          </div>
-        </div>
-        <div id="roast-notes" className="roast-form-section">
-          <span className="section-index">03 / 따라 하기 노트</span>
-          <div className="two-columns">
-            <Field label="가스 운용 메모"><textarea name="gasNotes" rows={5} defaultValue={initial?.gasNotes} placeholder="예: 터닝 후 1.2bar 유지, 1차 크랙 30초 전 1.0bar" /></Field>
-            <Field label="컵 노트 · 주의사항"><textarea name="notes" rows={5} defaultValue={initial?.notes} placeholder="배출 기준, 향미, 다음 배치 보정 사항" /></Field>
-          </div>
-        </div>
-        <div className="form-actions roast-form-actions">
-          <button type="button" className="ghost-button" onClick={onCancel}>취소</button>
-          <button className="primary-button" disabled={busy || Boolean(flowError)}>{busy ? "계산·저장 중…" : mode === "copy" ? "새 프로파일로 저장" : "프로파일 저장"}</button>
-        </div>
-      </form>
-    </>
-  );
-}
-
-function RoastCurve({ profile }: { profile: RoastProfile }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !profile.points.length) return;
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = rect.width * dpr;
-      canvas.height = 320 * dpr;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.scale(dpr, dpr);
-      const width = rect.width;
-      const height = 320;
-      const pad = { left: 54, right: 62, top: 36, bottom: 42 };
-      const chartWidth = width - pad.left - pad.right;
-      const chartHeight = height - pad.top - pad.bottom;
-      const temperatures = profile.points.map((point) => point.beanTemp);
-      const minTemp = Math.floor((Math.min(...temperatures) - 10) / 10) * 10;
-      const maxTemp = Math.ceil((Math.max(...temperatures) + 10) / 10) * 10;
-      const maxGas = Math.max(...profile.points.map((point) => point.gasPressure));
-      const gasScaleMax = Math.max(2, Math.ceil(maxGas * 2) / 2);
-      const x = (seconds: number) => pad.left + (seconds / profile.totalSeconds) * chartWidth;
-      const y = (temp: number) => pad.top + ((maxTemp - temp) / (maxTemp - minTemp)) * chartHeight;
-      const yGas = (gas: number) => pad.top + ((gasScaleMax - gas) / gasScaleMax) * chartHeight;
-
-      context.clearRect(0, 0, width, height);
-      context.fillStyle = "#f5f5f5";
-      context.fillRect(0, 0, width, height);
-      context.strokeStyle = "#d6d6d6";
-      context.lineWidth = 1;
-      context.fillStyle = "#6f6f6f";
-      context.font = "13px Pretendard, Arial, sans-serif";
-      for (let index = 0; index <= 4; index += 1) {
-        const gridY = pad.top + (chartHeight / 4) * index;
-        context.beginPath();
-        context.moveTo(pad.left, gridY);
-        context.lineTo(width - pad.right, gridY);
-        context.stroke();
-        const label = Math.round(maxTemp - ((maxTemp - minTemp) / 4) * index);
-        const gasLabel = gasScaleMax - ((gasScaleMax / 4) * index);
-        context.textAlign = "start";
-        context.fillText(`${label}℃`, 6, gridY + 4);
-        context.textAlign = "right";
-        context.fillText(`${Number(gasLabel.toFixed(1))}bar`, width - 5, gridY + 4);
-      }
-      context.textAlign = "start";
-
-      [
-        [profile.turningPointSeconds, "터닝"],
-        [profile.firstCrackSeconds, "1차 크랙"],
-        [profile.totalSeconds, "종료"],
-      ].forEach(([seconds, label]) => {
-        const markerX = x(Number(seconds));
-        context.strokeStyle = "#a6a6a6";
-        context.setLineDash([4, 5]);
-        context.beginPath();
-        context.moveTo(markerX, pad.top);
-        context.lineTo(markerX, height - pad.bottom);
-        context.stroke();
-        context.setLineDash([]);
-        context.fillStyle = "#555555";
-        const isFinish = Number(seconds) === profile.totalSeconds;
-        context.textAlign = isFinish ? "right" : "start";
-        context.fillText(String(label), markerX + (isFinish ? -5 : 5), pad.top + 12);
-      });
-      context.textAlign = "start";
-
-      context.strokeStyle = "#777777";
-      context.lineWidth = 2;
-      context.setLineDash([6, 5]);
-      context.beginPath();
-      profile.points.forEach((point, index) => {
-        const pointX = x(point.seconds);
-        const pointY = yGas(point.gasPressure);
-        if (index === 0) context.moveTo(pointX, pointY);
-        else context.lineTo(pointX, pointY);
-      });
-      context.stroke();
-      context.setLineDash([]);
-
-      context.strokeStyle = "#111111";
-      context.lineWidth = 3;
-      context.beginPath();
-      profile.points.forEach((point, index) => {
-        const pointX = x(point.seconds);
-        const pointY = y(point.beanTemp);
-        if (index === 0) context.moveTo(pointX, pointY);
-        else context.lineTo(pointX, pointY);
-      });
-      context.stroke();
-      profile.points.forEach((point) => {
-        context.beginPath();
-        context.fillStyle = "#f5f5f5";
-        context.strokeStyle = "#111111";
-        context.lineWidth = 2;
-        context.arc(x(point.seconds), y(point.beanTemp), 4, 0, Math.PI * 2);
-        context.fill();
-        context.stroke();
-      });
-
-      context.fillStyle = "#6f6f6f";
-      context.textAlign = "center";
-      for (let seconds = 0; seconds <= profile.totalSeconds; seconds += Math.max(60, Math.round(profile.totalSeconds / 5 / 60) * 60)) {
-        context.fillText(formatTime(seconds), x(seconds), height - 13);
-      }
-      context.textAlign = "start";
-    };
-    draw();
-    const observer = new ResizeObserver(draw);
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [profile]);
-
-  return (
-    <div className="curve-wrap">
-      <div className="curve-heading"><div><strong>온도와 가스 흐름</strong><span>왼쪽 축 ℃ · 오른쪽 축 bar</span></div><div className="curve-legend"><span className="temp-line" />원두 온도 <span className="gas-line" />가스 압력</div></div>
-      <canvas ref={canvasRef} aria-label={`${profile.beanName} 로스팅 온도 및 가스 압력 그래프`} />
-      <div className="chart-point-list" aria-label="기록된 온도와 가스 포인트">
-        {profile.points.map((point) => (
-          <div key={`${point.seconds}-${point.gasPressure}`}>
-            <span>{formatTime(point.seconds)}</span>
-            <strong>{number.format(point.beanTemp)}℃</strong>
-            <em>{formatGasPressure(point.gasPressure)}</em>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -3560,10 +2667,6 @@ function KpiCard({
   return <article className={`kpi-card ${tone}`}><span>{label}</span><strong>{value}</strong><small>{meta}</small></article>;
 }
 
-function Metric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return <div className={accent ? "metric accent" : "metric"}><span>{label}</span><strong>{value}</strong></div>;
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="field"><span>{label}</span>{children}</label>;
 }
@@ -3673,110 +2776,6 @@ function currentKoreanDate(): string {
   }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
-}
-
-function roastPointAt(
-  points: RoastPoint[],
-  seconds: number,
-  fallback: Pick<RoastPoint, "beanTemp" | "gasPressure">,
-): Pick<RoastPoint, "beanTemp" | "gasPressure"> {
-  const exact = points.find((point) => point.seconds === seconds);
-  if (exact) return { beanTemp: exact.beanTemp, gasPressure: exact.gasPressure };
-  if (points.length < 2) return fallback;
-  return interpolateRoastPoint(points, seconds);
-}
-
-type GasAdjustment = RoastPoint & { previousGasPressure: number | null };
-
-function getGasAdjustments(points: RoastPoint[], totalSeconds: number): GasAdjustment[] {
-  const pointsBySecond = new Map<number, RoastPoint>();
-  [...points]
-    .filter((point) => (
-      [point.seconds, point.beanTemp, point.gasPressure].every(Number.isFinite)
-      && point.seconds >= 0
-      && point.seconds <= totalSeconds
-    ))
-    .sort((left, right) => left.seconds - right.seconds)
-    .forEach((point) => pointsBySecond.set(point.seconds, point));
-
-  const ordered = [...pointsBySecond.values()];
-  return ordered.reduce<GasAdjustment[]>((adjustments, point, index) => {
-    const previous = ordered[index - 1];
-    if (previous && Math.abs(point.gasPressure - previous.gasPressure) < 0.001) return adjustments;
-    adjustments.push({
-      ...point,
-      previousGasPressure: previous?.gasPressure ?? null,
-    });
-    return adjustments;
-  }, []);
-}
-
-function interpolateRoastPoint(
-  points: RoastPoint[],
-  seconds: number,
-): Pick<RoastPoint, "beanTemp" | "gasPressure"> {
-  const ordered = [...points].sort((left, right) => left.seconds - right.seconds);
-  const before = [...ordered].reverse().find((point) => point.seconds < seconds);
-  const after = ordered.find((point) => point.seconds > seconds);
-  if (!before) return { beanTemp: ordered[0]?.beanTemp ?? 0, gasPressure: ordered[0]?.gasPressure ?? 0 };
-  if (!after) return { beanTemp: before.beanTemp, gasPressure: before.gasPressure };
-  const ratio = (seconds - before.seconds) / (after.seconds - before.seconds);
-  return {
-    beanTemp: Number((before.beanTemp + ((after.beanTemp - before.beanTemp) * ratio)).toFixed(1)),
-    gasPressure: Number((before.gasPressure + ((after.gasPressure - before.gasPressure) * ratio)).toFixed(1)),
-  };
-}
-
-function formatEditableNumber(value: number): string {
-  return Number.isFinite(value) ? String(Number(value.toFixed(4))) : "";
-}
-
-function clampNumber(value: number, min?: string, max?: string, integer = false): number {
-  const minimum = min === undefined ? Number.NEGATIVE_INFINITY : Number(min);
-  const maximum = max === undefined ? Number.POSITIVE_INFINITY : Number(max);
-  const normalized = integer ? Math.round(value) : value;
-  return Math.min(maximum, Math.max(minimum, normalized));
-}
-
-function flowKindOrder(kind: RoastFlowPoint["kind"]): number {
-  return { charge: 0, turning: 1, extra: 2, firstCrack: 3, finish: 4 }[kind];
-}
-
-function validateRoastFlow(
-  points: RoastPoint[],
-  turningSeconds: number,
-  firstCrackSeconds: number,
-  finishSeconds: number,
-): string | null {
-  if (!(turningSeconds > 0 && turningSeconds < firstCrackSeconds && firstCrackSeconds < finishSeconds)) {
-    return "시간 순서를 확인해 주세요. 투입 → 터닝포인트 → 1차 크랙 → 종료 순서여야 합니다.";
-  }
-  if (points.some((point) => ![point.seconds, point.beanTemp, point.gasPressure].every(Number.isFinite))) {
-    return "시간·온도·가스 값을 모두 숫자로 입력해 주세요.";
-  }
-  if (points.some((point) => point.seconds < 0 || point.seconds > finishSeconds)) {
-    return "모든 중간 포인트는 투입 이후, 종료 이전 시간으로 입력해 주세요.";
-  }
-  if (new Set(points.map((point) => point.seconds)).size !== points.length) {
-    return "같은 시간에 두 포인트가 있습니다. 각 포인트 시간을 다르게 입력해 주세요.";
-  }
-  if (points.some((point) => point.beanTemp < 0 || point.gasPressure < 0 || point.gasPressure > 5)) {
-    return "온도는 0℃ 이상, 가스 압력은 0~5bar 범위로 입력해 주세요.";
-  }
-  return null;
-}
-
-function formatTime(seconds: number): string {
-  const rounded = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(rounded / 60);
-  const remainingSeconds = rounded % 60;
-  if (minutes && remainingSeconds) return `${minutes}분 ${remainingSeconds}초`;
-  if (minutes) return `${minutes}분`;
-  return `${remainingSeconds}초`;
-}
-
-function formatGasPressure(value: number): string {
-  return `${Number(value.toFixed(2))}bar`;
 }
 
 function formatDateTime(value: string): string {

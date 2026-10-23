@@ -50,7 +50,7 @@ export async function GET(request: Request) {
                 EXISTS(SELECT 1 FROM inventory_movements m WHERE m.item_id = inventory_items.id) AS hasMovements,
                 CASE WHEN quantity <= reorder_level THEN 1 ELSE 0 END AS lowStock
          FROM inventory_items
-         WHERE active = 1 ${user.canInventory ? "" : "AND category IN ('milk','roasted','gusto')"}
+         WHERE active = 1 AND category IN ('milk','roasted','gusto')
          ORDER BY category, name`,
       )
       .all<{
@@ -93,6 +93,7 @@ export async function GET(request: Request) {
            FROM inventory_movements m
            JOIN inventory_items i ON i.id = m.item_id
            JOIN staff s ON s.id = m.created_by
+           WHERE i.category IN ('milk','roasted','gusto')
            ORDER BY m.id DESC`;
     const movements =
       ownMovementScope
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
         : await db.prepare(movementSql).all();
 
     const legacyEntries = user.role !== "instructor" && user.canInventory
-      ? await readLegacyInventoryEntries(db)
+      ? (await readLegacyInventoryEntries(db)).filter(entry => ['roasted', 'gusto', 'milk'].includes(normalizeLegacyCategory(entry)))
       : [];
     const inventoryByLegacyKey = new Map(
       inventory.results
@@ -168,26 +169,6 @@ export async function GET(request: Request) {
             .all()
         : { results: [] };
 
-    const profiles =
-      user.canRoasting
-        ? await db
-            .prepare(
-              `SELECT p.id, p.bean_name AS beanName, p.origin, p.process,
-                      p.batch_weight AS batchWeight, p.charge_temp AS chargeTemp,
-                      COALESCE(p.turning_point_seconds, p.yellowing_seconds) AS turningPointSeconds,
-                      p.first_crack_seconds AS firstCrackSeconds,
-                      p.drop_temp AS dropTemp, p.total_seconds AS totalSeconds,
-                      p.development_seconds AS developmentSeconds,
-                      p.development_ratio AS developmentRatio,
-                      p.gas_notes AS gasNotes, p.notes, p.created_at AS createdAt,
-                      s.name AS createdByName
-               FROM roasting_profiles p
-               JOIN staff s ON s.id = p.created_by
-               ORDER BY COALESCE(p.sort_order, 2147483647), p.id DESC`,
-            )
-            .all()
-        : { results: [] };
-
     return Response.json({
       user,
       finance: finance.results,
@@ -195,7 +176,6 @@ export async function GET(request: Request) {
       movements: combinedMovements,
       legacyInventoryCount: legacyEntries.length,
       transactions: transactions.results,
-      profiles: profiles.results,
     });
   } catch (error) {
     return jsonError(error);
