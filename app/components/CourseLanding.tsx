@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { CourseGallery, EducationPhoto } from "./CourseGallery";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { requestJson } from "../../lib/api-client";
 import { ageRanges, contactChannels, courseOptions, discoveryChannels, interestOptions, learningCourses, learningLevels, learningPackages } from "../../lib/learning-catalog";
@@ -38,10 +39,11 @@ export function CourseLanding({ entry, member, onStudent, children }: { entry: s
     {entry === "student" || entry === "visitor" ? <div className="learning-entry">{children}<p className="learning-back"><Link href="/?home=1">← 과정 안내로 돌아가기</Link> · <Link href="/?view=consultation#consult">처음이신가요? 교육 상담 신청</Link></p></div> : <>
       {entry !== "consultation" && <>
         <section className="learning-hero">
-          <span className="learning-eyebrow">THE CUP EDU · COFFEE EDUCATION</span>
-          <h1>커피를 이해하는<br />나만의 다음 단계.</h1>
-          <p>처음 만나는 커피부터, 더 깊은 전문성까지.<br />당신의 목표에 맞춰 함께 배웁니다.</p>
-          <div className="learning-actions"><a className="learning-primary" href="#courses">과정 둘러보기 <span aria-hidden="true">↓</span></a><a href="#consult">상담 신청 <span aria-hidden="true">→</span></a></div>
+          <div className="learning-hero-heading">
+            <div><span className="learning-eyebrow">COFFEE. A NEW PERSPECTIVE.</span><h1>커피를 이해하는<br />나만의 다음 단계.</h1></div>
+            <div className="learning-hero-intro"><p>첫 잔의 기본부터,<br /> 오래가는 전문성까지.</p><div className="learning-actions"><a className="learning-primary" href="#courses">과정 둘러보기 <span aria-hidden="true">↓</span></a><a href="#consult">상담 신청 <span aria-hidden="true">→</span></a></div></div>
+          </div>
+          <figure className="learning-hero-visual"><EducationPhoto image="hero" alt="드리퍼와 커피잔이 놓인 바에서 갓 추출한 커피를 준비하는 모습" eager sizes="(max-width: 640px) 100vw, 92vw" /></figure>
         </section>
         <aside className="learning-fee" aria-label="기본 교육비">
           <div><span>한 회차</span><strong>2.5<small>시간</small></strong></div>
@@ -49,19 +51,26 @@ export function CourseLanding({ entry, member, onStudent, children }: { entry: s
           <div><span>비구독자</span><strong>120,000<small>원 / 회</small></strong></div>
           <p>일반 모듈 교육 기준 · 시험비 별도 · 구독 여부와 최종 교육비는 상담 시 확인합니다.</p>
         </aside>
-        <section id="courses" className="learning-section">
-          <div className="learning-section-title"><span className="learning-eyebrow">SCA COFFEE SKILLS</span><h2>다섯 가지 모듈.<br />관심 있는 분야부터.</h2><p>모든 모듈에서 파운데이션·인터미디엇·프로페셔널 교육이 가능합니다.</p></div>
-          <div className="learning-course-switch" role="group" aria-label="교육 모듈 선택">{learningCourses.filter(c => c.advanced).map(course => <button type="button" key={course.id} aria-pressed={activeCourse === course.id} aria-controls="learning-course-detail" onClick={() => setActiveCourse(course.id)}>{course.name}</button>)}</div>
+        <section id="courses" className="learning-section learning-module-section">
+          <div className="learning-section-title"><span className="learning-eyebrow">SCA COFFEE SKILLS</span><h2>다섯 가지 모듈.<br />커피를 보는 새로운 시선.</h2><p>모든 모듈에서 파운데이션·인터미디엇·프로페셔널 교육이 가능합니다.</p></div>
+          <CourseGallery activeCourse={activeCourse} onSelect={setActiveCourse} />
           <article className="learning-course-detail" id="learning-course-detail" aria-live="polite">
             <div><span className="learning-eyebrow">{currentCourse.english}</span><h3>{currentCourse.name}</h3><p>{currentCourse.description}</p></div>
             <div className="learning-example"><span>수업에서는 이런 경험을 합니다</span><p>{currentCourse.example}</p></div>
           </article>
         </section>
-        <section className="learning-section learning-level-section"><div className="learning-section-title"><span className="learning-eyebrow">LEARNING PLAN</span><h2>서두르지 않고, 충분히 배우도록.</h2><p>아래는 더컵에듀의 권장 수업 계획입니다. 회차는 상담 후 조정하며, 자격 취득에는 과정별 교육·평가 요건을 충족해야 합니다.</p></div><div className="learning-levels">{learningLevels.map(level => <article key={level.id}><span>{level.english}</span><h3>{level.name}</h3><strong>최소 {level.sessions}<small>회 권장</small></strong><p>{level.description}</p><dl><div><dt>권장 교육시간</dt><dd>{level.sessions * 2.5}시간</dd></div><div><dt>구독자 교육비</dt><dd>{(level.sessions * 80000).toLocaleString()}원~</dd></div><div><dt>비구독자 교육비</dt><dd>{(level.sessions * 120000).toLocaleString()}원~</dd></div></dl></article>)}</div><p className="learning-footnote">5개 일반 모듈의 회당 2.5시간 기준 예시 · 시험비 별도 · 프로페셔널은 해당 모듈의 인터미디엇 등 선수 요건을 상담 시 확인합니다.</p></section>
-        <section className="learning-section"><div className="learning-section-title"><span className="learning-eyebrow">BEYOND THE BASICS</span><h2>커피를 더 넓게 이해하는 교육.</h2></div><div className="learning-extras">{learningCourses.filter(c => !c.advanced).map(course => <article key={course.id}><span>{course.id === "q-grader" ? "6명 모집 후 개강 협의" : "Foundation"}</span><h3>{course.name}</h3><p>{course.description}</p><p className="learning-footnote">{course.example}</p></article>)}</div></section>
+        <section className="learning-section learning-level-section"><div className="learning-section-title"><span className="learning-eyebrow">LEARNING PLAN</span><h2>기초부터, 전문가까지.</h2><p>목표에 맞는 단계와 권장 회차를 비교해 보세요. 교육 계획과 과정별 평가 요건은 상담 시 함께 확인합니다.</p></div><div className="learning-levels">{learningLevels.map(level => <article key={level.id}><span>{level.english}</span><h3>{level.name}</h3><strong>최소 {level.sessions}<small>회 권장</small></strong><p>{level.description}</p><dl><div><dt>권장 교육시간</dt><dd>{level.sessions * 2.5}시간</dd></div><div><dt>구독자 교육비</dt><dd>{(level.sessions * 80000).toLocaleString()}원~</dd></div><div><dt>비구독자 교육비</dt><dd>{(level.sessions * 120000).toLocaleString()}원~</dd></div></dl></article>)}</div><p className="learning-footnote">5개 일반 모듈의 회당 2.5시간 기준 예시 · 시험비 별도 · 프로페셔널은 해당 모듈의 인터미디엇 등 선수 요건을 상담 시 확인합니다.</p></section>
+        <section className="learning-section learning-extra-section">
+          <div className="learning-section-title"><span className="learning-eyebrow">BEYOND THE BASICS</span><h2>한 잔 너머의 세계.</h2><p>물부터 지속가능성, 커피 품질 평가까지.</p></div>
+          <div className="learning-extras">{learningCourses.filter(c => !c.advanced).map(course => <article key={course.id}>
+            <EducationPhoto image={course.id === "water" ? "brewing" : course.id === "sustainability" ? "green" : "cupping"} alt="" sizes="(max-width: 640px) 90vw, 400px" />
+            <div className="learning-extra-copy"><span>{course.id === "q-grader" ? "6명 모집 후 개강 협의" : "Foundation"}</span><h3>{course.name}</h3><p>{course.description}</p><p className="learning-footnote">{course.example}</p></div>
+          </article>)}</div>
+        </section>
         <section className="learning-section learning-package-section"><div className="learning-section-title"><span className="learning-eyebrow">YOUR LEARNING PATH</span><h2>목표가 있다면,<br />하나의 교육 경로로.</h2><p>디플로마 패키지는 구성 교육비 합계에서 약 20% 할인하여 안내합니다. 이미 보유한 자격과 필요한 과정에 따라 구성이 달라지며, 시험비는 할인 대상에서 제외됩니다.</p></div><div className="learning-packages">{learningPackages.filter(p => p.id !== "corporate").map(item => <article key={item.id}><h3>{item.name}</h3><p>{item.description}</p></article>)}</div></section>
         <section className="learning-section learning-corporate">
-          <div><span className="learning-eyebrow">FOR YOUR TEAM</span><h2>우리 팀에 맞는<br />커피 교육.</h2><p>현장에서 필요한 기술도, 함께 즐기는 커피 경험도.<br />목적·인원·환경에 맞는 프로그램을 함께 만듭니다.</p><a href="#consult" className="learning-primary" onClick={() => { setSelected(values => [...new Set([...values, "corporate"])]); setInterestCategory("packages"); }}>기업교육 문의 <span aria-hidden="true">→</span></a></div>
+          <div className="learning-team-copy"><span className="learning-eyebrow">FOR YOUR TEAM</span><h2>우리 팀에 맞는<br />커피 교육.</h2><p>현장에서 필요한 기술도, 함께 즐기는 커피 경험도.<br />목적·인원·환경에 맞는 프로그램을 함께 만듭니다.</p><a href="#consult" className="learning-primary" onClick={() => { setSelected(values => [...new Set([...values, "corporate"])]); setInterestCategory("packages"); }}>기업교육 문의 <span aria-hidden="true">→</span></a></div>
+          <figure className="learning-team-photo"><EducationPhoto image="cupping" alt="향미를 비교하기 위해 준비한 커핑 샘플" sizes="(max-width: 640px) 90vw, 650px" /></figure>
           <div className="learning-team-formats">
             <article><span>01</span><div><h3>실무를 더 탄탄하게</h3><p>추출·음료·품질 관리 등 팀에 필요한 역량을 중심으로.</p></div></article>
             <article><span>02</span><div><h3>함께 배우는 커피 경험</h3><p>커피를 이해하고 직접 즐겨보는 팀 교육으로.</p></div></article>
@@ -89,6 +98,6 @@ export function CourseLanding({ entry, member, onStudent, children }: { entry: s
         </form>}
       </section>
     </>}
-    <footer className="learning-footer"><span className="learning-brand">THE CUP EDU<small>COFFEE EDUCATION</small></span><div><Link href="/?view=visitor#portal-entry-content">시간표 미리보기</Link><Link href="/admin">직원 로그인</Link><a href="http://pf.kakao.com/_XRQdn/chat" target="_blank" rel="noreferrer">카카오톡 상담</a></div><p>교육 상담 → 수강 등록 → 시간 선택 → 강사 확정</p></footer>
+    <footer className="learning-footer"><span className="learning-brand">THE CUP EDU<small>COFFEE EDUCATION</small></span><div><Link href="/?view=visitor#portal-entry-content">시간표 미리보기</Link><Link href="/admin">직원 로그인</Link><a href="http://pf.kakao.com/_XRQdn/chat" target="_blank" rel="noreferrer">카카오톡 상담</a></div><p>교육 상담 → 수강 등록 → 시간 선택 → 강사 확정</p>{!entry && <p className="learning-image-note">사진은 교육 분야를 설명하는 참고 이미지입니다. · <a href="https://www.pexels.com/license/" target="_blank" rel="noreferrer">사진: Pexels</a></p>}</footer>
   </div>;
 }

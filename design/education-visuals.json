@@ -1,0 +1,75 @@
+{
+  "source": "Pexels",
+  "license": "https://www.pexels.com/license/",
+  "reference": "https://www.apple.com/kr/iphone/",
+  "purpose": "Real reference photographs illustrating coffee education; not The Cup Edu facilities, staff or clients. No endorsement implied. AI drafts are excluded from the deployed assets.",
+  "processing": "Self-hosted responsive WebP, 640px and 1280px wide. Resizing/compression only, no generative alterations.",
+  "assets": [
+    {
+      "id": "hero",
+      "photo": 7125768,
+      "author": "Michael Burrows",
+      "url": "https://www.pexels.com/photo/wooden-table-with-equipment-for-making-coffee-7125768/",
+      "height": 854,
+      "files": [
+        "public/education-visuals/hero-640.webp",
+        "public/education-visuals/hero-1280.webp"
+      ]
+    },
+    {
+      "id": "barista",
+      "photo": 7125777,
+      "author": "Michael Burrows",
+      "url": "https://www.pexels.com/photo/faceless-barista-making-latte-art-7125777/",
+      "height": 1920,
+      "files": [
+        "public/education-visuals/barista-640.webp",
+        "public/education-visuals/barista-1280.webp"
+      ]
+    },
+    {
+      "id": "brewing",
+      "photo": 4349776,
+      "author": "Ketut Subiyanto",
+      "url": "https://www.pexels.com/photo/barista-pouring-coffee-via-funnel-dripper-and-disposable-filter-4349776/",
+      "height": 1952,
+      "files": [
+        "public/education-visuals/brewing-640.webp",
+        "public/education-visuals/brewing-1280.webp"
+      ]
+    },
+    {
+      "id": "roasting",
+      "photo": 31953357,
+      "author": "Andrew Neel",
+      "url": "https://www.pexels.com/photo/coffee-bean-roasting-process-in-cooling-tray-31953357/",
+      "height": 854,
+      "files": [
+        "public/education-visuals/roasting-640.webp",
+        "public/education-visuals/roasting-1280.webp"
+      ]
+    },
+    {
+      "id": "green",
+      "photo": 7125601,
+      "author": "Michael Burrows",
+      "url": "https://www.pexels.com/photo/heap-of-raw-coffee-beans-drying-in-daylight-7125601/",
+      "height": 854,
+      "files": [
+        "public/education-visuals/green-640.webp",
+        "public/education-visuals/green-1280.webp"
+      ]
+    },
+    {
+      "id": "cupping",
+      "photo": 7125778,
+      "author": "Michael Burrows",
+      "url": "https://www.pexels.com/photo/samples-of-coffee-on-table-7125778/",
+      "height": 1920,
+      "files": [
+        "public/education-visuals/cupping-640.webp",
+        "public/education-visuals/cupping-1280.webp"
+      ]
+    }
+  ]
+}
