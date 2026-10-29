@@ -4,6 +4,7 @@ import {
   type LegacyInventoryEntry,
 } from "./legacy-inventory";
 import { bookingSchemaStatements, bookingSeedStatements } from "./booking-schema";
+import { ensureLearningSchema } from "./learning-schema";
 
 export type StaffRole = "admin" | "employee" | "instructor";
 export type StaffPermission = "finance" | "inventory" | "roasting";
@@ -287,6 +288,7 @@ async function initializeDatabase(): Promise<void> {
   await db.batch(schemaStatements.map((statement) => db.prepare(statement)));
   await db.batch(bookingSchemaStatements.map((statement) => db.prepare(statement)));
   await ensureBookingMemberColumns(db);
+  await ensureLearningSchema(db);
   await db.batch(bookingSeedStatements.map((statement) => db.prepare(statement)));
   await db
     .prepare(

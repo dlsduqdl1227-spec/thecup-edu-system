@@ -3,9 +3,10 @@ import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import "./release-quality.css";
 import "./interface.css";
+import "./learning.css";
 
-const title = "더컵에듀 커피 스테이션";
-const description = "상담 승인 회원을 위한 에스프레소·브루잉·로스팅 스테이션 예약과 실습 기록 서비스";
+const title = "더컵에듀 | 커피 교육과 수강 상담";
+const description = "SCA 바리스타·브루잉·로스팅·센서리·그린커피, 디플로마와 기업교육. 교육 상담부터 수강 등록, 시간대 예약까지 더컵에듀에서 함께하세요.";
 const shareTitle = "THE CUP EDU";
 const shareDescription = "COFFEE STATION";
 

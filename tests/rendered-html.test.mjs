@@ -36,7 +36,7 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(page, /initialEntry/);
   assert.match(page, /initialShowHome/);
   assert.match(adminPage, /EduSystemApp/);
-  assert.match(layout, /더컵에듀 커피 스테이션/);
+  assert.match(layout, /커피 교육과 수강 상담/);
   assert.match(layout, /lang="ko"/);
   assert.match(app, /brand\/thecup-edu\.jpg/);
   assert.match(app, /brand\/monthly-coffee\.png/);
@@ -47,7 +47,7 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /BookingAdmin/);
   assert.match(app, /OperationsHub/);
   assert.match(app, /하나의 월을 기준으로 스테이션 일정, 예약과 과정 모집을 한 화면에서 관리/);
-  assert.match(app, /아래 두 영역이 함께 자동 동기화/);
+  assert.match(app, /시간표와 개강 모집의 조회 월을 함께 사용/);
   assert.match(app, /id="operations-schedule"/);
   assert.match(app, /id="operations-openings"/);
   assert.match(app, /initialTab=\{initialSection\}/);
@@ -55,12 +55,14 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /navigateTo\("booking", "members"\)/);
   assert.match(app, /<CourseOpeningsAdminView notify=\{notify\} month=\{month\} onMonthChange=\{setMonth\} embedded/);
   assert.doesNotMatch(app, /workspace === "booking"/);
-  assert.match(bookingPortal, /수업 예정자/);
+  const landing = await readFile(new URL("app/components/CourseLanding.tsx", root), "utf8");
+  assert.match(bookingPortal, /CourseLanding/);
+  assert.match(landing, /과정 안내/);
   assert.match(bookingPortal, /수강생 로그인/);
-  assert.match(bookingPortal, /운영자 로그인/);
+  assert.match(landing, /직원 로그인/);
   assert.match(bookingPortal, /portal-calendar/);
-  assert.match(bookingPortal, /href="\/\?view=visitor#portal-entry-content"/);
-  assert.match(bookingPortal, /href="\/\?view=student#portal-entry-content"/);
+  assert.match(landing, /href="\/\?view=visitor#portal-entry-content"/);
+  assert.match(landing, /href="\/\?view=student#portal-entry-content"/);
   assert.match(app, /새 품목 입고/);
   assert.match(app, /create_item_with_stock/);
   assert.match(app, /재고 작업 선택/);
@@ -82,7 +84,7 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /formatInventoryAmount/);
   assert.match(app, /← 이전/);
   assert.match(app, />관리 홈</);
-  assert.match(app, />스테이션 홈</);
+  assert.match(app, />교육 홈</);
   assert.match(app, /시간강사\(남부\)/);
   assert.match(app, /직원 삭제/);
   assert.doesNotMatch(app, /더컵 볶은 원두/);

@@ -8,7 +8,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 type Member = { id: number; name: string; phoneLast4: string; approvalStatus: string; consultationStatus: string; desiredStationType: string; consultationMemo: string; adminMemo: string; approvedAt: string | null; createdAt: string };
 type Station = { id: number; type: string; name: string; active: number; displayOrder: number };
 type Slot = { id: number; stationId: number; startAt: string; endAt: string; status: string; blockReason: string; stationType: string; stationName: string; hasConfirmed: number; requestCount: number };
-type Reservation = { id: number; memberId: number; memberName: string; phoneLast4: string; memberApprovalStatus: string; slotId: number; status: string; purpose: string; materialPlan: string; openToPeerPractice: number; userMemo: string; adminMemo: string; rejectionReason: string; createdAt: string; startAt: string; endAt: string; stationType: string; stationName: string };
+type Reservation = { enrollmentId: number | null; id: number; memberId: number; memberName: string; phoneLast4: string; memberApprovalStatus: string; slotId: number; status: string; purpose: string; materialPlan: string; openToPeerPractice: number; userMemo: string; adminMemo: string; rejectionReason: string; createdAt: string; startAt: string; endAt: string; stationType: string; stationName: string };
 type Payment = { id: number; memberId: number; memberName: string; reservationId: number | null; amount: number; method: string; status: string; paidAt: string | null; createdAt: string };
 type Feedback = { id: number; memberId: number; memberName: string; reservationId: number; message: string; status: string; adminReply: string; createdAt: string };
 type Evaluation = { id: number; memberId: number; memberName: string; status: string; technicalScore: number | null; consistencyScore: number | null; sensoryScore: number | null; ruleScore: number | null; ethicsStatus: string; result: string; note: string };
@@ -410,7 +410,7 @@ function MemberCreateForm({ stationTypes, busy, act, onClose, onCreated }: {
       <label>상담 메모<textarea name="consultationMemo" maxLength={500} rows={2} disabled={busy} /></label>
       <label>관리자 메모<textarea name="adminMemo" maxLength={500} rows={2} disabled={busy} /></label>
     </div></details>
-    <p className="wide">{approvalStatus === "APPROVED" ? "등록 즉시 이름·휴대폰 번호·현재 수강생 보안코드로 로그인하고 예약할 수 있습니다." : "승인 대기로 저장합니다. 목록에서 승인해야 로그인할 수 있습니다."} 교육자료 열람 권한은 자동으로 부여하지 않습니다.</p>
+    <p className="wide">{approvalStatus === "APPROVED" ? "등록 즉시 이름·휴대폰 번호·현재 수강생 보안코드로 로그인할 수 있습니다. 새 수강생의 수업 예약은 상담·수업 관리에서 결제한 과정과 회차를 등록한 뒤 가능합니다." : "승인 대기로 저장합니다. 목록에서 승인해야 로그인할 수 있습니다."} 교육자료 열람 권한은 자동으로 부여하지 않습니다.</p>
     {error && <p className="wide booking-member-create-error" role="alert">{error}</p>}
     <div className="wide booking-member-edit-actions"><button type="button" disabled={busy} onClick={onClose}>취소</button><button className="solid" disabled={busy}>{busy ? "등록 중…" : approvalStatus === "APPROVED" ? "등록·승인" : "승인 대기로 등록"}</button></div>
   </form>;
@@ -454,7 +454,7 @@ function MemberEditForm({ member, stationTypes, busy, act, onClose }: { member: 
 }
 
 function PaymentAdmin({ data, busy, act }: AdminProps) {
-  const payable = data.reservations.filter((reservation) => ["CONFIRMED", "COMPLETED"].includes(reservation.status));
+  const payable = data.reservations.filter((reservation) => !reservation.enrollmentId && ["CONFIRMED", "COMPLETED"].includes(reservation.status));
   const paidReservationIds = new Set(data.payments.filter((payment) => payment.reservationId && payment.status === "PAID").map((payment) => payment.reservationId));
   function pay(reservation: Reservation, method: "CARD" | "CASH") {
     void act({ action: "recordPayment", memberId: reservation.memberId, reservationId: reservation.id, method, status: "PAID" }, `${method === "CARD" ? "카드" : "현금"} 현장결제를 등록했습니다.`);
@@ -477,7 +477,7 @@ function GrowthAdmin({ data, busy, act }: AdminProps) {
 
 function SettingsAdmin({ data, busy, act }: AdminProps) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); await act({ action: "updateSettings", ...Object.fromEntries(new FormData(event.currentTarget).entries()) }, "예약 운영 설정을 저장했습니다."); }
-  return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>예약·현장결제 정책</h2><p>수강생은 승인 즉시 예약할 수 있으며 이용 당일 현장에서 결제합니다.</p></div><label>1회 현장결제 금액<input name="reservationPrice" type="number" min="1" defaultValue={data.settings.reservationPrice} required /><small>센터 재료비를 포함한 최종 결제 금액입니다.</small></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>수업 예정자가 상담 신청을 누르면 이 주소로 바로 이동합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
+  return <form className="booking-admin-settings" onSubmit={submit}><div><span>OPERATING POLICY</span><h2>예약·현장결제 정책</h2><p>기존 실습 예약에 적용하는 현장결제 정책입니다. 새 교육 과정의 결제·회차는 상담·수업 관리에서 등록합니다.</p></div><label>1회 현장결제 금액<input name="reservationPrice" type="number" min="1" defaultValue={data.settings.reservationPrice} required /><small>센터 재료비를 포함한 최종 결제 금액입니다.</small></label><label>회원 취소 가능 시간<input name="cancelHours" type="number" min="0" defaultValue={data.settings.cancelHours} required /><small>예약 시작 몇 시간 전까지 취소할 수 있는지 설정합니다.</small></label><label className="booking-setting-wide">카카오톡 상담 링크<input name="kakaoChatUrl" type="url" defaultValue={data.settings.kakaoChatUrl} placeholder="https://pf.kakao.com/_채널ID/chat" /><small>시간표 미리보기의 카카오톡 상담 버튼에 연결됩니다. 교육 홈페이지는 상담 폼을 먼저 안내합니다.</small></label><button className="solid" disabled={busy}>설정 저장</button></form>;
 }
 
 type AdminProps = { data: BookingAdminData; busy: boolean; act: (body: Record<string, unknown>, success: string, onError?: (message: string) => void) => Promise<boolean> };

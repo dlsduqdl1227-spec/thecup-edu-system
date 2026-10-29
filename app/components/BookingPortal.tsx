@@ -6,6 +6,7 @@ import { useRequestGuard } from "../../lib/use-request-guard";
 import { AccessibleDialog } from "./AccessibleDialog";
 import { ScaEducation } from "./ScaEducation";
 import { MobileNavigation } from "./MobileNavigation";
+import { CourseLanding } from "./CourseLanding";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
@@ -21,6 +22,7 @@ type Slot = {
 };
 type PublicSlot = Pick<Slot, "stationType" | "stationName" | "startAt" | "endAt">;
 type Reservation = {
+  enrollmentId: number | null;
   id: number;
   slotId: number;
   status: "REQUESTED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "REJECTED" | "NO_SHOW";
@@ -39,6 +41,9 @@ type Reservation = {
 };
 type PracticeLog = { id: number; reservationId: number; stationType: string; recipeData: string; sensoryNote: string; reflection: string; updatedAt: string };
 type BookingData = {
+  instructorConflicts: Array<{ enrollmentId: number; startAt: string; endAt: string }>;
+  courseBookingRequired: boolean;
+  enrollments: Array<{ id: number; courseName: string; stationType: string; instructorName: string; sessionMinutes: number; totalSessions: number; usedSessions: number; pendingSessions: number; confirmedSessions: number; completedSessions: number; status: string }>;
   member: Member;
   month: string;
   slots: Slot[];
@@ -130,13 +135,14 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
     return () => { window.clearInterval(refresh); window.removeEventListener("focus", loadMemberData); cancelMemberLoad(); };
   }, [loadMemberData, cancelMemberLoad]);
   useEffect(() => {
-    // Public availability is safe to preload and stays synchronized with administrator changes.
+    if (entry !== "visitor") return;
+    // Only the optional timetable preview needs the public availability poll.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAvailability();
     const refresh = window.setInterval(() => void loadAvailability(), 30_000);
     window.addEventListener("focus", loadAvailability);
     return () => { window.clearInterval(refresh); window.removeEventListener("focus", loadAvailability); cancelAvailabilityLoad(); };
-  }, [loadAvailability, cancelAvailabilityLoad]);
+  }, [entry, loadAvailability, cancelAvailabilityLoad]);
   useEffect(() => {
     if (authLoading || !entry) return;
     const target = document.getElementById("portal-entry-content");
@@ -187,7 +193,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
     }
   }
 
-  if (authLoading) return <main className="portal-loading" id="main-content" aria-live="polite"><Brand /><p>예약 시스템을 불러오고 있습니다.</p></main>;
+  if (authLoading && initialEntry === "student") return <main className="portal-loading" id="main-content" aria-live="polite"><Brand /><p>수강 정보를 불러오고 있습니다.</p></main>;
 
   if (member && !showHome) {
     return (
@@ -195,7 +201,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
         <header className="portal-member-header">
           <div className="portal-member-home">
             <Brand compact />
-            <button type="button" onClick={() => { setEntry(null); setShowHome(true); }}>스테이션 홈</button>
+            <button type="button" onClick={() => { setEntry(null); setShowHome(true); }}>교육 홈</button>
           </div>
           <nav aria-label="수강생 메뉴">
             <button className={memberTab === "schedule" ? "active" : ""} onClick={() => setMemberTab("schedule")}>스케줄</button>
@@ -231,25 +237,11 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
   }
 
   return (
-    <main className={`portal-public${entry ? " has-entry" : ""}`} id="main-content">
-      <header className="portal-header"><Link href="/?home=1" aria-label="스테이션 처음 화면"><Brand compact /></Link><div className="portal-header-actions">{member && <button type="button" onClick={() => setShowHome(false)}>내 수강 화면</button>}<span>STATION RESERVATION</span></div></header>
-      <section className="portal-intro">
-        <div><span>THE CUP EDU · COFFEE STATION</span><h1>필요한 스테이션을<br />간단하게 확인하고 예약하세요.</h1><p>계정 유형에 따라 필요한 기능만 보여드립니다.</p></div>
-        <div className="portal-role-grid">
-          <Link href="/?view=visitor#portal-entry-content" className={entry === "visitor" ? "active" : ""} aria-current={entry === "visitor" ? "page" : undefined} onClick={(event) => { if (!member) return; event.preventDefault(); setEntry("visitor"); setShowHome(true); }}><span>01</span><h2>수업 예정자</h2><p>로그인 없이 월별로 남은 스테이션을 확인합니다.</p><b>빈자리 보기 →</b></Link>
-          <Link href="/?view=student#portal-entry-content" className={entry === "student" ? "active" : ""} aria-current={entry === "student" ? "page" : undefined} onClick={(event) => { if (!member) return; event.preventDefault(); setShowHome(false); }}><span>02</span><h2>수강생</h2><p>승인된 이름·연락처와 보안코드로 로그인하고 예약합니다.</p><b>{member ? "내 수강 화면 →" : "수강생 로그인 →"}</b></Link>
-          <Link href="/admin"><span>03</span><h2>운영자</h2><p>상담, 회원, 스테이션과 예약을 관리합니다.</p><b>운영자 로그인 →</b></Link>
-        </div>
-      </section>
-
+    <main id="main-content">
+      <CourseLanding entry={entry} member={Boolean(member)} onStudent={() => setShowHome(false)}>
       {entry === "student" && <section id="portal-entry-content" className="portal-entry-panel"><div className="portal-panel-copy"><span>STUDENT LOGIN</span><h2>수강생 로그인</h2><p>승인받은 이름, 휴대폰 번호와 수강생 보안코드를 입력하세요.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/member-auth/login")}><label>이름<input name="name" autoComplete="name" placeholder="본인 이름" maxLength={40} required /></label><label>등록된 휴대폰 번호<input name="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" required /></label><label>보안코드<input name="securityCode" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,32}" minLength={4} maxLength={32} placeholder="수강생 보안코드" required /></label><button disabled={busy}>{busy ? "확인 중…" : "로그인"}</button></form></section>}
-
       {entry === "visitor" && <><VisitorSchedule month={month} setMonth={setMonth} availability={availability} />{availabilityError && <p className="portal-load-notice" role="alert">{availabilityError} 기존 일정은 유지됩니다. <button onClick={() => void loadAvailability()}>다시 불러오기</button></p>}</>}
-
-      {entry === "consultation" && <section id="portal-entry-content" className="portal-entry-panel portal-consultation"><div className="portal-panel-copy"><span>CONSULTATION</span><h2>이용 상담 신청</h2><p>신청 후 관리자가 승인하면 본인 이름과 연락처로 바로 이용할 수 있습니다.</p></div><form onSubmit={(event) => void submitPublic(event, "/api/booking/public/consultations")}><label>이름<input name="name" required maxLength={40} /></label><label>휴대폰 번호<input name="phone" type="tel" inputMode="numeric" required /></label><label>관심 스테이션<select name="desiredStationType" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">상담 후 결정</option></select></label><label className="wide">상담 내용<textarea name="consultationMemo" rows={3} maxLength={500} required /></label><button className="wide" disabled={busy}>{busy ? "접수 중…" : "상담 신청"}</button></form></section>}
-
-      {!entry && <section className="portal-quick-guide"><span>운영 시간</span><strong>09:00–17:30</strong><p>09:00–11:30 · 12:00–14:30 · 15:00–17:30</p></section>}
-      <footer className="portal-footer"><Brand compact /><p>예약은 운영자 승인 후 확정됩니다.</p></footer>
+      </CourseLanding>
       {message && <Toast value={message} close={() => setMessage(null)} />}
     </main>
   );
@@ -267,29 +259,71 @@ function VisitorSchedule({ month, setMonth, availability }: { month: string; set
 }
 
 function MemberSchedule({ data, month, setMonth, reload, notify }: { data: BookingData; month: string; setMonth: (value: string) => void; reload: () => Promise<void>; notify: Notify }) {
+  const [courseId, setCourseId] = useState<number | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [picked, setPicked] = useState("");
   const [requestSlot, setRequestSlot] = useState<Slot | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const submitting = useRef(false);
-  const slots = (data.month === month ? data.slots : []).filter((slot) => filter === "ALL" || slot.stationType === filter);
-  const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
+  const courses = data.enrollments ?? [];
+  const course = courseId === 0 && !data.courseBookingRequired ? null : courses.find(row => row.id === courseId) ?? courses.find(row => row.status === "ACTIVE") ?? null;
+  const remaining = course ? Math.max(0, course.totalSessions - course.usedSessions) : 0;
+  const canRequest = course ? course.status === "ACTIVE" && remaining > 0 : !data.courseBookingRequired;
+  const compatibleSlots = (data.month === month ? data.slots : []).filter(slot => course
+    ? slot.stationType === course.stationType && (new Date(slot.endAt).getTime() - new Date(slot.startAt).getTime()) / 60000 >= course.sessionMinutes
+      && (["REQUESTED", "CONFIRMED"].includes(slot.displayStatus) || !(data.instructorConflicts ?? []).some(conflict => conflict.enrollmentId === course.id && conflict.startAt < slot.endAt && conflict.endAt > slot.startAt))
+    : !data.courseBookingRequired && (filter === "ALL" || slot.stationType === filter));
+  // Equipment stays behind the scenes: one time choice per course, even with multiple identical stations.
+  const slots = course ? [...new Map(compatibleSlots.slice().sort((a, b) => Number(a.displayStatus === "AVAILABLE") - Number(b.displayStatus === "AVAILABLE")).map(slot => [slot.startAt + slot.endAt, slot] as const)).values()].sort((a, b) => a.startAt.localeCompare(b.startAt)) : compatibleSlots;
+  const dates = [...new Set(slots.map(slot => slot.startAt.slice(0, 10)))];
   const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
   async function reserve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requestSlot || submitting.current) return;
-    submitting.current = true;
-    setSaving(true);
-    setSaveError("");
+    if (!requestSlot || !canRequest || submitting.current) return;
+    submitting.current = true; setSaving(true); setSaveError("");
     const values = new FormData(event.currentTarget);
     try {
-      await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "requestReservation", slotId: requestSlot.id, purpose: values.get("purpose"), materialPlan: values.get("materialPlan"), openToPeerPractice: values.get("openToPeerPractice") === "YES", userMemo: values.get("userMemo") }) });
-      setRequestSlot(null); await reload(); notify({ kind: "ok", text: "예약 요청을 접수했습니다. 운영자 승인 후 확정되며 이용 당일 현장에서 결제합니다." });
-    } catch (error) { setSaveError(errorText(error)); notify({ kind: "error", text: errorText(error) }); }
+      await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        action: "requestReservation", slotId: requestSlot.id, enrollmentId: course?.id,
+        purpose: course?.courseName ?? values.get("purpose"), materialPlan: course ? "CENTER" : values.get("materialPlan"),
+        openToPeerPractice: false, userMemo: values.get("userMemo"),
+      }) });
+      await reload(); setRequestSlot(null);
+      notify({ kind: "ok", text: course ? "수업을 신청했습니다. 담당 강사의 최종 승인 후 일정이 확정됩니다." : "예약을 신청했습니다. 승인 후 확정되며 이용 당일 현장에서 결제합니다." });
+    } catch (error) { setSaveError(errorText(error)); }
     finally { submitting.current = false; setSaving(false); }
   }
-  return <><SectionHeading eyebrow="STUDENT SCHEDULE" title="스테이션 예약" text="승인된 수강생은 원하는 시간을 바로 예약할 수 있습니다."><input type="month" aria-label="조회 월" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} /></SectionHeading><div className="portal-schedule-toolbar"><div>{["ALL","ESPRESSO","BREWING","ROASTING"].map((type) => <button key={type} className={filter === type ? "active" : ""} onClick={() => setFilter(type)}>{type === "ALL" ? "전체" : stationLabels[type]}</button>)}</div><span>이용 당일 현장결제</span></div>{data.month !== month ? <p role="status">선택한 월의 일정을 불러오는 중입니다.</p> : null}<CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} available={(slot) => (slot as Slot).displayStatus === "AVAILABLE"} renderSlot={(value) => { const slot = value as Slot; return <article className={`portal-slot ${slot.displayStatus.toLowerCase()}`} key={slot.id}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>{slotLabels[slot.displayStatus]}</b>{slot.displayStatus === "AVAILABLE" && <button onClick={() => { setSaveError(""); setRequestSlot(slot); }}>예약 요청</button>}</article>; }} />{requestSlot && <AccessibleDialog label="스테이션 예약 요청" busy={saving} onClose={() => setRequestSlot(null)}><form className="portal-modal" onSubmit={reserve}><button type="button" className="close" aria-label="예약창 닫기" disabled={saving} onClick={() => setRequestSlot(null)}>×</button><span>RESERVATION REQUEST</span><h2>{shortDate(requestSlot.startAt)} · {timeRange(requestSlot)}</h2><p>{requestSlot.stationName}</p><label>실습 목적<select name="purpose" defaultValue={requestSlot.stationType}><option value="ESPRESSO">에스프레소</option><option value="STEAMING">스티밍</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option><option value="OTHER">기타</option></select></label><label>재료 사용<select name="materialPlan"><option value="SELF">본인 지참</option><option value="CENTER">센터 재료 사용 · 이용 금액 포함</option></select></label><label>함께 연습<select name="openToPeerPractice"><option value="NO">혼자 연습</option><option value="YES">함께 연습 가능</option></select></label><label>전달 메모<textarea name="userMemo" rows={3} maxLength={500} /></label>{saveError && <p role="alert" className="portal-form-error">{saveError}</p>}<button className="submit" disabled={saving}>{saving ? "요청 중…" : "예약 요청"}</button></form></AccessibleDialog>}</>;
+  return <>
+    <SectionHeading eyebrow="MY LEARNING" title="내 수업 예약" text="수강 과정과 원하는 시간을 선택하세요. 담당 강사가 확인한 뒤 일정을 확정합니다.">
+      <input type="month" aria-label="조회 월" value={month} onChange={event => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} />
+    </SectionHeading>
+    <div className="learning-my-courses">
+      {courses.map(row => <button key={row.id} className={course?.id === row.id ? "active" : ""} aria-pressed={course?.id === row.id} onClick={() => { setCourseId(row.id); setRequestSlot(null); }}>
+        <strong>{row.courseName}</strong><span>{row.status === "PAUSED" ? "수강 일시 중지" : `예약할 수 있는 회차 ${Math.max(0, row.totalSessions - row.usedSessions)} / ${row.totalSessions}회`}</span>
+        <small>신청 {row.pendingSessions} · 확정 {row.confirmedSessions} · 소진 {row.completedSessions}회</small><small>담당 {row.instructorName} · 회당 {row.sessionMinutes}분</small>
+      </button>)}
+      {!data.courseBookingRequired && <button className={!course ? "active" : ""} aria-pressed={!course} onClick={() => { setCourseId(0); setRequestSlot(null); }}><strong>기존 실습 예약</strong><span>기존 수강생 예약 권한 유지</span><small>이용 당일 현장결제</small></button>}
+    </div>
+    {data.courseBookingRequired && !courses.length ? <Empty><h2>상담과 결제 확인 후 수업을 등록해 드립니다.</h2><p>회원 승인은 완료되었습니다. 담당자가 과정·회차를 등록하면 여기에서 시간을 선택할 수 있습니다.</p><a href="http://pf.kakao.com/_XRQdn/chat" target="_blank" rel="noreferrer">카카오톡 문의 →</a></Empty> : <>
+      {course ? <div className="portal-schedule-toolbar"><strong>{course.courseName}</strong><span>{course.status === "PAUSED" ? "중지된 과정입니다. 담당자에게 문의해 주세요." : remaining ? `${remaining}회 더 신청할 수 있습니다. 장비는 과목에 맞게 배정됩니다.` : "등록된 회차를 모두 신청했습니다. 내 예약에서 일정을 확인하세요."}</span></div> : <div className="portal-schedule-toolbar"><div>{["ALL","ESPRESSO","BREWING","ROASTING"].map(type => <button key={type} className={filter === type ? "active" : ""} onClick={() => setFilter(type)}>{type === "ALL" ? "전체" : stationLabels[type]}</button>)}</div><span>기존 예약 · 이용 당일 현장결제</span></div>}
+      {data.month !== month && <p role="status">선택한 월의 일정을 불러오는 중입니다.</p>}
+      <CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} available={slot => canRequest && slot.displayStatus === "AVAILABLE"} renderSlot={slot => <article className={`portal-slot ${slot.displayStatus.toLowerCase()}`} key={slot.id}><div><span>{course ? "수업 시간" : stationLabels[slot.stationType]}</span><h3>{timeRange(slot)}</h3><p>{course ? course.courseName : slot.stationName}</p></div><b>{slotLabels[slot.displayStatus]}</b>{canRequest && slot.displayStatus === "AVAILABLE" && <button onClick={() => { setSaveError(""); setRequestSlot(slot); }}>이 시간 신청</button>}</article>} />
+      {course && <p className="learning-footnote">승인 대기 중인 신청도 회차에 포함합니다. 취소·거절 시 회차가 복구되며, 완료·노쇼는 소진 처리됩니다. 수업 시간·취소 규정은 상담 시 안내를 확인해 주세요.</p>}
+    </>}
+    {requestSlot && <AccessibleDialog label="수업 예약 신청" busy={saving} onClose={() => setRequestSlot(null)}><form className="portal-modal" onSubmit={reserve}>
+      <button type="button" className="close" aria-label="예약창 닫기" disabled={saving} onClick={() => setRequestSlot(null)}>×</button>
+      <span>LESSON REQUEST</span><h2>{shortDate(requestSlot.startAt)} · {timeRange(requestSlot)}</h2><p>{course ? `${course.courseName} · 담당 ${course.instructorName}` : requestSlot.stationName}</p>
+      {course ? <p>1회 신청 · 강사 승인 후 확정<br />신청 후 남은 회차 {remaining - 1}회</p> : <>
+        <label>실습 목적<select name="purpose" defaultValue={requestSlot.stationType}>{Object.entries(purposeLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>재료 사용<select name="materialPlan"><option value="SELF">본인 지참</option><option value="CENTER">센터 재료 사용 · 이용 금액 포함</option></select></label>
+      </>}
+      <label>강사에게 전달할 내용 <small>선택</small><textarea name="userMemo" rows={3} maxLength={500} /></label>
+      <p>취소는 수업 {data.settings.cancelHours}시간 전까지 가능합니다. 이후 변경은 담당자에게 문의해 주세요.</p>
+      {saveError && <p role="alert" className="portal-form-error">{saveError}</p>}
+      <button className="submit" disabled={saving}>{saving ? "신청 중…" : "수업 신청하기"}</button>
+    </form></AccessibleDialog>}
+  </>;
 }
 
 function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelected, renderSlot, available = () => true }: { month: string; slots: T[]; selected: string; setSelected: (date: string) => void; renderSlot: (slot: T) => ReactNode; available?: (slot: T) => boolean }) {
@@ -333,7 +367,7 @@ function MemberReservations({ data, reload, notify }: { data: BookingData; reloa
   const rows = data.reservations.filter((row) => filter === "ACTIVE" ? ["REQUESTED","CONFIRMED"].includes(row.status) : row.status === filter);
   async function cancel(id: number) { try { await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancelReservation", reservationId: id }) }); await reload(); notify({ kind: "ok", text: "예약을 취소했습니다." }); } catch (error) { notify({ kind: "error", text: errorText(error) }); } }
   async function feedback(id: number) { const value = window.prompt("운영자에게 요청할 피드백을 입력해 주세요."); if (!value) return; try { await requestJson("/api/booking/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "requestFeedback", reservationId: id, message: value }) }); await reload(); notify({ kind: "ok", text: "피드백을 요청했습니다." }); } catch (error) { notify({ kind: "error", text: errorText(error) }); } }
-  return <><SectionHeading eyebrow="MY RESERVATIONS" title="내 예약" text="본인의 예약 상태와 운영자 안내만 표시됩니다." /><div className="portal-filter">{[["ACTIVE","대기·확정"],["COMPLETED","완료"],["CANCELLED","취소"],["REJECTED","거절"]].map(([value,label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}</div><div className="portal-reservations">{rows.length ? rows.map((row) => <article key={row.id}><div><span>{reservationLabels[row.status]}</span><h2>{shortDate(row.startAt)} · {timeRange(row)}</h2><p>{row.stationName} · {purposeLabels[row.purpose] ?? row.purpose}</p><small>{row.materialPlan === "SELF" ? "재료 본인 지참" : "센터 재료 사용 · 이용 금액 포함"} · 이용 당일 현장결제</small>{row.adminMemo && <small>운영자 안내 · {row.adminMemo}</small>}{row.rejectionReason && <small>거절 사유 · {row.rejectionReason}</small>}</div><div>{["REQUESTED","CONFIRMED"].includes(row.status) && <button onClick={() => void cancel(row.id)}>예약 취소</button>}{["CONFIRMED","COMPLETED"].includes(row.status) && <button onClick={() => void feedback(row.id)}>피드백 요청</button>}</div></article>) : <Empty>해당 상태의 예약이 없습니다.</Empty>}</div></>;
+  return <><SectionHeading eyebrow="MY RESERVATIONS" title="내 예약" text="본인의 예약 상태와 운영자 안내만 표시됩니다." /><div className="portal-filter">{[["ACTIVE","대기·확정"],["COMPLETED","완료"],["CANCELLED","취소"],["REJECTED","거절"]].map(([value,label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}</div><div className="portal-reservations">{rows.length ? rows.map((row) => <article key={row.id}><div><span>{reservationLabels[row.status]}</span><h2>{shortDate(row.startAt)} · {timeRange(row)}</h2><p>{row.stationName} · {purposeLabels[row.purpose] ?? row.purpose}</p><small>{row.enrollmentId ? "결제 확인된 교육 과정 · 등록 회차에서 1회 사용" : `${row.materialPlan === "SELF" ? "재료 본인 지참" : "센터 재료 사용 · 이용 금액 포함"} · 이용 당일 현장결제`}</small>{row.adminMemo && <small>운영자 안내 · {row.adminMemo}</small>}{row.rejectionReason && <small>거절 사유 · {row.rejectionReason}</small>}</div><div>{["REQUESTED","CONFIRMED"].includes(row.status) && <button onClick={() => void cancel(row.id)}>예약 취소</button>}{["CONFIRMED","COMPLETED"].includes(row.status) && <button onClick={() => void feedback(row.id)}>피드백 요청</button>}</div></article>) : <Empty>해당 상태의 예약이 없습니다.</Empty>}</div></>;
 }
 
 function MemberPractice({ data, reload, notify }: { data: BookingData; reload: () => Promise<void>; notify: Notify }) {

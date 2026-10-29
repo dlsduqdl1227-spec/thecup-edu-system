@@ -43,6 +43,8 @@ test("booking lifecycle keeps private, public and recruitment schedules consiste
     sqlite.prepare("INSERT INTO member_sessions (token_hash, member_id, expires_at) VALUES (?, ?, '2100-01-01')").run(hash(`member${id}`), id);
   }
   const admin = (data) => routes.admin(request("/api/booking/admin", "thecup_session=admin", data));
+  // These fixtures represent pre-upgrade members, whose legacy access must remain intact.
+  sqlite.prepare("DELETE FROM learning_members").run();
   const member = (id, data) => routes.member(request("/api/booking/member", `thecup_member_session=member${id}`, data));
   const reserve = (id, slotId) => member(id, { action: "requestReservation", slotId, purpose: "ESPRESSO", materialPlan: "SELF" });
   const slots = () => sqlite.prepare("SELECT * FROM booking_slots ORDER BY id").all();

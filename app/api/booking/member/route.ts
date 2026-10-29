@@ -13,6 +13,7 @@ import { currentKoreanMonth } from "../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, jsonError } from "../../../../lib/http";
 import { requireMember } from "../../../../lib/member-auth";
+import { memberEnrollments } from "../../../../lib/learning";
 
 type SlotRow = {
   id: number;
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
         .all<SlotRow>(),
       db
         .prepare(
-          `SELECT r.id, r.slot_id AS slotId, r.status, r.purpose,
+          `SELECT r.id, r.enrollment_id AS enrollmentId, r.slot_id AS slotId, r.status, r.purpose,
                   r.material_plan AS materialPlan, r.open_to_peer_practice AS openToPeerPractice,
                   r.user_memo AS userMemo, r.admin_memo AS adminMemo,
                   r.rejection_reason AS rejectionReason, r.created_at AS createdAt,
@@ -113,6 +114,11 @@ export async function GET(request: Request) {
         .all<{ key: string; value: string }>(),
     ]);
     const settings = Object.fromEntries(settingsResult.results.map((row) => [row.key, row.value]));
+    const instructorConflicts = await db.prepare(`SELECT own.id AS enrollmentId, sl.start_at AS startAt, sl.end_at AS endAt
+      FROM course_enrollments own JOIN course_enrollments other ON other.instructor_id = own.instructor_id
+      JOIN reservations r ON r.enrollment_id = other.id JOIN booking_slots sl ON sl.id = r.slot_id
+      WHERE own.member_id = ? AND r.status = 'CONFIRMED' AND sl.start_at >= ? AND sl.start_at < ?`)
+      .bind(member.id, range.start, range.end).all();
     const slots = slotsResult.results.map((slot) => ({
       id: slot.id,
       stationId: slot.stationId,
@@ -133,6 +139,8 @@ export async function GET(request: Request) {
     }));
     return Response.json({
       member,
+      ...await memberEnrollments(member.id),
+      instructorConflicts: instructorConflicts.results,
       month,
       slots,
       reservations: reservationsResult.results,
@@ -143,7 +151,7 @@ export async function GET(request: Request) {
       settings: {
         cancelHours: Number(settings.booking_cancel_hours ?? 24),
       },
-    });
+    }, { headers: { "Cache-Control": "private, no-store", "Vary": "Cookie" } });
   } catch (error) {
     return jsonError(error);
   }
@@ -169,7 +177,13 @@ export async function POST(request: Request) {
 
 async function requestReservation(memberId: number, payload: Record<string, unknown>) {
   const slotId = positiveBookingInteger(payload.slotId, "예약 시간");
-  const purpose = bookingText(payload.purpose, "실습 목적", 40);
+  const enrollmentId = payload.enrollmentId ? positiveBookingInteger(payload.enrollmentId, "수강 과정") : null;
+  const enrollment = enrollmentId ? await getD1().prepare("SELECT course_name AS name FROM course_enrollments WHERE id = ? AND member_id = ? AND status = 'ACTIVE'").bind(enrollmentId, memberId).first<{ name: string }>() : null;
+  if (enrollmentId && !enrollment) throw new AuthError("예약할 수 있는 본인 과정이 아닙니다.", 403);
+  if (!enrollmentId && await getD1().prepare("SELECT 1 FROM learning_members WHERE member_id = ?").bind(memberId).first()) {
+    throw new AuthError("결제 확인 후 과정이 등록되면 예약할 수 있습니다. 담당자에게 문의해 주세요.", 409);
+  }
+  const purpose = enrollment?.name ?? bookingText(payload.purpose, "실습 목적", 40);
   const materialPlan = bookingText(payload.materialPlan, "재료 사용", 40).toUpperCase();
   if (!["SELF", "CENTER"].includes(materialPlan)) throw new Error("재료 사용 방식을 선택해 주세요.");
   const userMemo = optionalBookingText(payload.userMemo, 500);
@@ -198,9 +212,9 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
     const result = await db
       .prepare(
         `INSERT INTO reservations
-          (member_id, slot_id, pass_id, slot_start_at, status, purpose, material_plan,
+          (enrollment_id, member_id, slot_id, pass_id, slot_start_at, status, purpose, material_plan,
            open_to_peer_practice, user_memo)
-         SELECT ?, ?, ?, ?, 'REQUESTED', ?, ?, ?, ?
+         SELECT ?, ?, ?, ?, ?, 'REQUESTED', ?, ?, ?, ?
          WHERE EXISTS (
            SELECT 1 FROM booking_slots s JOIN stations st ON st.id = s.station_id
            JOIN booking_members m ON m.id = ?
@@ -215,6 +229,7 @@ async function requestReservation(memberId: number, payload: Record<string, unkn
          )`,
       )
       .bind(
+        enrollmentId,
         memberId,
         slotId,
         passId,

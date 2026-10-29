@@ -19,6 +19,7 @@ import {
 import { compareInventoryItems, type InventorySort } from "../../lib/inventory-sort";
 import { inventoryChange, readStockQuantity } from "../../lib/inventory-movement";
 import { BookingAdmin } from "./BookingAdmin";
+import { LearningWorkspace } from "./LearningWorkspace";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
 import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
@@ -228,7 +229,7 @@ const navItems: Array<{
   { key: "record", label: "수업 사용 기록", short: "수업 기록" },
   { key: "inventory", label: "재고 관리", short: "재고", permission: "canInventory" },
   { key: "finance", label: "매출 및 지출 등록", short: "매출·지출", permission: "canFinance" },
-  { key: "booking", label: "운영 · 개강 관리", short: "운영", adminOnly: true },
+  { key: "booking", label: "상담 · 수업 관리", short: "수업" },
   { key: "education", label: "SCA 교육자료", short: "교육", adminOnly: true },
   { key: "students", label: "수강생 목록", short: "수강생", adminOnly: true },
   { key: "staff", label: "직원 목록 · 권한", short: "직원", adminOnly: true },
@@ -245,6 +246,7 @@ const permissionOptions: Array<{
 
 function allowedNavigation(user: User) {
   return navItems.filter((item) => {
+    if (item.key === "booking") return user.role === "admin" || user.role === "instructor";
     if (item.adminOnly) return user.role === "admin";
     if (!item.permission) return true;
     return user.role === "admin" || user[item.permission];
@@ -418,7 +420,7 @@ export function EduSystemApp() {
         <nav className="sidebar-actions" aria-label="화면 이동">
           <button type="button" onClick={goBack} disabled={navigationHistory.length === 0}>← 이전</button>
           <button type="button" onClick={goHome} disabled={activeTab === homeTab}>관리 홈</button>
-          <Link href="/?home=1">스테이션 홈</Link>
+          <Link href="/?home=1">교육 홈</Link>
         </nav>
         <nav className="side-nav" aria-label="주요 메뉴">
           {allowedNav.map((item) => (
@@ -456,7 +458,7 @@ export function EduSystemApp() {
           <nav className="mobile-history-nav" aria-label="화면 이동">
             <button type="button" onClick={goBack} disabled={navigationHistory.length === 0}>← 이전</button>
             <button type="button" onClick={goHome} disabled={activeTab === homeTab}>관리 홈</button>
-            <Link href="/?home=1">스테이션 홈</Link>
+            <Link href="/?home=1">교육 홈</Link>
           </nav>
         </header>
 
@@ -489,7 +491,7 @@ export function EduSystemApp() {
               />
             )}
             {activeTab === "booking" && (
-              <OperationsHub notify={setToast} initialSection={operationsEntry} />
+              data.user.role === "admin" ? <OperationsHub notify={setToast} initialSection={operationsEntry} /> : <section className="page-section"><LearningWorkspace /></section>
             )}
             {activeTab === "education" && <EducationView onApproveStudents={() => navigateTo("booking", "members")} />}
             {activeTab === "staff" && (
@@ -524,16 +526,20 @@ function EducationView({ onApproveStudents }: { onApproveStudents: () => void })
 }
 
 function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void; initialSection?: "schedule" | "members" }) {
+  const [view, setView] = useState(initialSection === "members" ? "existing" : "learning");
   const [month, setMonth] = useState("");
   const [scheduleMonths, setScheduleMonths] = useState<string[]>([]);
   const selectedMonthLabel = month ? `${Number(month.slice(5))}월` : "일정 확인 중";
 
   function moveToSection(sectionId: string) {
+    if (sectionId === "operations-openings") { setView("openings"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <div className="operations-hub operations-hub-unified">
+      <section className="page-section"><nav className="learning-toolbar learning-workspace" aria-label="통합 교육 운영"><button className={view === "learning" ? "active" : ""} onClick={() => setView("learning")}>상담·수강·수업 승인</button><button className={view === "existing" ? "active" : ""} onClick={() => setView("existing")}>시간표·기존 예약·회원</button><button className={view === "openings" ? "active" : ""} onClick={() => setView("openings")}>개강 모집</button></nav>{view === "learning" && <LearningWorkspace />}</section>
+      {view === "existing" && <div>
       <section className="page-section operations-unified-header">
         <PageHeader
           eyebrow="통합 운영"
@@ -561,7 +567,7 @@ function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast
         <div className="operations-unified-status">
           <span>현재 기준</span>
           <strong>{month || selectedMonthLabel}</strong>
-          <p>선택한 {selectedMonthLabel}을 기준으로 아래 두 영역이 함께 자동 동기화됩니다.</p>
+          <p>선택한 {selectedMonthLabel}을 기준으로 시간표와 개강 모집의 조회 월을 함께 사용합니다.</p>
         </div>
       </section>
       <div id="operations-schedule" className="operations-unified-section">
@@ -574,9 +580,10 @@ function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast
           initialTab={initialSection}
         />
       </div>
-      <div id="operations-openings" className="operations-unified-section">
+      </div>}
+      {view === "openings" && <div id="operations-openings" className="operations-unified-section">
         <CourseOpeningsAdminView notify={notify} month={month} onMonthChange={setMonth} embedded />
-      </div>
+      </div>}
     </div>
   );
 }

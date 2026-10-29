@@ -80,14 +80,15 @@ test('administrator direct student registration preserves identity, booking and 
     assert.equal(listed.members.find(m => m.id === memberId).name, 'QA 신규');
     assert.doesNotMatch(JSON.stringify(listed.members), /phone_hash|phoneHash|01000009901|010-0000-9901/);
   });
-  await t.test('new student has no education grants but can request a station without an issued pass', async () => {
+  await t.test('new student has no education grants and needs a paid course before booking', async () => {
     const list = await (await routes.eduMembers(req('/api/edu/members', cookies[0]))).json();
     assert.deepEqual(list.members.find(m => m.id === memberId).levels, []);
     assert.deepEqual((await (await routes.catalog(req('/api/edu/catalog', studentCookie))).json()).courses, []);
     await post({ action: 'generateSlots', month: '2099-10', dates: ['2099-10-12'], stationIds: [1], times: [{ start: '09:00', end: '11:30' }] });
     const slot = db.prepare('SELECT id FROM booking_slots ORDER BY id DESC').get();
     const r = await routes.member(req('/api/booking/member', studentCookie, { action: 'requestReservation', slotId: slot.id, purpose: 'ESPRESSO', materialPlan: 'SELF' }));
-    assert.equal(r.status, 201, await r.clone().text());
+    assert.equal(r.status, 409, await r.clone().text());
+    assert.match((await r.json()).error, /결제 확인/);
   });
   await t.test('duplicate and simultaneous requests do not overwrite or create duplicate accounts', async () => {
     const before = db.prepare('SELECT * FROM booking_members WHERE id=?').get(memberId);

@@ -6,6 +6,16 @@ export function jsonError(error: unknown): Response {
       headers: error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined });
   }
   const message = error instanceof Error ? error.message : "처리 중 오류가 발생했습니다.";
+  if (message.includes("course_enrollments.request_key")) {
+    return Response.json({ error: "같은 수강 등록이 이미 처리되었습니다. 새로고침하여 등록 내역을 확인해 주세요." }, { status: 409 });
+  }
+  if (message.includes("learning_")) {
+    const reason = message.includes("learning_enrollment_required") ? "결제 확인 후 과정이 등록되면 예약할 수 있습니다. 담당자에게 문의해 주세요."
+      : message.includes("learning_instructor_overlap") ? "담당 강사에게 같은 시간의 확정 수업이 있습니다. 다른 시간 또는 담당 강사를 확인해 주세요."
+      : message.includes("learning_member_overlap") ? "같은 시간에 신청했거나 확정된 수업이 있습니다. 기존 예약을 먼저 확인해 주세요."
+      : "남은 회차, 담당 강사 또는 시간대가 변경되었습니다. 수강 정보를 새로고침해 주세요.";
+    return Response.json({ error: reason }, { status: 409, headers: { "Cache-Control": "no-store" } });
+  }
   if (message.includes("UNIQUE constraint failed: stations.name")) {
     return Response.json({ error: "같은 이름의 스테이션이 이미 있습니다. 다른 이름을 입력해 주세요." }, { status: 409 });
   }

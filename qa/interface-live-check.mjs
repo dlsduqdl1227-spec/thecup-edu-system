@@ -17,7 +17,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
   const page=await context.newPage();page.on('pageerror',e=>report.errors.push(`${name}: ${e.message}`));
   await context.route('**/*',route=>{if(route.request().url().startsWith(baseURL)&&!['GET','HEAD'].includes(route.request().method())){report.productionWrites++;return route.abort();}return route.continue();});
   try{
-    for(const [path,heading] of [['/','수업 예정자'],['/admin','직원 로그인'],['/?view=student','수강생 로그인']]){
+    for(const [path,heading] of [['/','커피를 이해하는 나만의 다음 단계.'],['/admin','직원 로그인'],['/?view=student','수강생 로그인']]){
       const r=await page.goto(path);assert.equal(r.status(),200);await page.getByRole('heading',{name:heading,exact:true}).waitFor();
       // Finish link prefetches before the next full navigation. WebKit reports aborted
       // cross-document prefetches as access-control errors even when each endpoint is 200.
@@ -26,7 +26,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
       await page.screenshot({path:`${folder}/${name}-${heading}.png`});
     }
-    for(const path of ['/api/edu/catalog','/api/edu/members','/api/dashboard'])assert.equal((await context.request.get(path)).status(),401,path);
+    for(const path of ['/api/edu/catalog','/api/edu/members','/api/dashboard','/api/learning/admin','/api/booking/member'])assert.equal((await context.request.get(path)).status(),401,path);
     for(const path of ['/api/roasting','/api/roasting/manual','/api/inventory/roast'])assert.equal((await context.request.get(path)).status(),404,path);
     for(const key of ['app/components/EduSystemApp.tsx','app/components/BookingPortal.tsx','lib/sca-edu/viewer.js',Object.keys(manifest).find(k=>k.startsWith('_MobileNavigation-'))]){
       const file=manifest[key].file,r=await context.request.get('/'+file);assert.equal(r.status(),200);

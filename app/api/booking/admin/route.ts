@@ -65,7 +65,7 @@ export async function GET(request: Request) {
          GROUP BY sl.id ORDER BY sl.start_at, st.display_order, st.id`,
       ).bind(range.start, range.end).all(),
       db.prepare(
-        `SELECT r.id, r.member_id AS memberId, m.name AS memberName,
+        `SELECT r.id, r.enrollment_id AS enrollmentId, r.member_id AS memberId, m.name AS memberName,
                 m.phone_last4 AS phoneLast4, m.approval_status AS memberApprovalStatus,
                 r.slot_id AS slotId, r.status, r.purpose,
                 r.material_plan AS materialPlan, r.open_to_peer_practice AS openToPeerPractice,
@@ -492,7 +492,7 @@ async function setDateBlock(actorId: number, payload: Record<string, unknown>) {
   return Response.json({ ok: true });
 }
 
-async function decideReservation(actorId: number, payload: Record<string, unknown>) {
+export async function decideReservation(actorId: number, payload: Record<string, unknown>) {
   const reservationId = positiveBookingInteger(payload.reservationId, "예약");
   const decision = bookingText(payload.decision, "처리 상태", 30).toUpperCase();
   const adminMemo = optionalBookingText(payload.adminMemo, 500);
@@ -589,10 +589,11 @@ async function recordPayment(actorId: number, payload: Record<string, unknown>) 
     throw new Error("결제 정보가 올바르지 않습니다.");
   }
   const reservation = await getD1()
-    .prepare("SELECT status FROM reservations WHERE id = ? AND member_id = ?")
+    .prepare("SELECT status, enrollment_id AS enrollmentId FROM reservations WHERE id = ? AND member_id = ?")
     .bind(reservationId, memberId)
-    .first<{ status: string }>();
+    .first<{ status: string; enrollmentId: number | null }>();
   if (!reservation) throw new AuthError("회원의 예약이 아닙니다.", 403);
+  if (reservation.enrollmentId) throw new AuthError("이미 결제 확인한 과정의 수업입니다. 현장결제를 중복 등록할 수 없습니다.", 409);
   if (!["CONFIRMED", "COMPLETED"].includes(reservation.status)) {
     throw new AuthError("확정 또는 이용 완료된 예약만 결제할 수 있습니다.", 409);
   }
