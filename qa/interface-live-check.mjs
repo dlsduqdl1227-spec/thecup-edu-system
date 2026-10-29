@@ -28,8 +28,10 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
     }
     for(const path of ['/api/edu/catalog','/api/edu/members','/api/dashboard','/api/learning/admin','/api/booking/member'])assert.equal((await context.request.get(path)).status(),401,path);
     for(const path of ['/api/roasting','/api/roasting/manual','/api/inventory/roast'])assert.equal((await context.request.get(path)).status(),404,path);
-    for(const key of ['app/components/EduSystemApp.tsx','app/components/BookingPortal.tsx','lib/sca-edu/viewer.js',Object.keys(manifest).find(k=>k.startsWith('_MobileNavigation-'))]){
-      const file=manifest[key].file,r=await context.request.get('/'+file);assert.equal(r.status(),200);
+    // Shared modules can move between chunks when the course portal changes.
+    // Verify every emitted entry rather than guessing a shared chunk's name.
+    for(const [key,asset] of Object.entries(manifest)){
+      const file=asset.file,r=await context.request.get('/'+file);assert.equal(r.status(),200);
       assert.equal(hash(await r.body()),hash(await readFile('dist/client/'+file)),`tested bundle: ${key}`);
     }
     // Mount local teaching content with the deployed viewer; no login or member changes.
