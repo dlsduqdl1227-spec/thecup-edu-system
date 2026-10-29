@@ -20,9 +20,34 @@ try{
   await page.waitForLoadState('networkidle');
   for(const width of [1440,768,390,360,320]){await page.setViewportSize({width,height:900});await capture(page,`home-${width}`);assert.match(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontFamily),/Pretendard/);}
   ok('과정 우선 홈 · 5개 모듈/추가 과정/패키지/기업교육 · Pretendard · 320–1440px 가로 넘침 없음');
+  assert.equal(await page.getByText('구성 상담 →',{exact:true}).count(),0);
+  assert.equal(await page.getByText('자동 문자 발송이 아닌, 담당자가 직접 확인 후 연락하는 상담입니다.',{exact:true}).count(),0);
+  for(const name of ['브루잉','로스팅','센서리','그린커피','바리스타']){
+    const button=page.getByRole('group',{name:'교육 모듈 선택'}).getByRole('button',{name,exact:true});
+    await button.focus();await page.keyboard.press('Enter');
+    assert.equal(await button.getAttribute('aria-pressed'),'true');
+    await page.locator('#learning-course-detail').getByRole('heading',{name,exact:true}).waitFor();
+    const box=await button.boundingBox();assert.ok(box.height>=44);
+  }
+  await page.getByRole('link',{name:'기업교육 문의'}).click();
+  assert.equal(await page.getByLabel('기업교육',{exact:true}).isChecked(),true);
+  assert.equal(await page.getByRole('button',{name:'통합·기업교육',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.waitForURL('**#consult');
+  await page.waitForLoadState('networkidle');
+  ok('모듈 선택 키보드 조작 · 44px 터치 영역 · 기업교육 문의 자동 선택 · 반복 문구 제거');
   const suffix=Date.now().toString().slice(-7),name=`QA 교육 ${suffix}`,phone=`0101${suffix}`,teacherName=`QA 강사 ${suffix}`,teacherPhone=`0102${suffix}`;
   await page.goto('/?view=consultation#consult');await page.getByLabel('성함',{exact:true}).fill(name);await page.getByLabel('연락처',{exact:true}).fill(phone);await page.getByLabel('연령대',{exact:true}).selectOption('30대');await page.getByLabel('더컵에듀를 알게 된 경로').selectOption('SNS');
-  await page.locator('.learning-interest-groups input[type=checkbox]').first().check();await page.locator('input[name=consent]').check();await page.getByRole('button',{name:'교육 상담 신청하기'}).click();await page.getByRole('heading',{name:'만나 뵙게 되어 반갑습니다.'}).waitFor();await capture(page,'consultation-success');
+  await page.locator('.learning-interest-groups input[type=checkbox]').first().check();
+  await page.getByRole('button',{name:'추가 과정',exact:true}).click();
+  await page.getByLabel('물과 예방정비 · 파운데이션',{exact:true}).check();
+  await page.getByRole('button',{name:'통합·기업교육',exact:true}).click();
+  await page.getByLabel('카페 디플로마',{exact:true}).check();
+  await page.getByRole('button',{name:'SCA 모듈',exact:true}).click();
+  assert.equal(await page.getByLabel('바리스타 · 파운데이션',{exact:true}).isChecked(),true);
+  await page.getByRole('button',{name:'물과 예방정비 · 파운데이션 선택 해제',exact:true}).click();
+  await page.getByRole('button',{name:'카페 디플로마 선택 해제',exact:true}).click();
+  assert.equal(await page.locator('.learning-selection button').count(),1);
+  await page.locator('input[name=consent]').check();await page.getByRole('button',{name:'교육 상담 신청하기'}).click();await page.getByRole('heading',{name:'만나 뵙게 되어 반갑습니다.'}).waitFor();await capture(page,'consultation-success');
   ok('모바일에서 과정 체크 → 연락처·동의 → 상담 접수 성공');
   const boot=await admin.request.post('/api/auth/bootstrap',{data:{name:'QA 운영자',phone:'01000009901',code:'local-browser-qa',securityCode:'7319'}});
   if(boot.status()!==201)await api(admin,'/api/auth/login',{name:'QA 운영자',phone:'01000009901',securityCode:'7319'});

@@ -1,0 +1,7 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "thecup-edu",
+  "pages_build_output_dir": "./public",
+  "compatibility_date": "2026-10-29",
+  "services": [{ "binding": "EDU_APP", "service": "thecup-edu-system" }]
+}

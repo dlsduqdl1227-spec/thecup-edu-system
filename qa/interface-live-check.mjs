@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-const baseURL='https://thecup-edu-system.dlsduqdl1227.workers.dev';
+const baseURL=process.env.QA_BASE_URL || 'https://thecup-edu.pages.dev';
 const manifest=JSON.parse(await readFile('dist/client/.vite/manifest.json','utf8'));
 const entry='/'+manifest['virtual:vinext-app-browser-entry'].file,viewer='/'+manifest['lib/sca-edu/viewer.js'].file;
 const deck=JSON.parse(await readFile('lib/sca-edu/decks/water-maintenance/foundation.json','utf8'));deck.slides=deck.slides.slice(0,4);
