@@ -58,6 +58,9 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   const landing = await readFile(new URL("app/components/CourseLanding.tsx", root), "utf8");
   assert.match(bookingPortal, /CourseLanding/);
   assert.match(landing, /과정 안내/);
+  assert.doesNotMatch(landing, /디플로마는 교육 신청만으로|learners-how-it-works/);
+  assert.match(landing, /약 20% 할인/);
+  assert.match(landing, /시험비는 할인 대상에서 제외/);
   assert.match(bookingPortal, /수강생 로그인/);
   assert.match(landing, /직원 로그인/);
   assert.match(bookingPortal, /portal-calendar/);
