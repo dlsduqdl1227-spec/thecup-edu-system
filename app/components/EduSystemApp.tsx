@@ -20,6 +20,7 @@ import { compareInventoryItems, type InventorySort } from "../../lib/inventory-s
 import { inventoryChange, readStockQuantity } from "../../lib/inventory-movement";
 import { BookingAdmin } from "./BookingAdmin";
 import { LearningWorkspace } from "./LearningWorkspace";
+import { ConsultationAlerts } from "./ConsultationAlerts";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
 import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
@@ -268,6 +269,7 @@ export function EduSystemApp() {
   const [dataError, setDataError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members">("schedule");
+  const [consultationEntry, setConsultationEntry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<TabKey[]>([]);
@@ -462,6 +464,7 @@ export function EduSystemApp() {
           </nav>
         </header>
 
+        {["admin", "instructor"].includes(user.role) && <ConsultationAlerts key={user.id} onOpen={() => { setOperationsEntry("schedule"); setConsultationEntry(value => value + 1); navigateTo("booking"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
         {!data ? (
           <section className="page-section loading-panel" aria-live="polite">
             {dataError ? <><p role="alert">{dataError}</p><button type="button" className="primary-button" onClick={() => void refreshData()}>다시 불러오기</button></> : <><div className="loading-line" /><p>대시보드를 준비하고 있습니다.</p></>}
@@ -491,7 +494,7 @@ export function EduSystemApp() {
               />
             )}
             {activeTab === "booking" && (
-              data.user.role === "admin" ? <OperationsHub notify={setToast} initialSection={operationsEntry} /> : <section className="page-section"><LearningWorkspace /></section>
+              data.user.role === "admin" ? <OperationsHub key={consultationEntry} notify={setToast} initialSection={operationsEntry} /> : <section className="page-section"><LearningWorkspace key={consultationEntry} /></section>
             )}
             {activeTab === "education" && <EducationView onApproveStudents={() => navigateTo("booking", "members")} />}
             {activeTab === "staff" && (

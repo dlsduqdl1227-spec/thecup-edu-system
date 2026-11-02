@@ -290,7 +290,7 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
 
 function MemberAdmin({ data, busy, act }: AdminProps) {
   const [search, setSearch] = useState("");
-  const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("ALL");
+  const [memberFilter, setMemberFilter] = useState<"ALL" | "APPROVED" | "PENDING" | "REVOKED">("APPROVED");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
@@ -331,11 +331,11 @@ function MemberAdmin({ data, busy, act }: AdminProps) {
   return (
     <section className="booking-member-database">
           <div className="booking-admin-section-title">
-            <div><span>STUDENT DATABASE</span><h2>상담·수강생 목록</h2><p>상담 신청자와 직접 등록한 수강생을 관리합니다. 직원 계정은 포함하지 않습니다.</p></div>
+            <div><span>STUDENT DATABASE</span><h2>회원 계정 관리</h2><p>승인된 수강생을 먼저 표시합니다. 미승인 회원은 대기·회수 필터로 확인하며, 상담 내용은 상담·수업 관리에서 관리합니다.</p></div>
             <div className="booking-member-create-trigger"><b>{data.members.length}명</b><button type="button" className="solid" ref={createButton} disabled={busy} aria-expanded={creating} aria-controls="student-create-form" onClick={() => { if (creating) closeCreate(); else { setNotice(""); setCreating(true); setEditingId(null); } }}>{creating ? "추가 닫기" : "+ 수강생 추가"}</button></div>
           </div>
           {creating && <MemberCreateForm stationTypes={stationTypes} busy={busy} act={act} onClose={closeCreate} onCreated={(name, approvedState) => {
-            setSearch(""); setMemberFilter("ALL"); setSortOrder("RECENT"); resetListPage(); closeCreate();
+            setSearch(""); setMemberFilter(approvedState ? "APPROVED" : "PENDING"); setSortOrder("RECENT"); resetListPage(); closeCreate();
             setNotice(`${name} 수강생을 ${approvedState ? "등록·승인했습니다. 이름·휴대폰 번호·현재 수강생 보안코드로 로그인할 수 있습니다." : "승인 대기로 등록했습니다. 승인 후 로그인할 수 있습니다."} 교육자료는 SCA 교육자료에서 과목·레벨별로 별도 설정해 주세요.`);
           }} />}
           {notice && <p role="status" className="student-login-guide">{notice}</p>}

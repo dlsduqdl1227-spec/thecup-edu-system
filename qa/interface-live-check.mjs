@@ -26,7 +26,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
       await page.screenshot({path:`${folder}/${name}-${heading}.png`});
     }
-    for(const path of ['/api/edu/catalog','/api/edu/members','/api/dashboard','/api/learning/admin','/api/booking/member'])assert.equal((await context.request.get(path)).status(),401,path);
+    for(const path of ['/api/edu/catalog','/api/edu/members','/api/dashboard','/api/learning/admin','/api/booking/member','/api/learning/notifications','/api/learning/consultation-management'])assert.equal((await context.request.get(path)).status(),401,path);
     for(const path of ['/api/roasting','/api/roasting/manual','/api/inventory/roast'])assert.equal((await context.request.get(path)).status(),404,path);
     // Shared modules can move between chunks when the course portal changes.
     // Verify every emitted entry rather than guessing a shared chunk's name.

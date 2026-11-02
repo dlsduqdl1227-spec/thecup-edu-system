@@ -149,7 +149,8 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(portal, /카카오톡 상담/);
   assert.match(portal, /window\.setInterval\(\(\) => void loadAvailability\(\), 30_000\)/);
   assert.match(admin, /name="kakaoChatUrl"/);
-  assert.match(admin, /상담·수강생 목록/);
+  assert.match(admin, /회원 계정 관리/);
+  assert.match(admin, /승인된 수강생을 먼저 표시/);
   assert.match(admin, /권한 부여/);
   assert.match(admin, /계정 삭제/);
   assert.match(admin, /예약별 현장결제/);

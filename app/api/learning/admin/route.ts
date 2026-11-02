@@ -20,13 +20,20 @@ export async function GET(request: Request) {
     const page = Math.floor(Math.max(1, Math.min(10000, Number(query.get("page")) || 1)));
     const search = optionalBookingText(query.get("q"), 80);
     const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
-    const scope = `m.deleted_at IS NULL AND (? = 1 OR EXISTS(SELECT 1 FROM course_enrollments e WHERE e.member_id = m.id AND e.instructor_id = ?) OR EXISTS(SELECT 1 FROM learning_consultations c WHERE c.member_id = m.id AND c.instructor_id = ?))
+    const scope = `m.deleted_at IS NULL AND (? = 1 OR EXISTS(SELECT 1 FROM course_enrollments e WHERE e.member_id = m.id AND e.instructor_id = ?) OR EXISTS(SELECT 1 FROM learning_consultations c WHERE c.member_id = m.id AND c.instructor_id = ? AND c.deleted_at IS NULL))
       AND (m.name LIKE ? ESCAPE '\\' OR m.phone_last4 LIKE ? ESCAPE '\\')`;
     const args = [admin ? 1 : 0, actor.id, actor.id, pattern, pattern];
+    const audience = query.get("audience") || "all";
+    if (!["all", "students", "prospects"].includes(audience)) throw new Error("회원 구분을 확인해 주세요.");
+    const memberScope = scope + (audience === "students" ? " AND m.approval_status = 'APPROVED'" : audience === "prospects" ? " AND m.approval_status != 'APPROVED'" : "");
+    const sort = query.get("sort") || "newest";
+    const orders: Record<string, string> = { newest: "m.id DESC", oldest: "m.id ASC", name: "m.name COLLATE NOCASE ASC, m.id DESC" };
+    if (!Object.hasOwn(orders, sort)) throw new Error("정렬 기준을 확인해 주세요.");
     const members = await db.prepare(`SELECT m.id, m.name, m.phone_last4 AS phoneLast4, m.approval_status AS approvalStatus,
-      EXISTS(SELECT 1 FROM learning_consultations c WHERE c.member_id = m.id AND c.status = 'NEW') AS needsConsultation
-      FROM booking_members m WHERE ${scope} ORDER BY needsConsultation DESC, m.id DESC LIMIT 25 OFFSET ?`).bind(...args, (page - 1) * 25).all();
-    const total = await db.prepare(`SELECT COUNT(*) AS count FROM booking_members m WHERE ${scope}`).bind(...args).first<{ count: number }>();
+      EXISTS(SELECT 1 FROM learning_consultations c WHERE c.member_id = m.id AND c.status = 'NEW' AND c.deleted_at IS NULL) AS needsConsultation,
+      (SELECT COUNT(*) FROM course_enrollments e WHERE e.member_id = m.id AND (? = 1 OR e.instructor_id = ?)) AS enrollmentCount
+      FROM booking_members m WHERE ${memberScope} ORDER BY ${orders[sort]} LIMIT 25 OFFSET ?`).bind(admin ? 1 : 0, actor.id, ...args, (page - 1) * 25).all();
+    const total = await db.prepare(`SELECT COUNT(*) AS count FROM booking_members m WHERE ${memberScope}`).bind(...args).first<{ count: number }>();
     const instructors = admin ? (await db.prepare("SELECT id, name FROM staff WHERE active = 1 AND deleted_at IS NULL AND role IN ('admin','instructor') ORDER BY name").all()).results : [{ id: actor.id, name: actor.name }];
     const requestRows = await db.prepare(`SELECT r.id, r.member_id AS memberId, m.name AS memberName, e.course_name AS courseName,
       r.status, r.user_memo AS userMemo, r.admin_memo AS adminMemo, r.rejection_reason AS rejectionReason,
@@ -44,7 +51,7 @@ export async function GET(request: Request) {
       if (!allowed) throw new AuthError("이 수강생의 상담 정보를 볼 수 없습니다.", 403);
       const rows = await db.prepare(`SELECT id, name, phone_encrypted AS encrypted, age_range AS ageRange, discovery,
         interests, contact_channel AS contactChannel, message, status, instructor_id AS instructorId,
-        staff_note AS staffNote, created_at AS createdAt FROM learning_consultations WHERE member_id = ?
+        staff_note AS staffNote, created_at AS createdAt, revision FROM learning_consultations WHERE member_id = ? AND deleted_at IS NULL
         AND (? = 1 OR instructor_id = ? OR EXISTS(SELECT 1 FROM course_enrollments e WHERE e.member_id = ? AND e.instructor_id = ?))
         ORDER BY id DESC LIMIT 10`).bind(memberId, admin ? 1 : 0, actor.id, memberId, actor.id).all<{ encrypted: string; [key: string]: unknown }>();
       const consultations = await Promise.all(rows.results.map(async ({ encrypted, ...row }) => ({ ...row, phone: await decryptContact(encrypted) })));
@@ -75,10 +82,11 @@ export async function POST(request: Request) {
       const note = optionalBookingText(input.note, 1000);
       const instructor = input.instructorId ? positiveBookingInteger(input.instructorId, "담당 강사") : null;
       if (actor.role === "admin" && instructor && !await db.prepare("SELECT 1 FROM staff WHERE id = ? AND active = 1 AND deleted_at IS NULL AND role IN ('admin','instructor')").bind(instructor).first()) throw new Error("활성 강사를 선택해 주세요.");
-      const result = await db.prepare(`UPDATE learning_consultations SET status = ?, staff_note = ?, instructor_id = CASE WHEN ? = 1 THEN ? ELSE instructor_id END, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND (? = 1 OR instructor_id = ?)`).bind(status, note, actor.role === "admin" ? 1 : 0, instructor, id, actor.role === "admin" ? 1 : 0, actor.id).run();
-      if (!result.meta.changes) throw new AuthError("상담을 수정할 권한이 없습니다.", 403);
-      await audit(actor.id, "learning_consultation_update", "learning_consultation", String(id), status);
+      const revision = input.revision == null ? null : positiveBookingInteger(input.revision, "상담 버전");
+      const results = await db.batch([db.prepare(`UPDATE learning_consultations SET status = ?, staff_note = ?, instructor_id = CASE WHEN ? = 1 THEN ? ELSE instructor_id END, updated_at = CURRENT_TIMESTAMP, revision = revision + 1
+        WHERE id = ? AND deleted_at IS NULL AND (? = 1 OR instructor_id = ?) AND (? IS NULL OR revision = ?)`).bind(status, note, actor.role === "admin" ? 1 : 0, instructor, id, actor.role === "admin" ? 1 : 0, actor.id, revision, revision),
+        db.prepare("INSERT INTO audit_logs(actor_id, action, entity_type, entity_id, detail) SELECT ?, 'learning_consultation_update', 'learning_consultation', ?, ? WHERE changes() > 0").bind(actor.id, String(id), status)]);
+      if (!results[0].meta.changes) throw new AuthError(revision ? "상담이 변경되었거나 수정 권한이 없습니다. 새로고침 후 확인해 주세요." : "상담을 수정할 권한이 없습니다.", revision ? 409 : 403);
       return Response.json({ ok: true }, { headers: privateHeaders });
     }
     if (actor.role !== "admin") throw new AuthError("수강 등록은 관리자만 가능합니다.", 403);
@@ -105,7 +113,7 @@ export async function POST(request: Request) {
         db.prepare(`INSERT INTO course_enrollments(request_key, member_id, course_key, course_name, station_type, instructor_id, total_sessions, session_minutes, paid_amount, price_type, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(requestKey, memberId, course.id, course.name, course.station, instructorId, total, minutes, amount, priceType, actor.id),
         db.prepare(`UPDATE booking_members SET approval_status = 'APPROVED', consultation_status = 'COMPLETED', approved_by = ?, approved_at = COALESCE(approved_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`).bind(actor.id, memberId),
-        db.prepare(`UPDATE learning_consultations SET status = 'ENROLLED', instructor_id = COALESCE(instructor_id, ?), updated_at = CURRENT_TIMESTAMP WHERE member_id = ? AND status != 'CLOSED'`).bind(instructorId, memberId),
+        db.prepare(`UPDATE learning_consultations SET status = 'ENROLLED', instructor_id = COALESCE(instructor_id, ?), updated_at = CURRENT_TIMESTAMP, revision = revision + 1 WHERE member_id = ? AND status != 'CLOSED' AND deleted_at IS NULL`).bind(instructorId, memberId),
         db.prepare("INSERT INTO audit_logs(actor_id, action, entity_type, entity_id, detail) VALUES (?, 'learning_enroll', 'booking_member', ?, ?)").bind(actor.id, String(memberId), `${course.name} · ${total}회`),
       ]);
       return Response.json({ ok: true, id: results[0].meta.last_row_id }, { status: 201, headers: privateHeaders });

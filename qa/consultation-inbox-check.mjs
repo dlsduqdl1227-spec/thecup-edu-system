@@ -1,0 +1,83 @@
+// Writes only to the isolated in-memory localhost QA server. Never uses production.
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+const {chromium,webkit}=await import(pathToFileURL(process.env.QA_PLAYWRIGHT).href);
+const safari=process.argv.includes('--webkit');
+const browser=await(safari?webkit:chromium).launch({headless:true,...(!safari&&{executablePath:process.env.QA_BROWSER})});
+const context=await browser.newContext({baseURL:'http://127.0.0.1:5173',viewport:{width:1440,height:960}});
+const page=await context.newPage(),folder='outputs/qa/consultation-inbox'+(safari?'-webkit':'');
+await mkdir(folder,{recursive:true});
+const report={checks:[],errors:[]};page.on('pageerror',e=>report.errors.push(e.message));page.on('dialog',dialog=>dialog.accept());
+const api=async(path,body,method=body?'POST':'GET')=>{const r=await context.request.fetch(path,{method,...(body&&{data:body})});assert.ok(r.ok(),await r.text());return r.json()};
+const ok=value=>{report.checks.push(value);console.log('PASS '+value)};
+async function capture(name){await page.evaluate(()=>document.fonts.ready);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,name);assert.equal(await page.locator('.consultation-table').evaluateAll(tables=>tables.some(table=>table.getBoundingClientRect().width>table.parentElement.clientWidth+1)),false,'nested table overflow '+name);await page.screenshot({path:folder+'/'+name+'.png'});}
+try{
+ const boot=await context.request.post('/api/auth/bootstrap',{data:{name:'QA 운영자',phone:'01000009901',code:'local-browser-qa',securityCode:'7319'}});
+ if(boot.status()!==201)await api('/api/auth/login',{name:'QA 운영자',phone:'01000009901',securityCode:'7319'});
+ await page.goto('/admin');await page.locator('.side-nav').getByRole('button',{name:'재고 관리',exact:true}).click();await page.waitForLoadState('networkidle');
+ const suffix=Date.now().toString().slice(-6),name='QA 상담 '+suffix,phone='01035'+suffix,approved='QA 승인 '+suffix;
+ await api('/api/booking/admin',{action:'createMember',name:approved,phone:'01036'+suffix,approvalStatus:'APPROVED'});
+ const payload={name,phone,ageRange:'30대',discovery:'SNS',contactChannel:'전화',interests:['barista:foundation'],message:'원래 상담 내용',consent:true};
+ await api('/api/learning/consultations',payload);
+ // Exercise the actual 30-second timer while an unrelated admin menu is open.
+ await page.getByRole('complementary',{name:'상담 접수 알림'}).getByText(/확인할 새 상담/).waitFor({timeout:45000});
+ await capture('notification-other-menu');await page.getByRole('button',{name:'상담 확인하기',exact:false}).click();
+ await page.getByRole('heading',{name:'상담 접수함',exact:true}).waitFor();
+ const search=page.getByLabel('상담 검색',{exact:true});await search.fill(name);await page.locator('.consultation-filters').getByRole('button',{name:'검색',exact:true}).click();
+ await page.getByRole('button',{name:name+' 상담 상세',exact:true}).waitFor();
+ ok('재고 메뉴에서도 30초 안에 상담 접수 알림 표시 → 상담 접수함 이동');
+ for(const width of [1440,768,360,320]){await page.setViewportSize({width,height:900});await page.locator('.consultation-table').scrollIntoViewIfNeeded();await capture('list-'+width);}
+ await page.getByRole('button',{name:name+' 상담 상세',exact:true}).click();
+ let dialog=page.getByRole('dialog',{name:'상담 상세·수정'});await dialog.getByLabel('신청 내용',{exact:true}).fill('입력 중인 메모');
+ await Promise.all([page.waitForResponse(r=>r.url().includes('/api/learning/consultation-management?')&&!r.url().includes('?id=')),page.evaluate(()=>window.dispatchEvent(new Event('focus')))]);
+ assert.equal(await dialog.getByLabel('신청 내용',{exact:true}).inputValue(),'입력 중인 메모');
+ for(const width of [1440,360,320]){await page.setViewportSize({width,height:900});await capture('editor-'+width);const box=await dialog.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1);}
+ const record=(await api('/api/learning/consultation-management?q='+encodeURIComponent(name))).rows[0];
+ const current=(await api('/api/learning/consultation-management?id='+record.id)).detail;
+ await api('/api/learning/consultation-management',{...current,interests:JSON.parse(current.interests),message:'다른 담당자의 변경'},'PATCH');
+ await dialog.getByRole('button',{name:'변경 내용 저장'}).click();await dialog.getByRole('alert').filter({hasText:'다른 작업자가 변경한 상담'}).waitFor();
+ assert.equal(await dialog.getByLabel('신청 내용',{exact:true}).inputValue(),'입력 중인 메모');
+ await dialog.getByRole('button',{name:'최신 내용 다시 불러오기'}).click();
+ await page.waitForFunction(()=>document.querySelector('.consultation-editor textarea[name=message]')?.value==='다른 담당자의 변경');
+ await dialog.getByLabel('상담 연락처',{exact:true}).fill('01039998888');await dialog.getByLabel('신청 내용',{exact:true}).fill('저장된 수정 내용');
+ await dialog.getByLabel('상담 상태',{exact:true}).selectOption('CONTACTED');await dialog.getByLabel('브루잉 · 파운데이션',{exact:true}).check();
+ await dialog.getByRole('button',{name:'변경 내용 저장'}).click();await dialog.waitFor({state:'hidden'});
+ const changed=(await api('/api/learning/consultation-management?id='+record.id)).detail;
+ assert.equal(changed.phone,'01039998888');assert.equal(changed.message,'저장된 수정 내용');
+ ok('상세 내용·연락처·관심 과정 수정, 갱신 중 입력 보존, 동시 수정 충돌 409 및 재조회');
+ await page.getByRole('button',{name:name+' 상담 상세',exact:true}).click();await dialog.getByRole('button',{name:'상담 삭제',exact:true}).click();await dialog.waitFor({state:'hidden'});
+ await page.getByText('상담을 삭제한 상담함으로 이동했습니다.',{exact:true}).waitFor();
+ await page.getByLabel('보관함',{exact:true}).selectOption('deleted');await page.getByRole('button',{name:name+' 상담 상세',exact:true}).click();
+ await dialog.getByRole('button',{name:'상담 복구',exact:true}).click();await dialog.waitFor({state:'hidden'});await page.getByLabel('보관함',{exact:true}).selectOption('active');
+ await page.getByRole('button',{name:name+' 상담 상세',exact:true}).waitFor();
+ ok('상담만 삭제함으로 이동·복구, 기존 회원 및 수강 정보 보존');
+ const menu=page.getByRole('navigation',{name:'교육 운영 메뉴'});
+ await menu.getByRole('button',{name:'수강생',exact:true}).click();
+ await page.locator('.learning-member-list').getByRole('button',{name:approved+' 수강 정보'}).waitFor();
+ await menu.getByRole('button',{name:'수강생',exact:true}).click();
+ await page.locator('.learning-member-list').getByRole('button',{name:approved+' 수강 정보'}).waitFor();
+ assert.equal(await page.locator('.learning-member-list').getByRole('button',{name:name+' 수강 정보'}).count(),0);
+ await menu.getByRole('button',{name:'미승인 회원',exact:true}).click();
+ await page.locator('.learning-member-list').getByRole('button',{name:name+' 수강 정보'}).waitFor();
+ assert.equal(await page.locator('.learning-member-list').getByRole('button',{name:approved+' 수강 정보'}).count(),0);
+ await page.locator('.learning-member-list').getByRole('button',{name:name+' 수강 정보'}).click();
+ await page.locator('.learning-contact').getByRole('link',{name:'01039998888 · 전화'}).waitFor();await capture('prospects-detail');
+ ok('수강생·미승인 회원 분리 및 상세 조회, 수정한 상담 연락처 반영');
+ await menu.getByRole('button',{name:'상담 접수',exact:true}).click();await page.getByRole('heading',{name:'상담 접수함'}).waitFor();
+ for(let i=0;i<27;i++)await api('/api/learning/consultations',{...payload,name:'정렬 QA '+String(i).padStart(2,'0')+' '+suffix,phone:'0108'+suffix.slice(-4)+String(i).padStart(3,'0')});
+ await page.getByLabel('상담 검색',{exact:true}).fill(suffix);await page.locator('.consultation-filters').getByRole('button',{name:'검색',exact:true}).click();
+ await page.locator('.consultation-inbox .learning-pagination').getByRole('button',{name:'다음'}).click();
+ await page.waitForFunction(()=>document.querySelector('.consultation-inbox .learning-pagination span')?.textContent?.startsWith('2 /'));
+ await page.locator('.consultation-inbox .learning-pagination').getByRole('button',{name:'이전'}).click();
+ await page.waitForFunction(()=>document.querySelector('.consultation-inbox .learning-pagination span')?.textContent?.startsWith('1 /'));
+ await page.getByLabel('상담 정렬',{exact:true}).selectOption('name');
+ await Promise.all([page.waitForResponse(r=>r.url().includes('status=NEW')&&r.url().includes('sort=name')),page.getByLabel('상담 상태',{exact:true}).selectOption('NEW')]);
+ assert.ok((await page.locator('.consultation-table tbody tr').count())>0);
+ await page.route('**/api/learning/notifications',route=>route.abort());
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.locator('.consultation-alert').getByText(/알림 갱신이 지연/).waitFor();
+ await page.unroute('**/api/learning/notifications');await page.locator('.consultation-alert').getByRole('button',{name:'다시 확인'}).click();
+ await page.locator('.consultation-alert').getByText(/다른 메뉴에서도 30초/).waitFor();
+ ok('25건 페이지 이동·이름순 정렬·상태 필터, 알림 연결 오류와 재시도');
+ assert.deepEqual(report.errors,[]);
+}finally{await writeFile(folder+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}

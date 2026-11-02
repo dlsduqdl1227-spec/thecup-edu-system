@@ -60,6 +60,73 @@
 .learning-workspace .learning-toolbar button { flex:1;white-space:nowrap }
 }
 .learning-workspace>header h1 { font-size:28px;line-height:1.3;letter-spacing:-.03em;margin:12px 0 }
+.consultation-alert { margin:20px 32px 0; padding:16px 20px; border:1px solid #c9cbd1; border-radius:16px; background:#f4f5f7; display:flex; align-items:center; gap:16px; flex-wrap:wrap; font-family:"Pretendard Variable",Pretendard,sans-serif; }
+.consultation-alert>div { flex:1;min-width:180px }
+.consultation-alert strong { display:block;font-size:17px;color:#161619 }
+.consultation-alert span { display:block;font-size:13px;color:#53555d;margin-top:3px }
+.consultation-alert button { display:flex;align-items:center;gap:16px;min-height:44px;padding:10px 16px;background:#202124;color:#fff;border:0;border-radius:24px;font:inherit;font-size:14px;cursor:pointer }
+.consultation-alert button span { color:inherit;margin:0 }
+.consultation-alert :focus-visible { outline:3px solid #3459bd;outline-offset:3px }
+.consultation-heading { display:flex;justify-content:space-between;gap:20px;align-items:center }
+.consultation-heading h2 { margin:0 }
+.consultation-heading p { margin:8px 0;font-size:14px }
+.consultation-filters { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:20px 0 }
+.consultation-filters label { flex:1;min-width:135px }
+.consultation-filters label:first-child { flex:2;min-width:200px }
+.consultation-list-summary { display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:16px 0;font-size:14px }
+.consultation-list-summary>span { color:#62626b;font-size:13px }
+.consultation-table-wrap { width:100%;min-width:0;border:1px solid #e0e1e5;border-radius:14px;overflow:hidden }
+.learning-workspace .consultation-table { width:100%;min-width:0;border-collapse:collapse;text-align:left;table-layout:fixed;font-size:14px;display:table;max-height:none }
+.consultation-table th { padding:14px 16px;background:#f5f5f7;color:#53555d;font-weight:600 }
+.consultation-table td { padding:16px;border-top:1px solid #e4e4e7;vertical-align:middle;overflow-wrap:anywhere;line-height:1.65 }
+.consultation-table th:first-child { width:16% }
+.consultation-table th:last-child { width:120px }
+.consultation-table td strong { display:block;font-size:16px }
+.consultation-table td small { display:block;font-size:13px;color:#62626b;margin-top:4px }
+.consultation-table tr.is-selected { background:#f5f5f7 }
+.consultation-table td>button { white-space:nowrap }
+.consultation-badge { display:inline-flex;padding:3px 9px;border-radius:6px;font-size:13px;font-weight:600;background:#f0f0f2 }
+.consultation-badge.is-new { background:#202124;color:#fff }
+.consultation-empty { text-align:center;padding:28px 16px }
+.learning-admin-grid.learning-directory { grid-template-columns:1fr }
+.consultation-editor { padding:24px }
+.consultation-editor>header { display:flex;align-items:center;justify-content:space-between;gap:16px }
+.consultation-editor h2 { margin:0 }
+.consultation-editor form, .consultation-editor form>fieldset { display:grid;gap:20px;min-width:0 }
+.consultation-editor fieldset { border:0;padding:0;margin:0;min-width:0 }
+.consultation-editor fieldset:disabled { opacity:.7 }
+.consultation-editor .consultation-interests { padding:16px;border:1px solid #d4d4da;border-radius:12px }
+.consultation-interests legend { padding:0 6px;font-weight:600;font-size:14px }
+.consultation-interests>div { display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:250px;overflow:auto;padding:2px }
+.consultation-interests label { flex-direction:row;align-items:flex-start;min-height:44px;font-size:13px;font-weight:500;cursor:pointer }
+.consultation-interests input[type=checkbox] { width:18px;min-height:18px;height:18px;flex-shrink:0;margin:3px 0 0;accent-color:#202124;padding:0 }
+.consultation-editor footer { display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;border-top:1px solid #e0e1e5;padding-top:20px }
+.consultation-editor .consultation-delete { color:#a21b1b }
+.consultation-editor .learning-toolbar a { min-height:44px;display:inline-flex;align-items:center;color:#202124;text-decoration:underline }
+.learning-workspace .sr-only { position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0 }
+@media(max-width:640px) {
+  .consultation-alert { margin:12px 16px 0;padding:16px;gap:12px }
+  .consultation-alert>div { min-width:100% }
+  .consultation-heading { align-items:flex-start;gap:12px }
+  .consultation-heading>button { flex-shrink:0 }
+  .consultation-filters { display:grid;grid-template-columns:1fr 1fr }
+  .consultation-filters label:first-child { grid-column:1/-1;min-width:0 }
+  .consultation-filters label { min-width:0 }
+  .learning-workspace .consultation-tabs { display:grid;grid-template-columns:1fr 1fr }
+  .consultation-tabs button { padding:12px 8px }
+  .learning-workspace .consultation-table { display:block }
+  .consultation-table thead { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0) }
+  .consultation-table tbody { display:block }
+  .consultation-table tr { display:grid;grid-template-columns:1fr auto;padding:14px;gap:8px 12px;border-bottom:1px solid #e4e4e7 }
+  .consultation-table tr:last-child { border-bottom:0 }
+  .consultation-table td { display:block;border:0;padding:0;grid-column:1/-1;font-size:14px }
+  .consultation-table td[data-label]::before { content:attr(data-label);display:block;color:#62626b;font-size:12px }
+  .consultation-table td:last-child { justify-self:end }
+  .consultation-table td strong { font-size:17px }
+  .consultation-editor { padding:20px 16px }
+  .consultation-interests>div { grid-template-columns:1fr }
+  .consultation-editor footer button { flex:1;white-space:nowrap }
+}
 .portal-member .portal-schedule-toolbar>span { font-size:14px;line-height:1.65 }
 @media(max-width:640px) {
 .portal-member .portal-schedule-toolbar { align-items:flex-start;gap:10px;flex-direction:column }

@@ -40,9 +40,9 @@ export async function POST(request: Request) {
     const results = await db.batch([
       db.prepare(`INSERT INTO booking_members(name, phone_hash, phone_last4, consultation_memo)
         VALUES (?, ?, ?, '교육 상담 신청') ON CONFLICT(phone_hash) DO NOTHING`).bind(name, hashed, phone.slice(-4)),
-      db.prepare(`INSERT INTO learning_consultations(member_id, name, phone_encrypted, age_range, discovery, interests, contact_channel, message, consent_version)
-        SELECT id, ?, ?, ?, ?, ?, ?, ?, '2026-10-29' FROM booking_members WHERE phone_hash = ? AND deleted_at IS NULL`)
-        .bind(name, encrypted, age, discovery, JSON.stringify(interests), contact, message, hashed),
+      db.prepare(`INSERT INTO learning_consultations(member_id, name, phone_encrypted, age_range, discovery, interests, contact_channel, message, consent_version, phone_last4)
+        SELECT id, ?, ?, ?, ?, ?, ?, ?, '2026-10-29', ? FROM booking_members WHERE phone_hash = ? AND deleted_at IS NULL`)
+        .bind(name, encrypted, age, discovery, JSON.stringify(interests), contact, message, phone.slice(-4), hashed),
     ]);
     if (!results[1].meta.changes) throw new Error("이 번호는 온라인 접수가 어렵습니다. 카카오톡으로 상담해 주세요.");
     return Response.json({ ok: true, message: "상담 신청이 접수되었습니다. 담당자가 확인한 뒤 선택하신 방법으로 안내합니다." }, { status: 201, headers: { "Cache-Control": "no-store" } });

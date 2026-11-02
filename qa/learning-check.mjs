@@ -54,6 +54,7 @@ try{
   const instructor=await api(admin,'/api/staff',{name:teacherName,phone:teacherPhone,role:'instructor'});
   const list=await api(admin,'/api/learning/admin');const member=list.members.find(m=>m.name===name);assert.ok(member);
   await staff.goto('/admin');await staff.locator('.side-nav').getByRole('button',{name:'상담 · 수업 관리',exact:true}).click();
+  await staff.getByRole('navigation',{name:'교육 운영 메뉴'}).getByRole('button',{name:'미승인 회원',exact:true}).click();
   await staff.locator('.learning-member-list').getByRole('button',{name:new RegExp(name)}).click();await staff.locator('.learning-contact').getByRole('link',{name:`${phone} · 전화`}).waitFor();
   await staff.getByRole('button',{name:'+ 결제 확인 · 수강 과정 등록',exact:true}).click();
   const form=staff.locator('.learning-enroll-form');await form.getByLabel('담당 강사',{exact:true}).selectOption(String(instructor.id));await form.getByLabel('요금 구분',{exact:true}).selectOption('SUBSCRIBER');assert.equal(await form.getByLabel('이 과정 결제 확인 금액(원)').inputValue(),'240000');await form.locator('input[type=checkbox]').check();await form.getByRole('button',{name:'수강 등록 · 회원 승인',exact:true}).click();await staff.locator('.learning-enrollment').getByRole('heading',{name:'바리스타 · 파운데이션'}).waitFor();

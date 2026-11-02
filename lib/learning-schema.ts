@@ -13,7 +13,8 @@ export const learningSchemaStatements = [
     consent_version TEXT NOT NULL, consent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status TEXT NOT NULL DEFAULT 'NEW' CHECK(status IN ('NEW','CONTACTED','ENROLLED','CLOSED')),
     instructor_id INTEGER REFERENCES staff(id), staff_note TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT, revision INTEGER NOT NULL DEFAULT 1, phone_last4 TEXT NOT NULL DEFAULT ''
   )`,
   `CREATE INDEX IF NOT EXISTS learning_consultations_status ON learning_consultations(status, instructor_id, id)`,
   `CREATE TABLE IF NOT EXISTS course_enrollments (
@@ -78,6 +79,16 @@ export const learningReservationGuards = [
 ];
 export async function ensureLearningSchema(db: D1Database) {
   await db.batch(learningSchemaStatements.map(sql => db.prepare(sql)));
+  const consultationColumns = await db.prepare("PRAGMA table_info(learning_consultations)").all<{ name: string }>();
+  for (const [name, definition] of [["deleted_at", "TEXT"], ["revision", "INTEGER NOT NULL DEFAULT 1"], ["phone_last4", "TEXT NOT NULL DEFAULT ''"]]) {
+    if (consultationColumns.results.some(column => column.name === name)) continue;
+    try { await db.prepare(`ALTER TABLE learning_consultations ADD COLUMN ${name} ${definition}`).run(); }
+    catch (error) {
+      const current = await db.prepare("PRAGMA table_info(learning_consultations)").all<{ name: string }>();
+      if (!current.results.some(column => column.name === name)) throw error;
+    }
+  }
+  await db.prepare("CREATE INDEX IF NOT EXISTS learning_consultations_inbox ON learning_consultations(deleted_at, status, id)").run();
   const columns = await db.prepare("PRAGMA table_info(reservations)").all<{ name: string }>();
   if (!columns.results.some(column => column.name === "enrollment_id")) {
     try { await db.prepare("ALTER TABLE reservations ADD COLUMN enrollment_id INTEGER REFERENCES course_enrollments(id)").run(); }
