@@ -270,6 +270,11 @@ export function EduSystemApp() {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members">("schedule");
   const [consultationEntry, setConsultationEntry] = useState(0);
+  const [consultationSummary, setConsultationSummary] = useState<{ userId: number; count: number } | null>(null);
+  const updateConsultationCount = useCallback((count: number) => {
+    const userId = authState.user?.id ?? 0;
+    setConsultationSummary(current => current?.userId === userId && current.count === count ? current : { userId, count });
+  }, [authState.user?.id]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<TabKey[]>([]);
@@ -285,6 +290,7 @@ export function EduSystemApp() {
         "/api/auth/status",
       );
       setAuthState({ loading: false, ...status });
+      if (!status.user) setConsultationSummary(null);
       if (status.user) {
         setNavigationHistory([]);
         setActiveTab(initialTab(status.user));
@@ -338,6 +344,7 @@ export function EduSystemApp() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
+      setConsultationSummary(null);
       setAuthState((current) => ({
         loading: false,
         bootstrapRequired: false,
@@ -393,6 +400,7 @@ export function EduSystemApp() {
   }
 
   const user = authState.user;
+  const consultationCount = consultationSummary?.userId === user.id ? consultationSummary.count : 0;
   const allowedNav = allowedNavigation(user);
   const homeTab = allowedNav.find((item) => item.key === "dashboard")?.key ?? allowedNav[0]?.key ?? "record";
 
@@ -416,6 +424,7 @@ export function EduSystemApp() {
 
   return (
     <div className="app-shell">
+      {consultationCount > 0 && <span id="staff-consultation-count" className="navigation-count-text">새 상담 {consultationCount}건</span>}
       <aside className="sidebar">
         <BrandMark />
         <div className="sidebar-rule" />
@@ -431,10 +440,12 @@ export function EduSystemApp() {
               key={item.key}
               className={activeTab === item.key ? "nav-item active" : "nav-item"}
               aria-current={activeTab === item.key ? "page" : undefined}
+              aria-describedby={item.key === "booking" && consultationCount > 0 ? "staff-consultation-count" : undefined}
               onClick={() => navigateTo(item.key)}
             >
               <NavigationIcon name={item.key} />
               {item.label}
+              {item.key === "booking" && consultationCount > 0 && <b className="navigation-count-badge" aria-hidden="true">{consultationCount}</b>}
             </button>
           ))}
         </nav>
@@ -464,7 +475,7 @@ export function EduSystemApp() {
           </nav>
         </header>
 
-        {["admin", "instructor"].includes(user.role) && <ConsultationAlerts key={user.id} onOpen={() => { setOperationsEntry("schedule"); setConsultationEntry(value => value + 1); navigateTo("booking"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
+        {["admin", "instructor"].includes(user.role) && <ConsultationAlerts key={user.id} onCountChange={updateConsultationCount} onOpen={() => { setOperationsEntry("schedule"); setConsultationEntry(value => value + 1); navigateTo("booking"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
         {!data ? (
           <section className="page-section loading-panel" aria-live="polite">
             {dataError ? <><p role="alert">{dataError}</p><button type="button" className="primary-button" onClick={() => void refreshData()}>다시 불러오기</button></> : <><div className="loading-line" /><p>대시보드를 준비하고 있습니다.</p></>}
@@ -506,7 +517,7 @@ export function EduSystemApp() {
       </main>
 
       <MobileNavigation className="bottom-nav" label="모바일 메뉴"
-        items={allowedNav.map(item => ({ key: item.key, label: item.short, title: item.label }))}
+        items={allowedNav.map(item => ({ key: item.key, label: item.short, title: item.label, badge: item.key === "booking" ? consultationCount : undefined }))}
         primaryKeys={["dashboard", "inventory", "booking", "education"]}
         activeKey={activeTab} onSelect={key => navigateTo(key as TabKey)} />
       {toast && <Toast toast={toast} />}

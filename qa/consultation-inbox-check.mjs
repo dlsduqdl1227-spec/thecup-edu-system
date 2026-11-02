@@ -77,7 +77,7 @@ try{
  await page.route('**/api/learning/notifications',route=>route.abort());
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.locator('.consultation-alert').getByText(/알림 갱신이 지연/).waitFor();
  await page.unroute('**/api/learning/notifications');await page.locator('.consultation-alert').getByRole('button',{name:'다시 확인'}).click();
- await page.locator('.consultation-alert').getByText(/다른 메뉴에서도 30초/).waitFor();
+ await page.locator('.consultation-alert').getByText(/상담 신청이 도착했습니다/).waitFor();
  ok('25건 페이지 이동·이름순 정렬·상태 필터, 알림 연결 오류와 재시도');
  assert.deepEqual(report.errors,[]);
 }finally{await writeFile(folder+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}

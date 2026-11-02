@@ -60,13 +60,22 @@
 .learning-workspace .learning-toolbar button { flex:1;white-space:nowrap }
 }
 .learning-workspace>header h1 { font-size:28px;line-height:1.3;letter-spacing:-.03em;margin:12px 0 }
-.consultation-alert { margin:20px 32px 0; padding:16px 20px; border:1px solid #c9cbd1; border-radius:16px; background:#f4f5f7; display:flex; align-items:center; gap:16px; flex-wrap:wrap; font-family:"Pretendard Variable",Pretendard,sans-serif; }
-.consultation-alert>div { flex:1;min-width:180px }
-.consultation-alert strong { display:block;font-size:17px;color:#161619 }
-.consultation-alert span { display:block;font-size:13px;color:#53555d;margin-top:3px }
+.consultation-alert { margin:20px 32px 0; padding:24px; border:2px solid #202124; border-radius:22px; background:#fff; display:flex; align-items:center; gap:24px; flex-wrap:wrap; box-shadow:0 6px 24px #00000008; font-family:"Pretendard Variable",Pretendard,sans-serif; }
+.consultation-alert-copy { flex:1;min-width:160px }
+.consultation-alert strong { display:block;font-size:22px;color:#161619;line-height:1.4;letter-spacing:-.025em }
+.consultation-alert-copy>span { display:block;font-size:14px;color:#53555d;margin-top:6px }
+.consultation-alert-number { display:grid;place-items:center;min-width:96px;min-height:96px;padding:8px 18px;background:#202124;color:#fff;border-radius:22px;font-size:64px;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;flex-shrink:0 }
 .consultation-alert button { display:flex;align-items:center;gap:16px;min-height:44px;padding:10px 16px;background:#202124;color:#fff;border:0;border-radius:24px;font:inherit;font-size:14px;cursor:pointer }
 .consultation-alert button span { color:inherit;margin:0 }
 .consultation-alert :focus-visible { outline:3px solid #3459bd;outline-offset:3px }
+.navigation-count-badge { display:inline-flex;align-items:center;justify-content:center;min-width:24px;min-height:24px;padding:2px 7px;border-radius:999px;background:#202124;color:#fff;font-family:inherit;font-size:13px!important;font-weight:750;line-height:1.2;font-variant-numeric:tabular-nums;flex-shrink:0 }
+.navigation-count-text { position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0 }
+.side-nav .navigation-count-badge { margin-left:auto }
+.side-nav .nav-item:has(.navigation-count-badge) { grid-template-columns:24px minmax(0,1fr) auto;column-gap:8px }
+.side-nav .active .navigation-count-badge, .mobile-menu-sheet nav .active .navigation-count-badge { background:#fff;color:#202124 }
+.mobile-dock>button { position:relative }
+.mobile-dock .navigation-count-badge { position:absolute;top:4px;left:calc(50% + 5px);min-width:21px;min-height:21px;padding:2px 5px;border:1.5px solid #fff;font-size:12px!important }
+.mobile-dock .active .navigation-count-badge { background:#fff;color:#202124;border-color:#202124 }
 .consultation-heading { display:flex;justify-content:space-between;gap:20px;align-items:center }
 .consultation-heading h2 { margin:0 }
 .consultation-heading p { margin:8px 0;font-size:14px }
@@ -105,8 +114,12 @@
 .consultation-editor .learning-toolbar a { min-height:44px;display:inline-flex;align-items:center;color:#202124;text-decoration:underline }
 .learning-workspace .sr-only { position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0 }
 @media(max-width:640px) {
-  .consultation-alert { margin:12px 16px 0;padding:16px;gap:12px }
-  .consultation-alert>div { min-width:100% }
+  .consultation-alert { margin:12px 16px 0;padding:16px;gap:14px;border-radius:20px }
+  .consultation-alert-copy { min-width:0;flex-basis:calc(100% - 92px) }
+  .consultation-alert strong { font-size:18px }
+  .consultation-alert-copy>span { font-size:13px }
+  .consultation-alert-number { min-width:76px;min-height:76px;font-size:48px;padding:8px 14px;border-radius:18px }
+  .consultation-alert>button { flex:1 }
   .consultation-heading { align-items:flex-start;gap:12px }
   .consultation-heading>button { flex-shrink:0 }
   .consultation-filters { display:grid;grid-template-columns:1fr 1fr }

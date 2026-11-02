@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { AccessibleDialog } from "./AccessibleDialog";
 
-type NavigationItem = { key: string; label: string; title?: string };
+type NavigationItem = { key: string; label: string; title?: string; badge?: number };
 
 /** Five readable destinations at most; every secondary destination remains in the menu. */
 export function MobileNavigation({ items, activeKey, onSelect, primaryKeys, label, className }: {
@@ -15,6 +15,7 @@ export function MobileNavigation({ items, activeKey, onSelect, primaryKeys, labe
   className: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const badgeId = useId();
   const hasMore = items.length > 5;
   const primary = hasMore
     ? [...items.filter(item => primaryKeys?.includes(item.key)), ...items.filter(item => !primaryKeys?.includes(item.key))].slice(0, 4)
@@ -36,12 +37,15 @@ export function MobileNavigation({ items, activeKey, onSelect, primaryKeys, labe
   }
 
   return <>
+    {items.filter(item => item.badge).map(item => <span key={item.key} id={`${badgeId}-${item.key}`} className="navigation-count-text">새 알림 {item.badge}건</span>)}
     <nav className={`${className} mobile-dock`} aria-label={label}>
       {primary.map(item => <button type="button" key={item.key}
         className={activeKey === item.key ? "active" : ""}
         aria-current={activeKey === item.key ? "page" : undefined}
+        aria-describedby={item.badge ? `${badgeId}-${item.key}` : undefined}
         onClick={() => select(item.key)}>
         <NavigationIcon name={item.key} /><span>{item.label}</span>
+        {Boolean(item.badge) && <b className="navigation-count-badge" aria-hidden="true">{item.badge}</b>}
       </button>)}
       {hasMore && <button type="button" className={secondaryActive ? "active" : ""}
         aria-haspopup="dialog" aria-expanded={expanded} onClick={event => { event.currentTarget.focus(); setExpanded(true); }}>
@@ -55,8 +59,9 @@ export function MobileNavigation({ items, activeKey, onSelect, primaryKeys, labe
         <nav aria-label="전체 업무 메뉴">{items.map(item => <button type="button" key={item.key}
           className={activeKey === item.key ? "active" : ""}
           aria-current={activeKey === item.key ? "page" : undefined}
+          aria-describedby={item.badge ? `${badgeId}-${item.key}` : undefined}
           onClick={() => select(item.key)}>
-          <NavigationIcon name={item.key} /><span>{item.title ?? item.label}</span><small>{activeKey === item.key ? "현재" : "→"}</small>
+          <NavigationIcon name={item.key} /><span>{item.title ?? item.label}</span>{Boolean(item.badge) && <b className="navigation-count-badge" aria-hidden="true">{item.badge}</b>}<small>{activeKey === item.key ? "현재" : "→"}</small>
         </button>)}</nav>
       </section>
     </AccessibleDialog>}
