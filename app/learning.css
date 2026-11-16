@@ -79,22 +79,27 @@
 .consultation-heading { display:flex;justify-content:space-between;gap:20px;align-items:center }
 .consultation-heading h2 { margin:0 }
 .consultation-heading p { margin:8px 0;font-size:14px }
-.consultation-filters { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:20px 0 }
+.consultation-filters { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:20px 0;container:consultation-filters / inline-size }
 .consultation-filters label { flex:1;min-width:135px }
-.consultation-filters label:first-child { flex:2;min-width:200px }
+.consultation-search { display:flex;align-items:flex-end;gap:10px;flex:2 1 280px;min-width:min(100%,280px) }
+.consultation-search>label { flex:1;min-width:0 }
+.consultation-search>button { flex:0 0 auto }
 .consultation-list-summary { display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:16px 0;font-size:14px }
 .consultation-list-summary>span { color:#62626b;font-size:13px }
-.consultation-table-wrap { width:100%;min-width:0;border:1px solid #e0e1e5;border-radius:14px;overflow:hidden }
-.learning-workspace .consultation-table { width:100%;min-width:0;border-collapse:collapse;text-align:left;table-layout:fixed;font-size:14px;display:table;max-height:none }
-.consultation-table th { padding:14px 16px;background:#f5f5f7;color:#53555d;font-weight:600 }
-.consultation-table td { padding:16px;border-top:1px solid #e4e4e7;vertical-align:middle;overflow-wrap:anywhere;line-height:1.65 }
+.consultation-table-wrap { width:100%;min-width:0;border:1px solid #e0e1e5;border-radius:14px;overflow:hidden;container:consultation-list / inline-size }
+.learning-workspace .consultation-table { width:100%;min-width:0;border-collapse:collapse;text-align:left;table-layout:fixed;font-size:14px;display:table;max-height:none;white-space:normal }
+.consultation-table :is(th,td) { min-width:0;white-space:normal;overflow-wrap:break-word;overflow-wrap:anywhere;word-break:normal }
+.consultation-table th { padding:14px 16px;background:#f5f5f7;color:#53555d;font-size:13px;font-weight:600 }
+.consultation-table td { padding:16px;border-top:1px solid #e4e4e7;vertical-align:top;font-size:14px;line-height:1.65 }
 .consultation-table th:first-child { width:16% }
 .consultation-table th:last-child { width:120px }
 .consultation-table td strong { display:block;font-size:16px }
 .consultation-table td small { display:block;font-size:13px;color:#62626b;margin-top:4px }
 .consultation-table tr.is-selected { background:#f5f5f7 }
 .consultation-table td>button { white-space:nowrap }
-.consultation-badge { display:inline-flex;padding:3px 9px;border-radius:6px;font-size:13px;font-weight:600;background:#f0f0f2 }
+.consultation-badge { display:inline-block;max-width:100%;padding:3px 9px;border-radius:6px;font-size:13px;font-weight:600;background:#f0f0f2;white-space:normal;overflow-wrap:anywhere }
+.consultation-course-list { display:grid;gap:6px;list-style:none;margin:0;padding:0;min-width:0;max-width:100% }
+.consultation-course-list li { min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word;overflow-wrap:anywhere }
 .consultation-badge.is-new { background:#202124;color:#fff }
 .consultation-empty { text-align:center;padding:28px 16px }
 .learning-admin-grid.learning-directory { grid-template-columns:1fr }
@@ -123,7 +128,7 @@
   .consultation-heading { align-items:flex-start;gap:12px }
   .consultation-heading>button { flex-shrink:0 }
   .consultation-filters { display:grid;grid-template-columns:1fr 1fr }
-  .consultation-filters label:first-child { grid-column:1/-1;min-width:0 }
+  .consultation-filters .consultation-search { grid-column:1/-1;min-width:0 }
   .consultation-filters label { min-width:0 }
   .learning-workspace .consultation-tabs { display:grid;grid-template-columns:1fr 1fr }
   .consultation-tabs button { padding:12px 8px }
@@ -141,6 +146,26 @@
   .consultation-editor footer button { flex:1;white-space:nowrap }
 }
 .portal-member .portal-schedule-toolbar>span { font-size:14px;line-height:1.65 }
+/* Use the actual list width, including a visible desktop sidebar or a resized panel. */
+@container consultation-filters (max-width:800px) {
+  .consultation-search { flex-basis:100% }
+}
+@container consultation-list (max-width:800px) {
+  .learning-workspace .consultation-table { display:block }
+  .consultation-table thead { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0) }
+  .consultation-table tbody { display:block }
+  .consultation-table tr { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;padding:18px;border-bottom:1px solid #e4e4e7 }
+  .consultation-table tr:last-child { border-bottom:0 }
+  .consultation-table td { display:block;min-width:0;border:0;padding:0;grid-column:auto }
+  .consultation-table td[data-label]::before { content:attr(data-label);display:block;margin-bottom:3px;color:#62626b;font-size:12px }
+  .consultation-table td[data-label="관심 과정"] { grid-column:1/-1 }
+  .consultation-table td:last-child { grid-column:2;justify-self:end;align-self:end }
+  .consultation-table td strong { font-size:17px }
+}
+@container consultation-list (max-width:520px) {
+  .consultation-table tr { grid-template-columns:minmax(0,1fr);gap:12px;padding:16px }
+  .consultation-table td, .consultation-table td:last-child { grid-column:1 }
+}
 @media(max-width:640px) {
 .portal-member .portal-schedule-toolbar { align-items:flex-start;gap:10px;flex-direction:column }
 .portal-member .portal-schedule-toolbar>span { font-size:14px }

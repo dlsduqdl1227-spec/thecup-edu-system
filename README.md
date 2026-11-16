@@ -231,6 +231,11 @@ GitHub는 이전 저장소 주소를 새 주소로 전달하지만, Cloudflare�
 - `/api/learning/notifications`는 개인정보 없는 비공개 GET, `/api/learning/consultation-management`는 권한 제한된 GET/PATCH/DELETE입니다. 기존 상담 테이블에 삭제 시각·수정 버전·끝 4자리만 추가하는 멱등 마이그레이션을 사용합니다. 전체 번호는 기존 방식대로 암호화합니다.
 - 검수: `tests/consultation-management.test.mjs`, `qa/consultation-inbox-check.mjs`(선택: `--webkit`). 브라우저 쓰기 테스트는 localhost의 임시 DB 전용이며 운영 기록을 변경하지 않습니다.
 
+## 상담 목록 반응형 검수
+
+- 상담·수강생 목록은 공통 장부 표의 줄바꿈 금지 스타일과 분리합니다. 관심 과정은 과정별로 모두 표시하며, 실제 목록 폭이 800px 이하이면 두 칸 세로형 목록, 520px 이하이면 한 칸 목록으로 전환합니다.
+- `qa/consultation-layout-check.mjs`는 긴 이름·여러 과정·공백 없는 문자열을 포함한 가상 데이터로 320–1920px 및 작은 창 높이를 검사합니다. `QA_BASE_URL`로 운영 주소를 지정할 수 있지만, 가상 직원 응답을 사용하고 운영 변경 요청을 차단합니다. 가상 대시보드 준비용 localhost QA 서버는 5174 포트에서 별도로 실행합니다.
+
 ## 최초 운영 시작
 
 1. 배포된 주소에 접속합니다.

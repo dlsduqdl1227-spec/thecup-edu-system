@@ -11,7 +11,10 @@ type DetailData = { detail: Detail; isAdmin: boolean; instructors: Array<{ id: n
 type List = { rows: Row[]; total: number; page: number; isAdmin: boolean };
 const endpoint = "/api/learning/consultation-management";
 function courseIds(value: string): string[] { try { const ids = JSON.parse(value); return Array.isArray(ids) ? ids.filter(id => typeof id === "string") : []; } catch { return []; } }
-function courseNames(value: string) { return courseIds(value).map(id => interestOptions.find(item => item.id === id)?.name ?? id).join(" / "); }
+function InterestList({ value }: { value: string }) {
+  const names = courseIds(value).map(id => interestOptions.find(item => item.id === id)?.name ?? id);
+  return names.length ? <ul className="consultation-course-list">{names.map((name, index) => <li key={index}>{name}</li>)}</ul> : <span>선택한 과정 없음</span>;
+}
 function receivedAt(value: string) { return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z")); }
 
 export function ConsultationInbox({ onMember }: { onMember: (id: number, approved: boolean) => void }) {
@@ -48,7 +51,7 @@ export function ConsultationInbox({ onMember }: { onMember: (id: number, approve
   return <div className="consultation-inbox">
     <div className="consultation-heading"><div><h2>상담 접수함</h2><p>새 신청부터 상담 종료까지. 수강생 승인 여부와 상담 상태는 별도로 표시합니다.</p></div><button type="button" onClick={() => { setLoading(true); refresh(); }} disabled={loading}>새로고침</button></div>
     <form className="consultation-filters" onSubmit={event => { event.preventDefault(); filter(() => setQuery(search)); refresh(); }}>
-      <label>상담 검색<input value={search} onChange={event => setSearch(event.target.value)} placeholder="성함 또는 연락처 끝 4자리" maxLength={80} /></label><button type="submit">검색</button>
+      <div className="consultation-search"><label>상담 검색<input value={search} onChange={event => setSearch(event.target.value)} placeholder="성함 또는 연락처 끝 4자리" maxLength={80} /></label><button type="submit">검색</button></div>
       <label>상담 상태<select aria-label="상담 상태" value={status} onChange={event => filter(() => setStatus(event.target.value))}><option value="">전체 상태</option>{Object.entries(labels).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label>상담 정렬<select aria-label="상담 정렬" value={sort} onChange={event => filter(() => setSort(event.target.value))}><option value="newest">최근 접수순</option><option value="oldest">오래된 접수순</option><option value="name">이름순</option><option value="updated">최근 수정순</option></select></label>
       {data?.isAdmin && <label>보관함<select aria-label="보관함" value={deleted ? "deleted" : "active"} onChange={event => filter(() => setDeleted(event.target.value === "deleted"))}><option value="active">현재 상담</option><option value="deleted">삭제한 상담</option></select></label>}
@@ -56,7 +59,7 @@ export function ConsultationInbox({ onMember }: { onMember: (id: number, approve
     <div className="consultation-list-summary"><strong>{deleted ? "삭제한 상담" : "접수 내역"} {data?.total ?? 0}건</strong><span>{loading ? "확인 중…" : "30초마다 자동 갱신 · 연락처는 상세에서 확인"}</span></div>
     {notice && <p role="status">{notice}</p>}{error && <p className="learning-error" role="alert">{error} 기존 목록은 유지됩니다.</p>}
     <div className="consultation-table-wrap" aria-busy={loading}><table className="consultation-table"><caption className="sr-only">상담 접수 DB 목록</caption><thead><tr><th scope="col">접수일</th><th scope="col">신청자</th><th scope="col">관심 과정</th><th scope="col">상태·담당</th><th scope="col">관리</th></tr></thead><tbody>
-      {data?.rows.map(row => <tr key={row.id}><td data-label="접수일">{receivedAt(row.createdAt)}</td><td data-label="신청자"><strong>{row.name}</strong><small>끝 {row.phoneLast4} · {row.approvalStatus === "APPROVED" ? "승인 수강생" : "수강 전·미승인"}</small></td><td data-label="관심 과정">{courseNames(row.interests)}</td><td data-label="상태·담당"><span className={row.status === "NEW" ? "consultation-badge is-new" : "consultation-badge"}>{labels[row.status]}</span><small>{row.instructorName || "담당 미지정"}</small></td><td><button type="button" aria-label={`${row.name} 상담 상세`} onClick={() => setDetailId(row.id)}>상세·수정</button></td></tr>)}
+      {data?.rows.map(row => <tr key={row.id}><td data-label="접수일">{receivedAt(row.createdAt)}</td><td data-label="신청자"><strong>{row.name}</strong><small>끝 {row.phoneLast4} · {row.approvalStatus === "APPROVED" ? "승인 수강생" : "수강 전·미승인"}</small></td><td data-label="관심 과정"><InterestList value={row.interests} /></td><td data-label="상태·담당"><span className={row.status === "NEW" ? "consultation-badge is-new" : "consultation-badge"}>{labels[row.status]}</span><small>{row.instructorName || "담당 미지정"}</small></td><td><button type="button" aria-label={`${row.name} 상담 상세`} onClick={() => setDetailId(row.id)}>상세·수정</button></td></tr>)}
     </tbody></table>{!loading && !data?.rows.length && <p className="consultation-empty">{deleted ? "삭제한 상담이 없습니다." : "조건에 맞는 상담이 없습니다."}</p>}</div>
     <div className="learning-pagination"><button disabled={page <= 1 || loading} onClick={() => { setPage(value => value - 1); setLoading(true); }}>이전</button><span>{data?.page ?? page} / {Math.max(1, Math.ceil((data?.total ?? 0) / 25))}</span><button disabled={page * 25 >= (data?.total ?? 0) || loading} onClick={() => { setPage(value => value + 1); setLoading(true); }}>다음</button></div>
     {detailId !== null && <ConsultationEditor id={detailId} onClose={() => setDetailId(null)} onSaved={message => { setDetailId(null); setNotice(message); refresh(); window.dispatchEvent(new Event("thecup:consultations-updated")); }} onMember={onMember} />}
