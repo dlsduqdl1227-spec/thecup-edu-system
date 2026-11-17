@@ -42,7 +42,7 @@ test('automatic hours and FLOW closures are private, race-safe and independent o
   sqlite.prepare("UPDATE booking_slots SET status='BLOCKED',block_reason='수동 휴강 유지' WHERE id=?").run(slot('2027-01-06'));
  });
  globalThis.__calendarEnv.FLOW_CALENDAR_SECRET='test-calendar-secret-never-use-in-production';
- globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://monthlycoffee-flow.pages.dev/api/integrations/thecup-edu/calendar');assert.match(options.headers.Authorization,/Bearer test-calendar/);if(failed)throw new Error('offline');return Response.json({source:'FLOW',generatedAt:++revision,events});};
+ globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://monthlycoffee-flow.pages.dev/api/integrations/thecup-edu/calendar');assert.match(options.headers.Authorization,/Bearer test-calendar/);assert.equal(options.redirect,'manual');if(failed)throw new Error('offline');return Response.json({source:'FLOW',generatedAt:++revision,events});};
  await t.test('snapshot closes entire inclusive dates in every station and preserves existing reservations',async()=>{
   events=[{id:'flow-1',startDate:'2027-01-05',endDate:'2027-01-08'}];assert.equal((await api.syncFlowCalendar({force:true})).ok,true);
   const response=await api.publicGet(req('/api/booking/public/availability?month=2027-01'));const pub=await response.json();assert.equal(response.status,200);assert.ok(!pub.slots.some(s=>s.startAt.slice(0,10)>='2027-01-05'&&s.startAt.slice(0,10)<='2027-01-08'));assert.doesNotMatch(JSON.stringify(pub),/flow-1|QA 수강생|test-calendar/);

@@ -42,10 +42,13 @@ export async function syncFlowCalendar({ force = false, required = false } = {})
   const age = previous?.attempted_at ? Date.now() - Date.parse(previous.attempted_at) : Infinity;
   if (!force && age < 25000) return { configured: true, ok: !previous?.last_error };
   const attempt = new Date().toISOString();
+  let failureCode = "NETWORK";
   try {
     const sourceFetch = settings().FLOW_CALENDAR?.fetch.bind(settings().FLOW_CALENDAR) ?? fetch;
-    const response = await sourceFetch(sourceURL, { headers: { Authorization: `Bearer ${secret}` }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(7000) });
-    if (!response.ok) throw new Error("Calendar source unavailable");
+    // Workers supports manual/follow, not redirect:error. Never forward the secret to a redirect target.
+    const response = await sourceFetch(sourceURL, { headers: { Authorization: `Bearer ${secret}` }, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(7000) });
+    if (!response.ok) { failureCode = `HTTP ${response.status}`; throw new Error("Calendar source unavailable"); }
+    failureCode = "SNAPSHOT";
     // Bound the body before JSON parsing, including chunked responses.
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Empty calendar source");
@@ -54,6 +57,7 @@ export async function syncFlowCalendar({ force = false, required = false } = {})
     for (;;) { const { done, value } = await reader.read(); if (done) break; bytes += value.length; if (bytes > 1500000) { await reader.cancel(); throw new Error("Calendar source too large"); } text += decoder.decode(value, { stream: true }); }
     text += decoder.decode();
     const snapshot = validateFlowSnapshot(JSON.parse(text));
+    failureCode = "SAVE";
     await db.prepare(`INSERT INTO booking_calendar_sync(source,events_json,source_revision,synced_at,attempted_at,last_error)
       VALUES ('FLOW',?,?,?,?, '') ON CONFLICT(source) DO UPDATE SET events_json=excluded.events_json,
       source_revision=excluded.source_revision,synced_at=excluded.synced_at,attempted_at=excluded.attempted_at,last_error=''
@@ -63,7 +67,7 @@ export async function syncFlowCalendar({ force = false, required = false } = {})
   } catch {
     await db.prepare(`INSERT INTO booking_calendar_sync(source,attempted_at,last_error) VALUES ('FLOW',?,?)
       ON CONFLICT(source) DO UPDATE SET attempted_at=excluded.attempted_at,last_error=excluded.last_error
-      WHERE booking_calendar_sync.attempted_at IS NULL OR booking_calendar_sync.attempted_at <= excluded.attempted_at`).bind(attempt, privateFailure).run();
+      WHERE booking_calendar_sync.attempted_at IS NULL OR booking_calendar_sync.attempted_at <= excluded.attempted_at`).bind(attempt, `${privateFailure} (${failureCode})`).run();
     if (required) throw new AuthError("일정 연동 확인이 지연되어 예약을 잠시 중단했습니다. 잠시 후 다시 신청해 주세요.", 503);
     return { configured: true, ok: false };
   }
