@@ -1,7 +1,7 @@
 export const bookingTimes = [
   { key: "MORNING", label: "1회차", start: "09:00", end: "11:30" },
-  { key: "MIDDAY", label: "2회차", start: "12:00", end: "14:30" },
-  { key: "AFTERNOON", label: "3회차", start: "15:00", end: "17:30" },
+  { key: "MIDDAY", label: "2회차", start: "12:30", end: "15:00" },
+  { key: "AFTERNOON", label: "3회차", start: "15:30", end: "18:00" },
 ] as const;
 
 export type BookingTimeKey = (typeof bookingTimes)[number]["key"];

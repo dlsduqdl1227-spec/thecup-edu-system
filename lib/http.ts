@@ -6,6 +6,7 @@ export function jsonError(error: unknown): Response {
       headers: error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined });
   }
   const message = error instanceof Error ? error.message : "처리 중 오류가 발생했습니다.";
+  if (message.includes("booking_calendar_closed")) return Response.json({ error: "휴무 또는 FLOW 일정으로 예약할 수 없는 날짜·시간입니다. 일정을 다시 확인해 주세요." }, { status: 409, headers: { "Cache-Control": "no-store" } });
   if (message.includes("course_enrollments.request_key")) {
     return Response.json({ error: "같은 수강 등록이 이미 처리되었습니다. 새로고침하여 등록 내역을 확인해 주세요." }, { status: 409 });
   }

@@ -14,6 +14,9 @@ import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, jsonError } from "../../../../lib/http";
 import { requireMember } from "../../../../lib/member-auth";
 import { memberEnrollments } from "../../../../lib/learning";
+import { assertCalendarSlotOpen, effectiveSlot, prepareBookingCalendar } from "../../../../lib/booking-calendar";
+import { flowBlockedSQL } from "../../../../lib/booking-calendar-schema";
+import { env } from "cloudflare:workers";
 
 type SlotRow = {
   id: number;
@@ -27,6 +30,7 @@ type SlotRow = {
   hasConfirmed: number;
   ownConfirmed: number;
   ownRequested: number;
+  flowBlocked: number;
 };
 
 export async function GET(request: Request) {
@@ -36,6 +40,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const month = validateBookingMonth(url.searchParams.get("month") ?? currentKoreanMonth());
     const range = bookingMonthRange(month);
+    await prepareBookingCalendar();
     const db = getD1();
     const [slotsResult, reservationsResult, paymentsResult, feedbackResult, practiceResult, evaluationsResult, settingsResult] = await Promise.all([
       db
@@ -43,6 +48,7 @@ export async function GET(request: Request) {
           `SELECT sl.id, sl.station_id AS stationId, st.type AS stationType,
                   st.name AS stationName, sl.start_at AS startAt, sl.end_at AS endAt,
                   sl.status AS slotStatus, sl.block_reason AS blockReason,
+                  ${flowBlockedSQL()} AS flowBlocked,
                   EXISTS (SELECT 1 FROM reservations booked JOIN booking_slots occupied ON occupied.id = booked.slot_id
                     WHERE booked.status = 'CONFIRMED' AND (occupied.station_id = sl.station_id OR booked.member_id = ?)
                       AND occupied.start_at < sl.end_at AND occupied.end_at > sl.start_at) AS hasConfirmed,
@@ -119,7 +125,7 @@ export async function GET(request: Request) {
       JOIN reservations r ON r.enrollment_id = other.id JOIN booking_slots sl ON sl.id = r.slot_id
       WHERE own.member_id = ? AND r.status = 'CONFIRMED' AND sl.start_at >= ? AND sl.start_at < ?`)
       .bind(member.id, range.start, range.end).all();
-    const slots = slotsResult.results.map((slot) => ({
+    const slots = slotsResult.results.map(row => effectiveSlot(row, (env as unknown as { BOOKING_AUTOMATION_ENABLED?: string }).BOOKING_AUTOMATION_ENABLED === "true")).map((slot) => ({
       id: slot.id,
       stationId: slot.stationId,
       stationType: slot.stationType,
@@ -127,11 +133,9 @@ export async function GET(request: Request) {
       startAt: slot.startAt,
       endAt: slot.endAt,
       blockReason: slot.slotStatus === "BLOCKED" ? slot.blockReason : "",
-      displayStatus: slot.slotStatus === "BLOCKED" || !isFutureSlot(slot.startAt)
+      displayStatus: Number(slot.ownConfirmed) ? "CONFIRMED" : slot.slotStatus === "BLOCKED" || !isFutureSlot(slot.startAt)
         ? "BLOCKED"
-        : Number(slot.ownConfirmed)
-          ? "CONFIRMED"
-          : Number(slot.ownRequested)
+        : Number(slot.ownRequested)
             ? "REQUESTED"
             : Number(slot.hasConfirmed)
               ? "RESERVED"
@@ -177,6 +181,7 @@ export async function POST(request: Request) {
 
 async function requestReservation(memberId: number, payload: Record<string, unknown>) {
   const slotId = positiveBookingInteger(payload.slotId, "예약 시간");
+  await assertCalendarSlotOpen(slotId);
   const enrollmentId = payload.enrollmentId ? positiveBookingInteger(payload.enrollmentId, "수강 과정") : null;
   const enrollment = enrollmentId ? await getD1().prepare("SELECT course_name AS name FROM course_enrollments WHERE id = ? AND member_id = ? AND status = 'ACTIVE'").bind(enrollmentId, memberId).first<{ name: string }>() : null;
   if (enrollmentId && !enrollment) throw new AuthError("예약할 수 있는 본인 과정이 아닙니다.", 403);

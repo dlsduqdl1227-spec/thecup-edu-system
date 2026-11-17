@@ -2,12 +2,13 @@
 import { requestJson } from "../../lib/api-client";
 import { useRequestGuard } from "../../lib/use-request-guard";
 import { ListPagination } from "./ListPagination";
+import { koreanToday, operatingDayReason } from "../../lib/operating-calendar";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; phoneLast4: string; approvalStatus: string; consultationStatus: string; desiredStationType: string; consultationMemo: string; adminMemo: string; approvedAt: string | null; createdAt: string };
 type Station = { id: number; type: string; name: string; active: number; displayOrder: number };
-type Slot = { id: number; stationId: number; startAt: string; endAt: string; status: string; blockReason: string; stationType: string; stationName: string; hasConfirmed: number; requestCount: number };
+type Slot = { id: number; stationId: number; startAt: string; endAt: string; status: string; blockReason: string; calendarBlocked?: boolean; flowBlocked?: number; stationType: string; stationName: string; hasConfirmed: number; requestCount: number };
 type Reservation = { enrollmentId: number | null; id: number; memberId: number; memberName: string; phoneLast4: string; memberApprovalStatus: string; slotId: number; status: string; purpose: string; materialPlan: string; openToPeerPractice: number; userMemo: string; adminMemo: string; rejectionReason: string; createdAt: string; startAt: string; endAt: string; stationType: string; stationName: string };
 type Payment = { id: number; memberId: number; memberName: string; reservationId: number | null; amount: number; method: string; status: string; paidAt: string | null; createdAt: string };
 type Feedback = { id: number; memberId: number; memberName: string; reservationId: number; message: string; status: string; adminReply: string; createdAt: string };
@@ -91,7 +92,8 @@ export function BookingAdmin({
     void load();
     const refresh = window.setInterval(() => void load(), 30_000);
     window.addEventListener("focus", load);
-    return () => { window.clearInterval(refresh); window.removeEventListener("focus", load); cancelLoad(); };
+    window.addEventListener("thecup:booking-updated", load);
+    return () => { window.clearInterval(refresh); window.removeEventListener("focus", load); window.removeEventListener("thecup:booking-updated", load); cancelLoad(); };
   }, [load, cancelLoad]);
 
   async function act(body: Record<string, unknown>, success: string, onError?: (message: string) => void) {
@@ -180,6 +182,7 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
   }, [data.slots]);
 
   function toggleDateSelection(date: string) {
+    if (dateUnavailable(date)) return;
     setSelectedDates((current) => {
       const next = new Set(current);
       if (next.has(date)) next.delete(date);
@@ -191,6 +194,7 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
   function selectDatePattern(pattern: "ALL" | "WEEKDAY" | "WEEKEND" | "CLEAR") {
     if (pattern === "CLEAR") return setSelectedDates(new Set());
     setSelectedDates(new Set(monthDates.filter((date) => {
+      if (dateUnavailable(date)) return false;
       const weekday = utcWeekday(date);
       if (pattern === "WEEKDAY") return weekday >= 1 && weekday <= 5;
       if (pattern === "WEEKEND") return weekday === 0 || weekday === 6;
@@ -251,11 +255,14 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
   }
   const calendarCells: Array<string | null> = [...Array.from({ length: firstWeekday }, () => null), ...monthDates];
   const activeStations = data.stations.filter((station) => station.active);
+  function dateUnavailable(date: string) {
+    return date < koreanToday() || Boolean(operatingDayReason(date)) || data.slots.some(slot => slot.flowBlocked && slot.startAt.startsWith(date));
+  }
   const totalToCreate = selectedDates.size * selectedStations.size;
   return <>
     <form className="booking-batch-builder" onSubmit={generate}>
       <header>
-        <div><span>MONTHLY BATCH</span><h2>월간 일정 일괄 생성</h2><p>날짜를 여러 개 고른 뒤 동일한 시간대의 예약 가능 일정을 한 번에 만듭니다.</p></div>
+        <div><span>ADDITIONAL SCHEDULE</span><h2>추가 일정 만들기</h2><p>기본 시간표는 자동으로 생성됩니다. 별도 시간이 필요할 때만 사용하세요.</p></div>
         <strong>{selectedDates.size}<small>일 선택</small></strong>
       </header>
       <div className="booking-batch-quick">
@@ -265,7 +272,7 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
       <div className="booking-batch-layout">
         <section className="booking-batch-calendar" aria-label={`${month} 일정 선택 달력`}>
           <div className="weekdays">{["일","월","화","수","목","금","토"].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="days">{calendarCells.map((date, index) => date ? <button type="button" key={date} className={selectedDates.has(date) ? "selected" : ""} aria-pressed={selectedDates.has(date)} onClick={() => toggleDateSelection(date)}><b>{Number(date.slice(8))}</b>{slotCounts.has(date) && <small>기존 {slotCounts.get(date)}</small>}</button> : <span key={`empty-${index}`} />)}</div>
+          <div className="days">{calendarCells.map((date, index) => date ? <button type="button" key={date} disabled={dateUnavailable(date)} title={operatingDayReason(date) || undefined} className={selectedDates.has(date) ? "selected" : ""} aria-pressed={selectedDates.has(date)} onClick={() => toggleDateSelection(date)}><b>{Number(date.slice(8))}</b>{slotCounts.has(date) && <small>{slotCounts.get(date)}개</small>}</button> : <span key={`empty-${index}`} />)}</div>
         </section>
         <section className="booking-batch-config">
           <fieldset>
@@ -282,9 +289,9 @@ function ScheduleAdmin({ data, month, busy, act }: AdminProps & { month: string 
         </section>
       </div>
     </form>
-    <div className="booking-admin-tools single"><form onSubmit={copy}><div><strong>하루 스케줄 복사</strong><small>특정 날짜의 스케줄과 차단 상태를 다른 날짜로 복사합니다.</small></div><input name="sourceDate" type="date" aria-label="복사할 날짜" required /><span>→</span><input name="targetDate" type="date" aria-label="적용 날짜" required /><button disabled={busy}>복사</button></form></div>
+    <div className="booking-admin-tools single"><form onSubmit={copy}><div><strong>하루 스케줄 복사</strong><small>특정 날짜의 수동 스케줄과 차단 상태를 다른 날짜로 복사합니다. FLOW 휴무는 대상 날짜 기준으로 적용됩니다.</small></div><input name="sourceDate" type="date" aria-label="복사할 날짜" required /><span>→</span><input name="targetDate" type="date" aria-label="적용 날짜" required /><button disabled={busy}>복사</button></form></div>
     <section className="booking-admin-stations"><div><strong>스테이션 관리</strong><span>같은 유형의 장비를 여러 대 등록할 수 있습니다.</span></div><form onSubmit={createStation}><select name="type" aria-label="스테이션 유형" defaultValue="ESPRESSO"><option value="ESPRESSO">에스프레소</option><option value="BREWING">브루잉</option><option value="ROASTING">로스팅</option></select><input name="name" aria-label="스테이션 이름" required maxLength={80} placeholder="예: 에스프레소 스테이션" /><input name="displayOrder" type="number" min="0" defaultValue="0" aria-label="표시 순서" /><button className="solid" disabled={busy}>추가</button></form><div>{data.stations.map((station) => <button type="button" key={station.id} className={station.active ? "active" : ""} onClick={() => toggleStation(station)} disabled={busy}><b>{station.name}</b><small>{station.active ? "운영 중 · 클릭하여 중지" : "운영 중지 · 클릭하여 활성화"}</small></button>)}</div></section>
-    <div className="booking-admin-schedule">{groups.length ? groups.map(([date, slots]) => <section key={date}><header><strong>{fullDate(date)}</strong><div><span>{slots.length}개 슬롯</span><button type="button" disabled={busy || slots.some((slot) => Boolean(slot.hasConfirmed))} onClick={() => toggleDate(date, slots)}>{slots.every((slot) => slot.status === "BLOCKED") ? "날짜 열기" : "날짜 차단"}</button></div></header><div>{slots.map((slot) => <article key={slot.id} className={slot.status === "BLOCKED" ? "blocked" : slot.hasConfirmed ? "confirmed" : ""}><span>{slot.startAt.slice(11,16)}–{slot.endAt.slice(11,16)}</span><strong>{slot.stationName}</strong><small>{slot.status === "BLOCKED" ? slot.blockReason || "이용 불가" : slot.hasConfirmed ? "예약 확정" : slot.requestCount ? `요청 ${slot.requestCount}건` : "예약 가능"}</small><button type="button" disabled={busy || Boolean(slot.hasConfirmed)} onClick={() => toggle(slot)}>{slot.status === "BLOCKED" ? "차단 해제" : "차단"}</button></article>)}</div></section>) : <Empty>생성된 스케줄이 없습니다. 위에서 날짜와 시간대를 선택해 일괄 생성하세요.</Empty>}</div>
+    <div className="booking-admin-schedule">{groups.length ? groups.map(([date, slots]) => <section key={date}><header><strong>{fullDate(date)}</strong><div><span>{slots.length}개 슬롯</span><button type="button" disabled={busy || slots.some((slot) => Boolean(slot.hasConfirmed) || slot.calendarBlocked)} onClick={() => toggleDate(date, slots)}>{slots.every((slot) => slot.status === "BLOCKED") ? "날짜 열기" : "날짜 차단"}</button></div></header><div>{slots.map((slot) => <article key={slot.id} className={slot.status === "BLOCKED" ? "blocked" : slot.hasConfirmed ? "confirmed" : ""}><span>{slot.startAt.slice(11,16)}–{slot.endAt.slice(11,16)}</span><strong>{slot.stationName}</strong><small>{slot.status === "BLOCKED" ? slot.blockReason || "이용 불가" : slot.hasConfirmed ? "예약 확정" : slot.requestCount ? `요청 ${slot.requestCount}건` : "예약 가능"}</small><button type="button" disabled={busy || Boolean(slot.hasConfirmed) || slot.calendarBlocked} onClick={() => toggle(slot)}>{slot.calendarBlocked ? "자동 휴무" : slot.status === "BLOCKED" ? "차단 해제" : "차단"}</button></article>)}</div></section>) : <Empty>생성된 스케줄이 없습니다. 위에서 날짜와 시간대를 선택해 일괄 생성하세요.</Empty>}</div>
   </>;
 }
 

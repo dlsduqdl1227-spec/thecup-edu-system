@@ -226,6 +226,77 @@ button:disabled { cursor: not-allowed; }
 .booking-member-edit input, .booking-member-edit select, .booking-member-edit textarea { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #ccc; border-radius: 6px; background: #fff; color: #111; font: inherit; font-size: 14px; font-weight: 400; }
 .booking-member-edit textarea { resize: vertical; }
 .booking-member-edit small { color: #777; font-size: 12px; font-weight: 400; }
+/* Size the schedule by its actual content area, not the entire browser window. */
+.booking-admin-page { min-width: 0; max-width: 100%; container: booking-workspace / inline-size; }
+.booking-batch-builder { min-width: 0; max-width: 100%; border-radius: 20px; }
+.booking-batch-layout { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); }
+.booking-batch-config, .booking-batch-calendar, .booking-batch-config fieldset { min-width: 0; max-width: 100%; }
+.booking-batch-config legend { font-size: 14px; }
+.booking-batch-builder > header { flex-wrap: wrap; padding: 22px; }
+.booking-batch-builder > header h2 { font-size: clamp(22px, 3vw, 28px); }
+.booking-batch-builder > header p { font-size: 14px; line-height: 1.6; }
+.booking-batch-quick { flex-wrap: wrap; }
+.booking-batch-quick > span { font-size: 13px; }
+.booking-batch-quick button { min-height: 42px; font-size: 13px; }
+.booking-time-presets { grid-template-columns: repeat(auto-fit, minmax(min(100%, 114px), 1fr)); }
+.booking-time-presets button { min-width: 0; min-height: 64px; padding: 10px; }
+.booking-time-presets button b { font-size: 13px; white-space: normal; }
+.booking-time-inputs label { min-width: 0; font-size: 13px; }
+.booking-time-inputs input { box-sizing: border-box; max-width: 100%; font-size: 16px; }
+.booking-batch-stations label { min-height: 64px; align-content: center; }
+.booking-batch-stations b { font-size: 13px; white-space: normal; overflow-wrap: anywhere; }
+.booking-batch-stations span { font-size: 11px; }
+.booking-batch-calendar .weekdays span { font-size: 12px; color: #555; }
+.booking-batch-calendar .days button b { font-size: 14px; }
+.booking-batch-calendar .days button small { font-size: 11px; color: #5b5b60; }
+.booking-batch-calendar .days button.selected small { color: #e2e2e7; }
+.booking-batch-calendar .days button:disabled { background: #f5f5f7; color: #76767d; opacity: 1; cursor: default; }
+.booking-batch-calendar .days button small { white-space: nowrap; font-size: 10px; }
+.booking-batch-summary { display: flex; flex-wrap: wrap; align-items: center; }
+.booking-batch-summary > small { flex-basis: 100%; font-size: 12px; line-height: 1.5; }
+.booking-batch-summary p { font-size: 13px; }
+.booking-admin-tools, .booking-admin-stations, .booking-admin-schedule { min-width: 0; max-width: 100%; }
+.booking-admin-tools form, .booking-admin-stations form { min-width: 0; flex-wrap: wrap; }
+.booking-admin-tools input, .booking-admin-stations input, .booking-admin-stations select { min-width: 0; max-width: 100%; }
+.booking-admin-schedule > section > header { flex-wrap: wrap; gap: 12px; }
+.booking-admin-schedule article { min-width: 0; }
+.booking-admin-schedule article > strong, .booking-admin-schedule article > small { overflow-wrap: anywhere; }
+@container booking-workspace (max-width: 850px) {
+  .booking-batch-layout { grid-template-columns: minmax(0, 1fr); }
+  .booking-batch-calendar { border-right: 0; border-bottom: 1px solid #dededb; }
+  .booking-admin-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .booking-admin-tools, .booking-admin-split { grid-template-columns: minmax(0,1fr); }
+  .booking-admin-stations form { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@container booking-workspace (max-width: 480px) {
+  .booking-batch-config, .booking-batch-calendar { padding: 12px; }
+  .booking-time-inputs { grid-template-columns: minmax(0,1fr); }
+  .booking-time-inputs > span { display: none; }
+  .booking-batch-stations { grid-template-columns: minmax(0,1fr); }
+  .booking-admin-stations form, .booking-admin-tools form { display: grid; grid-template-columns: minmax(0,1fr); }
+  .booking-admin-schedule article { display: flex; flex-wrap: wrap; gap: 10px; }
+  .booking-admin-schedule article > small { flex-basis: 100%; }
+}
+.calendar-sync-panel { margin: 0 0 22px; min-width: 0; padding: clamp(18px, 3vw, 28px); border: 1px solid #dedee3; border-radius: 22px; background: #fff; color: #1d1d1f; }
+.calendar-sync-panel > header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.calendar-sync-panel h2 { margin: 7px 0 10px; font-size: clamp(23px, 3vw, 30px); letter-spacing: -.04em; }
+.calendar-sync-panel p { margin: 8px 0; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.calendar-sync-eyebrow { font-size: 13px; font-weight: 700; color: #525259; }
+.calendar-sync-panel button { min-height: 44px; border: 1px solid #c8c8cf; border-radius: 12px; padding: 10px 16px; font-size: 14px; font-weight: 700; background: #f5f5f7; color: #1d1d1f; }
+.calendar-sync-times { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.calendar-sync-times > span { padding: 9px 12px; border-radius: 10px; background: #f5f5f7; font-size: 15px; font-weight: 650; }
+.calendar-sync-caption { color: #55555e; }
+.calendar-sync-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding-top: 14px; font-size: 14px; }
+.calendar-sync-status > span { color: #55555e; font-size: 12px; }
+.calendar-sync-warning, .calendar-sync-conflicts { padding: 14px; border: 1px solid #d8b56a; border-radius: 12px; background: #fff9e9; color: #5c3900; }
+.calendar-sync-conflicts { margin-top: 16px; }
+.calendar-sync-conflicts h3 { margin: 0; font-size: 17px; }
+.calendar-sync-conflicts ul, .calendar-sync-blocks { margin: 12px 0; padding: 0; list-style: none; }
+.calendar-sync-conflicts li, .calendar-sync-blocks li { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 10px 0; border-bottom: 1px solid #ddd8ca; font-size: 14px; overflow-wrap: anywhere; }
+.calendar-sync-conflicts li b { font-size: 12px; }
+.calendar-sync-panel details { margin-top: 14px; }
+.calendar-sync-panel summary { min-height: 44px; padding: 12px 0; font-size: 14px; font-weight: 650; cursor: pointer; }
+.calendar-sync-panel a { display: inline-flex; align-items: center; min-height: 44px; color: #1d1d1f; font-size: 14px; text-decoration: underline; }
 .booking-member-edit .wide { grid-column: 1 / -1; }
 .booking-admin-member-list .booking-member-edit p { margin: 0; color: #555; font-size: 13px; }
 .booking-member-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }

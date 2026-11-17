@@ -20,6 +20,7 @@ import { compareInventoryItems, type InventorySort } from "../../lib/inventory-s
 import { inventoryChange, readStockQuantity } from "../../lib/inventory-movement";
 import { BookingAdmin } from "./BookingAdmin";
 import { LearningWorkspace } from "./LearningWorkspace";
+import { CalendarSyncPanel } from "./CalendarSyncPanel";
 import { ConsultationAlerts } from "./ConsultationAlerts";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
 import { requestJson } from "../../lib/api-client";
@@ -552,6 +553,7 @@ function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast
 
   return (
     <div className="operations-hub operations-hub-unified">
+      <CalendarSyncPanel />
       <section className="page-section"><nav className="learning-toolbar learning-workspace" aria-label="통합 교육 운영"><button className={view === "learning" ? "active" : ""} onClick={() => setView("learning")}>상담·수강·수업 승인</button><button className={view === "existing" ? "active" : ""} onClick={() => setView("existing")}>시간표·기존 예약·회원</button><button className={view === "openings" ? "active" : ""} onClick={() => setView("openings")}>개강 모집</button></nav>{view === "learning" && <LearningWorkspace />}</section>
       {view === "existing" && <div>
       <section className="page-section operations-unified-header">

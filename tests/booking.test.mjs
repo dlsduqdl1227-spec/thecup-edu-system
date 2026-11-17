@@ -21,7 +21,8 @@ test("booking month and the three fixed operating times are validated", () => {
     end: "2027-01-01T00:00:00+09:00",
   });
   assert.equal(getBookingTime("MORNING").start, "09:00");
-  assert.equal(getBookingTime("AFTERNOON").end, "17:30");
+  assert.equal(getBookingTime("MIDDAY").start, "12:30");
+  assert.equal(getBookingTime("AFTERNOON").end, "18:00");
   assert.equal(bookingDateTime("2026-09-02", "12:00"), "2026-09-02T12:00:00+09:00");
   assert.equal(validateBookingDateInMonth("2026-09-30", "2026-09"), "2026-09-30");
   assert.throws(() => validateBookingDateInMonth("2026-09-31", "2026-09"));
@@ -106,7 +107,7 @@ test("three audience paths, public availability and private member data stay sep
   assert.match(adminRoute, /start_at < \? AND end_at > \?/);
   assert.match(adminRoute, /MIN\(substr\(start_at, 1, 7\)\) AS month/);
   assert.match(adminRoute, /scheduleMonths/);
-  assert.match(admin, /월간 일정 일괄 생성/);
+  assert.match(admin, /추가 일정 만들기/);
   assert.match(admin, /등록된 일정/);
   assert.match(admin, /onScheduleMonthsChange\?\.\(result\.scheduleMonths\)/);
   assert.match(admin, /integrated-admin-section/);

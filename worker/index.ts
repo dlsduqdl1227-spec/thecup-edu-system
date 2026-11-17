@@ -1,5 +1,7 @@
 /** Cloudflare Worker entry point for the application. */
 import handler from "vinext/server/app-router-entry";
+import { ensureDatabase } from "../lib/db";
+import { prepareBookingCalendar } from "../lib/booking-calendar";
 
 interface Env {
   ASSETS: Fetcher;
@@ -12,6 +14,9 @@ interface ExecutionContext {
 }
 
 const worker = {
+  async scheduled(_event: unknown, _env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil((async () => { await ensureDatabase(); await prepareBookingCalendar(); })());
+  },
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const response = await handler.fetch(request, env, ctx);
     const pathname = new URL(request.url).pathname;

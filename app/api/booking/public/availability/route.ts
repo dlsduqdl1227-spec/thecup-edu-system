@@ -2,6 +2,8 @@ import { bookingMonthRange, validateBookingMonth } from "../../../../../lib/book
 import { currentKoreanMonth } from "../../../../../lib/course-openings";
 import { ensureDatabase, getD1 } from "../../../../../lib/db";
 import { jsonError } from "../../../../../lib/http";
+import { prepareBookingCalendar } from "../../../../../lib/booking-calendar";
+import { calendarClosedSQL } from "../../../../../lib/booking-calendar-schema";
 
 type PublicSlotRow = {
   stationType: string;
@@ -16,6 +18,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const month = validateBookingMonth(url.searchParams.get("month") ?? currentKoreanMonth());
     const range = bookingMonthRange(month);
+    await prepareBookingCalendar();
     const [slots, kakaoSetting] = await Promise.all([
       getD1().prepare(
         `SELECT st.type AS stationType, st.name AS stationName,
@@ -24,6 +27,7 @@ export async function GET(request: Request) {
          JOIN stations st ON st.id = sl.station_id AND st.active = 1
          WHERE sl.start_at >= ? AND sl.start_at < ?
            AND sl.status = 'OPEN'
+           AND NOT ${calendarClosedSQL()}
            AND datetime(sl.start_at) > datetime('now')
            AND NOT EXISTS (
              SELECT 1 FROM reservations r JOIN booking_slots occupied ON occupied.id = r.slot_id

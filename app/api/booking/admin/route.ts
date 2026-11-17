@@ -16,6 +16,10 @@ import {
 import { currentKoreanMonth } from "../../../../lib/course-openings";
 import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, isoDate, jsonError } from "../../../../lib/http";
+import { assertCalendarSlotOpen, effectiveSlot, prepareBookingCalendar } from "../../../../lib/booking-calendar";
+import { flowBlockedSQL } from "../../../../lib/booking-calendar-schema";
+import { automaticTimes } from "../../../../lib/operating-calendar";
+import { env } from "cloudflare:workers";
 import {
   describeMemberChanges,
   type EditableMember,
@@ -28,6 +32,7 @@ export async function GET(request: Request) {
   try {
     await ensureDatabase();
     await requireUser(request, ["admin"]);
+    await prepareBookingCalendar();
     const url = new URL(request.url);
     const db = getD1();
     const currentMonth = currentKoreanMonth();
@@ -55,6 +60,7 @@ export async function GET(request: Request) {
       db.prepare(
         `SELECT sl.id, sl.station_id AS stationId, sl.start_at AS startAt,
                 sl.end_at AS endAt, sl.status, sl.block_reason AS blockReason,
+                ${flowBlockedSQL()} AS flowBlocked,
                 st.type AS stationType, st.name AS stationName,
                 MAX(CASE WHEN r.status = 'CONFIRMED' THEN 1 ELSE 0 END) AS hasConfirmed,
                 COUNT(CASE WHEN r.status = 'REQUESTED' THEN 1 END) AS requestCount
@@ -126,7 +132,7 @@ export async function GET(request: Request) {
       month,
       members: members.results,
       stations: stations.results,
-      slots: slots.results,
+      slots: slots.results.map(row => effectiveSlot(row as { startAt: string; endAt: string; status: string; blockReason: string; flowBlocked: number }, (env as unknown as { BOOKING_AUTOMATION_ENABLED?: string }).BOOKING_AUTOMATION_ENABLED === "true")),
       reservations: reservations.results,
       payments: payments.results,
       feedback: feedback.results,
@@ -138,7 +144,7 @@ export async function GET(request: Request) {
         cancelHours: Number(settingMap.booking_cancel_hours ?? 24),
         kakaoChatUrl: settingMap.booking_kakao_chat_url ?? "",
       },
-      bookingTimes,
+      bookingTimes: automaticTimes,
     });
   } catch (error) {
     return jsonError(error);
@@ -339,6 +345,7 @@ async function saveStation(actorId: number, payload: Record<string, unknown>) {
       .run();
   }
   await audit(actorId, id ? "update_station" : "create_station", "station", String(id ?? ""), name);
+  await getD1().prepare("UPDATE booking_calendar_automation SET generated_at=NULL WHERE id=1").run();
   return Response.json({ ok: true });
 }
 
@@ -541,6 +548,7 @@ async function confirmReservation(actorId: number, reservationId: number, adminM
     slotStatus: string; stationActive: number; approvalStatus: string;
   }>();
   if (!row || row.status !== "REQUESTED") throw new AuthError("승인 대기 예약이 아닙니다.", 409);
+  await assertCalendarSlotOpen(row.slotId);
   if (row.approvalStatus !== "APPROVED") throw new AuthError("승인된 회원이 아닙니다.", 409);
   if (row.slotStatus !== "OPEN" || !Number(row.stationActive) || !isFutureSlot(row.startAt)) {
     throw new AuthError("현재 이용 가능한 예약 시간이 아닙니다.", 409);
