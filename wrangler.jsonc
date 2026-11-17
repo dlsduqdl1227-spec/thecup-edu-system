@@ -3,7 +3,7 @@
   "name": "thecup-edu-system",
   "main": "./dist/server/index.js",
   "compatibility_date": "2026-05-15",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": true,
   "vars": { "BOOKING_AUTOMATION_ENABLED": "true" },
   "triggers": { "crons": ["*/5 * * * *"] },

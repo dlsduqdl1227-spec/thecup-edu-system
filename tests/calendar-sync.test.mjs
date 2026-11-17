@@ -3,9 +3,11 @@ import {DatabaseSync} from 'node:sqlite';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import {build} from 'esbuild';
 
 test('automatic hours and FLOW closures are private, race-safe and independent of manual closures',async t=>{
+ assert.ok(JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8')).compatibility_flags.includes('global_fetch_strictly_public'));
  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
  const prepare=(sql,args=[])=>({bind:(...next)=>prepare(sql,next),first:async()=>sqlite.prepare(sql).get(...args)??null,all:async()=>({success:true,results:sqlite.prepare(sql).all(...args)}),run:async()=>{const r=sqlite.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes),last_row_id:Number(r.lastInsertRowid)}};}});
  globalThis.__calendarEnv={DB:{prepare,batch:async statements=>{sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}}};
