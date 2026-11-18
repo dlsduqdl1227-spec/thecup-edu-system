@@ -5,6 +5,7 @@ import webpush from "web-push";
 import {AuthError, getSessionUser, sha256} from "./auth";
 import {getMemberSession} from "./member-auth";
 import {ensureDatabase,getD1} from "./db";
+import {buildNotificationPreview,type PushPreviewContext} from "./push-preview";
 
 export type PushAudience="STAFF"|"MEMBER";
 export type PushActor={audience:PushAudience;id:number;sessionHash:string;securityVersion:string};
@@ -52,19 +53,8 @@ export const validPushSessionSQL=(s="s")=>`(
    OR (${s}.audience='MEMBER' AND EXISTS(SELECT 1 FROM member_sessions x JOIN booking_members m ON m.id=x.member_id
     WHERE x.token_hash=${s}.session_hash AND x.member_id=${s}.actor_id AND x.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND m.approval_status='APPROVED' AND m.deleted_at IS NULL))))`;
 
-export function notificationPayload(event:Pick<PushCandidate,"kind"|"audience"|"eventId">){
-  const staff=event.audience==="STAFF";
-  const texts:Record<string,string>={
-    CONSULTATION_NEW:"새 상담 신청이 접수되었습니다. 상담·수업 관리에서 확인해 주세요.",
-    CONSULTATION_ASSIGNED:"담당 상담이 배정되었습니다. 앱에서 내용을 확인해 주세요.",
-    RESERVATION_REQUESTED:"새 예약 신청이 접수되었습니다. 승인 대기 일정을 확인해 주세요.",
-    RESERVATION_CONFIRMED:"예약이 확정되었습니다. 내 예약에서 일정을 확인해 주세요.",
-    RESERVATION_REJECTED:"예약 신청 결과가 변경되었습니다. 내 예약을 확인해 주세요.",
-    RESERVATION_CANCELLED:staff?"예약이 취소되었습니다. 담당 일정을 확인해 주세요.":"예약이 취소되었습니다. 내 예약을 확인해 주세요.",
-    MEMBER_APPROVED:"수강생 이용이 승인되었습니다. 앱에서 예약할 수 있습니다.",
-    TEST:"이 기기에서 더컵에듀 알림을 받을 수 있습니다.",
-  };
-  return {title:event.kind==="TEST"?"더컵에듀 테스트 알림":"더컵에듀",body:texts[event.kind]??"앱에서 새 알림을 확인해 주세요.",eventId:event.eventId,audience:event.audience,
+export function notificationPayload(event:Pick<PushCandidate,"kind"|"audience"|"eventId">,context:PushPreviewContext={}){
+  return {...buildNotificationPreview(event.kind,event.audience,context),eventId:event.eventId,audience:event.audience,
     topic:event.kind.startsWith("CONSULTATION")?"consultations":event.kind.startsWith("RESERVATION")?"reservations":"home"};
 }
 export async function sendWebPush(device:PushCandidate,payload:ReturnType<typeof notificationPayload>){
@@ -75,23 +65,26 @@ export async function sendWebPush(device:PushCandidate,payload:ReturnType<typeof
   const response=await fetch(details.endpoint,{method:"POST",headers:details.headers,body:new Uint8Array(details.body),redirect:"manual",signal:AbortSignal.timeout(7000)});
   await response.body?.cancel();return response.status;
 }
-async function sourceAllowed(row:PushCandidate){
+async function sourcePreview(row:PushCandidate):Promise<PushPreviewContext|null>{
   const db=getD1();
-  if(row.kind==="TEST")return row.testDeviceId===row.id;
-  if(row.kind==="MEMBER_APPROVED")return row.audience==="MEMBER"&&row.memberId===row.actor_id&&Boolean(await db.prepare("SELECT 1 FROM booking_members WHERE id=? AND approval_status='APPROVED' AND deleted_at IS NULL").bind(row.entityId).first());
+  if(row.kind==="TEST")return row.testDeviceId===row.id?{}:null;
+  if(row.kind==="MEMBER_APPROVED")return row.audience==="MEMBER"&&row.memberId===row.actor_id&&await db.prepare("SELECT 1 FROM booking_members WHERE id=? AND approval_status='APPROVED' AND deleted_at IS NULL").bind(row.entityId).first()?{}:null;
   if(row.kind.startsWith("CONSULTATION")){
-    const consult=await db.prepare(`SELECT c.status,c.instructor_id AS teacher FROM learning_consultations c JOIN booking_members m ON m.id=c.member_id WHERE c.id=? AND c.deleted_at IS NULL AND m.deleted_at IS NULL`).bind(row.entityId).first<{status:string;teacher:number|null}>();
-    if(!consult||consult.status==="CLOSED"||row.audience!=="STAFF")return false;
-    if(row.kind==="CONSULTATION_NEW")return consult.status==="NEW"&&Boolean(await db.prepare("SELECT 1 FROM staff WHERE id=? AND role='admin'").bind(row.actor_id).first());
-    return consult.teacher===row.actor_id&&row.staffId===row.actor_id&&Boolean(await db.prepare("SELECT 1 FROM staff WHERE id=? AND role IN ('admin','instructor')").bind(row.actor_id).first());
+    const consult=await db.prepare(`SELECT c.status,c.instructor_id AS teacher,c.interests FROM learning_consultations c JOIN booking_members m ON m.id=c.member_id WHERE c.id=? AND c.deleted_at IS NULL AND m.deleted_at IS NULL`).bind(row.entityId).first<{status:string;teacher:number|null;interests:string}>();
+    if(!consult||consult.status==="CLOSED"||row.audience!=="STAFF")return null;
+    const allowed=row.kind==="CONSULTATION_NEW"
+      ?consult.status==="NEW"&&Boolean(await db.prepare("SELECT 1 FROM staff WHERE id=? AND role='admin'").bind(row.actor_id).first())
+      :consult.teacher===row.actor_id&&row.staffId===row.actor_id&&Boolean(await db.prepare("SELECT 1 FROM staff WHERE id=? AND role IN ('admin','instructor')").bind(row.actor_id).first());
+    return allowed?{interests:consult.interests}:null;
   }
-  if(!row.kind.startsWith("RESERVATION_"))return false;
-  const booking=await db.prepare(`SELECT r.member_id AS memberId,r.status,e.instructor_id AS teacher FROM reservations r
-    JOIN booking_members m ON m.id=r.member_id LEFT JOIN course_enrollments e ON e.id=r.enrollment_id
-    WHERE r.id=? AND m.deleted_at IS NULL AND m.approval_status='APPROVED'`).bind(row.entityId).first<{memberId:number;status:string;teacher:number|null}>();
-  if(!booking||row.memberId!==booking.memberId||row.kind!=="RESERVATION_"+booking.status)return false;
-  if(row.audience==="MEMBER")return booking.memberId===row.actor_id&&row.kind!=="RESERVATION_REQUESTED";
-  return ["RESERVATION_REQUESTED","RESERVATION_CANCELLED"].includes(row.kind)&&Boolean(await db.prepare("SELECT 1 FROM staff WHERE id=? AND (role='admin' OR (role='instructor' AND id=?))").bind(row.actor_id,booking.teacher).first());
+  if(!row.kind.startsWith("RESERVATION_"))return null;
+  const booking=await db.prepare(`SELECT r.member_id AS memberId,r.status,e.instructor_id AS teacher,r.slot_start_at AS startAt,sl.end_at AS endAt,e.course_key AS courseKey,st.type AS stationType FROM reservations r
+    JOIN booking_members m ON m.id=r.member_id JOIN booking_slots sl ON sl.id=r.slot_id JOIN stations st ON st.id=sl.station_id LEFT JOIN course_enrollments e ON e.id=r.enrollment_id
+    WHERE r.id=? AND m.deleted_at IS NULL AND m.approval_status='APPROVED'`).bind(row.entityId).first<{memberId:number;status:string;teacher:number|null}&PushPreviewContext>();
+  if(!booking||row.memberId!==booking.memberId||row.kind!=="RESERVATION_"+booking.status)return null;
+  const allowed=row.audience==="MEMBER"?booking.memberId===row.actor_id&&row.kind!=="RESERVATION_REQUESTED"
+    :["RESERVATION_REQUESTED","RESERVATION_CANCELLED"].includes(row.kind)&&Boolean(await db.prepare("SELECT 1 FROM staff WHERE id=? AND (role='admin' OR (role='instructor' AND id=?))").bind(row.actor_id,booking.teacher).first());
+  return allowed?{startAt:booking.startAt,endAt:booking.endAt,courseKey:booking.courseKey,stationType:booking.stationType}:null;
 }
 export async function dispatchPush({limit=8,send=sendWebPush}:{limit?:number;send?:(device:PushCandidate,payload:ReturnType<typeof notificationPayload>)=>Promise<number>}={}){
   if(!await activatePush())return {configured:false,accepted:0,failed:0};
@@ -120,10 +113,11 @@ export async function dispatchPush({limit=8,send=sendWebPush}:{limit?:number;sen
     const claim=await db.prepare("UPDATE edu_push_deliveries SET state='SENDING',attempts=attempts+1,lease_until=? WHERE event_id=? AND subscription_id=? AND state IN ('PENDING','SENDING') AND attempts<3 AND lease_until<=? AND retry_at<=?").bind(Date.now()+30000,row.eventId,row.id,Date.now(),Date.now()).run();
     if(!claim.meta.changes)return;
     const current=await db.prepare(`SELECT 1 FROM edu_push_subscriptions s WHERE s.id=? AND s.session_hash=? AND s.audience=? AND s.actor_id=? AND s.enabled=1 AND ${validPushSessionSQL()}`).bind(row.id,row.session_hash,row.audience,row.actor_id).first();
-    if(!current||!await sourceAllowed(row)){
+    const preview=current?await sourcePreview(row):null;
+    if(!preview){
       await db.prepare("UPDATE edu_push_deliveries SET state='SKIPPED',lease_until=0 WHERE event_id=? AND subscription_id=?").bind(row.eventId,row.id).run();return;
     }
-    let status=0;try{status=await send(row,notificationPayload(row));}catch{ /* Retry without logging endpoint credentials. */ }
+    let status=0;try{status=await send(row,notificationPayload(row,preview));}catch{ /* Retry without logging endpoint credentials. */ }
     const ok=status>=200&&status<300,terminal=[400,401,403,404,410].includes(status)||status>=300&&status<400;
     await db.batch([
       db.prepare("UPDATE edu_push_subscriptions SET last_status=?,enabled=CASE WHEN ? IN (404,410) THEN 0 ELSE enabled END,updated_at=? WHERE id=? AND session_hash=?").bind(status,status,new Date().toISOString(),row.id,row.session_hash),

@@ -96,7 +96,7 @@ export function PushNotifications({audience,userId,onOpen}:{audience:Audience;us
   const test=device?.test,confirmed=test?.state==="DISPLAYED"&&Boolean(test.displayedAt);
   return <><div className="push-entry"><button type="button" className="push-settings-button" onClick={()=>{setOpen(true);setError("");void refresh();}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>알림 설정<span className={connected?"push-state on":"push-state"}>{connected?"켜짐":"꺼짐"}</span></button></div>
     {open&&<AccessibleDialog label="기기 알림 설정" onClose={()=>setOpen(false)} busy={busy}><section className="push-dialog"><header><div><span>THE CUP EDU</span><h2>앱을 닫아도,<br/>필요한 소식만.</h2></div><button type="button" disabled={busy} onClick={()=>setOpen(false)} aria-label="알림 설정 닫기">닫기</button></header>
-      <p>{audience==="STAFF"?"권한에 따라 새 상담·담당 상담 배정과 예약 신청·취소를 알려드립니다.":"예약 확정·거절·취소 등 본인의 예약 소식을 알려드립니다."} 이름·연락처·상담 내용은 잠금 화면에 표시하지 않습니다.</p>
+      <p>{audience==="STAFF"?"권한에 따라 새 상담·담당 상담 배정과 예약 신청·취소를 알려드립니다.":"예약 확정·거절·취소 등 본인의 예약 소식을 알려드립니다."} 알림 제목에서 종류를, 미리보기에서 과정과 예약 시간을 확인할 수 있습니다. 이름·연락처·상담 내용은 표시하지 않습니다.</p>
       <div className="push-device-state"><strong>{connected?"이 기기 알림 켜짐":permission==="denied"?"기기에서 알림 차단됨":"이 기기에 알림 연결"}</strong><span>{config?`${config.devices}개 기기 연결 중`:"설정을 확인하고 있습니다…"}</span></div>
       {(!installed||!supported)&&<section className="push-install-guide"><h3>홈 화면에서 앱으로 열어 주세요</h3>{ios?<ol><li>Safari의 공유 버튼을 누릅니다.</li><li>홈 화면에 추가 → 추가를 선택합니다.</li><li>추가된 아이콘으로 열고 로그인한 뒤 알림을 켭니다.</li></ol>:<p>Chrome·삼성 인터넷의 메뉴에서 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요. 지원되는 PC 브라우저에서도 받을 수 있습니다.</p>}<button type="button" onClick={()=>void install()}>홈 화면 추가 안내</button></section>}
       {!supported&&<p role="status">현재 브라우저에서는 푸시 알림을 사용할 수 없습니다. 아이폰은 iOS 16.4 이상에서 홈 화면 앱으로 열어 주세요.</p>}
@@ -108,7 +108,7 @@ export function PushNotifications({audience,userId,onOpen}:{audience:Audience;us
       </>}
       {test&&<div className="push-test-state" role="status"><strong>{confirmed?"이 기기에 테스트 알림이 표시됐습니다.":test.state==="FAILED"?"테스트 알림을 전달하지 못했습니다.":test.state==="ACCEPTED"?"발송 서비스 접수 완료 · 기기 표시 확인 중":"테스트 알림 확인 중"}</strong>{!confirmed&&<p>발송 서비스 접수와 실제 기기 표시는 다릅니다. 잠금 화면·알림 센터, 집중 모드와 기기 알림 설정도 확인해 주세요.</p>}</div>}
       {message&&<p role="status" className="push-message">{message}</p>}{error&&<p role="alert" className="push-error">{error}</p>}
-      <p className="push-footnote">기기마다 한 번씩 허용해야 합니다. 로그아웃·권한 회수 후에는 새 알림을 보내지 않으며, 다시 로그인하면 연결이 필요할 수 있습니다. 수신 시점은 네트워크·집중 모드·기기 설정에 따라 달라질 수 있습니다.</p>
+      <p className="push-footnote">기기마다 한 번씩 허용해야 합니다. 내용이 숨겨지면 기기의 알림 설정에서 미리보기 표시를 확인해 주세요. 로그아웃·권한 회수 후에는 새 알림을 보내지 않으며, 다시 로그인하면 연결이 필요할 수 있습니다. 수신 시점은 네트워크·집중 모드·기기 설정에 따라 달라질 수 있습니다.</p>
     </section></AccessibleDialog>}
   </>;
 }

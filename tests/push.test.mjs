@@ -46,9 +46,10 @@ test('background push isolates accounts, queues atomically, retries safely and p
  });
  await t.test('existing records never replay; new consultations target admins, assignment targets only current instructor',async()=>{
   assert.deepEqual(await api.dispatchPush({send:sender}),{configured:true,accepted:0,failed:0});
-  const id=consult();db.prepare('UPDATE learning_consultations SET instructor_id=2 WHERE id=?').run(id);
+  const id=consult();db.prepare('UPDATE learning_consultations SET interests=?,instructor_id=2 WHERE id=?').run(JSON.stringify(['barista:foundation','PRIVATE MEMO']),id);
   await api.dispatchPush({send:sender});assert.deepEqual(calls.map(c=>[c.id,c.kind]).sort((a,b)=>a[0]-b[0]),[[1,'CONSULTATION_NEW'],[2,'CONSULTATION_ASSIGNED']]);assert.ok(!calls.some(c=>c.id===3||c.id===4));
   assert.doesNotMatch(JSON.stringify(calls),/DO NOT PUSH|PRIVATE MEMO|encrypted-private|private-admin|phone/);
+  assert.ok(calls.every(c=>c.payload.body.includes('바리스타 · 파운데이션')));assert.ok(calls.some(c=>c.payload.title==='새 상담 신청 · 더컵에듀'));assert.ok(calls.some(c=>c.payload.title==='담당 상담 배정 · 더컵에듀'));
   const count=calls.length;await api.dispatchPush({send:sender});assert.equal(calls.length,count);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM edu_push_events WHERE entity_id=? AND kind=?').get(old,'CONSULTATION_NEW').n,0);
  });
@@ -60,7 +61,8 @@ test('background push isolates accounts, queues atomically, retries safely and p
  db.exec("INSERT INTO member_passes(id,member_id,type,valid_month,price,created_by) VALUES (1,1,'MONTHLY','2099-01',0,1);INSERT INTO course_enrollments(id,request_key,member_id,course_key,course_name,station_type,instructor_id,total_sessions,session_minutes,paid_amount,price_type,created_by) VALUES (1,'push-fixture',1,'barista:foundation','private course','ESPRESSO',2,20,150,0,'REGULAR',1)");
  await t.test('reservation requests reach admins/assigned teacher; outcomes reach only the right student',async()=>{
   calls.length=0;const id=reserve('05');await api.dispatchPush({send:sender});assert.deepEqual(calls.map(c=>[c.audience,c.id]).sort((a,b)=>a[1]-b[1]),[['STAFF',1],['STAFF',2]]);
-  calls.length=0;db.prepare("UPDATE reservations SET status='CONFIRMED' WHERE id=?").run(id);await api.dispatchPush({send:sender});assert.deepEqual(calls.map(c=>[c.audience,c.id,c.kind]),[['MEMBER',1,'RESERVATION_CONFIRMED']]);
+  assert.ok(calls.every(c=>c.payload.title==='새 예약 신청 · 승인 대기 · 더컵에듀'&&c.payload.body.includes('2099년 1월 5일')&&c.payload.body.includes('09:00–11:30')&&c.payload.body.includes('바리스타 · 파운데이션')));
+  calls.length=0;db.prepare("UPDATE reservations SET status='CONFIRMED' WHERE id=?").run(id);await api.dispatchPush({send:sender});assert.deepEqual(calls.map(c=>[c.audience,c.id,c.kind]),[['MEMBER',1,'RESERVATION_CONFIRMED']]);assert.equal(calls[0].payload.title,'예약 확정 · 더컵에듀');assert.match(calls[0].payload.body,/2099년 1월 5일.*09:00–11:30.*바리스타 · 파운데이션/);
   calls.length=0;db.prepare("UPDATE reservations SET status='CANCELLED' WHERE id=?").run(id);await api.dispatchPush({send:sender});assert.equal(calls.length,3);assert.ok(calls.some(c=>c.audience==='MEMBER'&&c.id===1));assert.ok(!calls.some(c=>c.audience==='MEMBER'&&c.id===2));
  });
  await t.test('obsolete decisions, source deletion and changed instructor access suppress old alerts',async()=>{
@@ -100,7 +102,7 @@ test('background push isolates accounts, queues atomically, retries safely and p
   const device=db.prepare('SELECT * FROM edu_push_subscriptions WHERE endpoint=?').get(devices.admin.endpoint);let captured;
   globalThis.fetch=async(url,options)=>{captured={url,options};return new Response(null,{status:201});};
   const payload=api.notificationPayload({...device,kind:'TEST',eventId:'a'.repeat(32)});assert.equal(await api.sendWebPush(device,payload),201);assert.equal(captured.options.redirect,'manual');assert.equal(captured.url,devices.admin.endpoint);assert.equal(captured.options.headers['Content-Encoding'],'aes128gcm');
-  const decrypted=ece.decrypt(Buffer.from(captured.options.body),{version:'aes128gcm',privateKey:devices.admin.ec,authSecret:devices.admin.auth}).toString();assert.deepEqual(JSON.parse(decrypted),payload);assert.doesNotMatch(Buffer.from(captured.options.body).toString(),/더컵에듀 테스트/);globalThis.fetch=nativeFetch;
+  const decrypted=ece.decrypt(Buffer.from(captured.options.body),{version:'aes128gcm',privateKey:devices.admin.ec,authSecret:devices.admin.auth}).toString();assert.deepEqual(JSON.parse(decrypted),payload);assert.doesNotMatch(Buffer.from(captured.options.body).toString(),/알림 미리보기 테스트/);globalThis.fetch=nativeFetch;
  });
  await t.test('retry failures are bounded and expired provider endpoints are disabled',async()=>{
   db.exec('UPDATE edu_push_subscriptions SET last_test_at=NULL');let r=await act('private-admin',{action:'test',endpoint:devices.admin.endpoint});let {testId}=await r.json();
