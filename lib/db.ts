@@ -6,6 +6,7 @@ import {
 import { bookingSchemaStatements, bookingSeedStatements } from "./booking-schema";
 import { ensureLearningSchema } from "./learning-schema";
 import { calendarSchemaStatements } from "./booking-calendar-schema";
+import { pushSchemaStatements } from "./push-schema";
 
 export type StaffRole = "admin" | "employee" | "instructor";
 export type StaffPermission = "finance" | "inventory" | "roasting";
@@ -291,6 +292,7 @@ async function initializeDatabase(): Promise<void> {
   await db.batch(calendarSchemaStatements.map((statement) => db.prepare(statement)));
   await ensureBookingMemberColumns(db);
   await ensureLearningSchema(db);
+  await db.batch(pushSchemaStatements.map(statement=>db.prepare(statement)));
   await db.batch(bookingSeedStatements.map((statement) => db.prepare(statement)));
   await db
     .prepare(

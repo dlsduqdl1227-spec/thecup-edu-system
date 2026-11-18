@@ -38,8 +38,12 @@ test('consultation inbox, notifications, edits and recoverable deletion protect 
  const snapshot=()=>({members:db.prepare('SELECT * FROM booking_members ORDER BY id').all(),staff:db.prepare('SELECT * FROM staff ORDER BY id').all(),reservations:db.prepare('SELECT * FROM reservations').all(),finance:db.prepare('SELECT * FROM finance_transactions').all(),enrollments:db.prepare('SELECT * FROM course_enrollments').all()});
  await t.test('existing schema upgrades idempotently without changing saved consultation content',async()=>{
   const saved=db.prepare('SELECT name,phone_encrypted,status FROM learning_consultations WHERE id=1').get();
+  // Reconstruct the pre-inbox schema: later push triggers did not exist then.
+  const pushTriggers=db.prepare("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND tbl_name='learning_consultations' AND name LIKE 'edu_push_%'").all();
+  for(const trigger of pushTriggers){assert.match(trigger.name,/^edu_push_[a-z_]+$/);db.exec('DROP TRIGGER '+trigger.name);}
   db.exec('DROP INDEX learning_consultations_inbox; ALTER TABLE learning_consultations DROP COLUMN deleted_at; ALTER TABLE learning_consultations DROP COLUMN revision; ALTER TABLE learning_consultations DROP COLUMN phone_last4;');
   await api.ensureLearningSchema(database);await api.ensureLearningSchema(database);
+  for(const trigger of pushTriggers)db.exec(trigger.sql);
   assert.deepEqual(db.prepare('SELECT name,phone_encrypted,status FROM learning_consultations WHERE id=1').get(),saved);
   assert.equal((await detail()).revision,1);assert.equal((await list()).rows[0].phoneLast4,'1111');
  });

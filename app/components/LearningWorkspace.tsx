@@ -15,8 +15,8 @@ type LearningData = {
 };
 type Act = (body: Record<string, unknown>, message: string) => Promise<boolean>;
 const consultationLabels: Record<string, string> = { NEW: "새 상담", CONTACTED: "상담 진행·완료", ENROLLED: "수강 등록", CLOSED: "상담 종료" };
-export function LearningWorkspace() {
-  const [tab, setTab] = useState<"consultations" | "members" | "prospects" | "requests">("consultations");
+export function LearningWorkspace({initialTab="consultations"}:{initialTab?:"consultations"|"requests"}={}) {
+  const [tab, setTab] = useState<"consultations" | "members" | "prospects" | "requests">(initialTab);
   const [sort, setSort] = useState("newest");
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");

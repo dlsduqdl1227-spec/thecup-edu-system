@@ -21,6 +21,7 @@ import { inventoryChange, readStockQuantity } from "../../lib/inventory-movement
 import { BookingAdmin } from "./BookingAdmin";
 import { LearningWorkspace } from "./LearningWorkspace";
 import { CalendarSyncPanel } from "./CalendarSyncPanel";
+import { PushNotifications } from "./PushNotifications";
 import { ConsultationAlerts } from "./ConsultationAlerts";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
 import { requestJson } from "../../lib/api-client";
@@ -269,7 +270,7 @@ export function EduSystemApp() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [dataError, setDataError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
-  const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members">("schedule");
+  const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members" | "requests">("schedule");
   const [consultationEntry, setConsultationEntry] = useState(0);
   const [consultationSummary, setConsultationSummary] = useState<{ userId: number; count: number } | null>(null);
   const updateConsultationCount = useCallback((count: number) => {
@@ -405,7 +406,7 @@ export function EduSystemApp() {
   const allowedNav = allowedNavigation(user);
   const homeTab = allowedNav.find((item) => item.key === "dashboard")?.key ?? allowedNav[0]?.key ?? "record";
 
-  function navigateTo(nextTab: TabKey, bookingSection: "schedule" | "members" = "schedule") {
+  function navigateTo(nextTab: TabKey, bookingSection: "schedule" | "members" | "requests" = "schedule") {
     if (nextTab === activeTab) return;
     if (nextTab === "booking") setOperationsEntry(bookingSection);
     setNavigationHistory((current) => [...current, activeTab]);
@@ -476,6 +477,7 @@ export function EduSystemApp() {
           </nav>
         </header>
 
+        <PushNotifications key={`push-${user.id}`} audience="STAFF" userId={user.id} onOpen={topic=>{if(!["admin","instructor"].includes(user.role))return;setConsultationEntry(value=>value+1);navigateTo("booking",topic==="reservations"?"requests":"schedule");}} />
         {["admin", "instructor"].includes(user.role) && <ConsultationAlerts key={user.id} onCountChange={updateConsultationCount} onOpen={() => { setOperationsEntry("schedule"); setConsultationEntry(value => value + 1); navigateTo("booking"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
         {!data ? (
           <section className="page-section loading-panel" aria-live="polite">
@@ -506,7 +508,7 @@ export function EduSystemApp() {
               />
             )}
             {activeTab === "booking" && (
-              data.user.role === "admin" ? <OperationsHub key={consultationEntry} notify={setToast} initialSection={operationsEntry} /> : <section className="page-section"><LearningWorkspace key={consultationEntry} /></section>
+              data.user.role === "admin" ? <OperationsHub key={consultationEntry} notify={setToast} initialSection={operationsEntry} /> : <section className="page-section"><LearningWorkspace key={consultationEntry} initialTab={operationsEntry === "requests" ? "requests" : "consultations"} /></section>
             )}
             {activeTab === "education" && <EducationView onApproveStudents={() => navigateTo("booking", "members")} />}
             {activeTab === "staff" && (
@@ -540,8 +542,8 @@ function EducationView({ onApproveStudents }: { onApproveStudents: () => void })
   );
 }
 
-function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void; initialSection?: "schedule" | "members" }) {
-  const [view, setView] = useState(initialSection === "members" ? "existing" : "learning");
+function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void; initialSection?: "schedule" | "members" | "requests" }) {
+  const [view, setView] = useState(initialSection === "members" || initialSection === "requests" ? "existing" : "learning");
   const [month, setMonth] = useState("");
   const [scheduleMonths, setScheduleMonths] = useState<string[]>([]);
   const selectedMonthLabel = month ? `${Number(month.slice(5))}월` : "일정 확인 중";

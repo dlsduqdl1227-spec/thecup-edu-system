@@ -7,6 +7,7 @@ import { AccessibleDialog } from "./AccessibleDialog";
 import { ScaEducation } from "./ScaEducation";
 import { MobileNavigation } from "./MobileNavigation";
 import { CourseLanding } from "./CourseLanding";
+import { PushNotifications } from "./PushNotifications";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
@@ -212,6 +213,7 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
           <div className="portal-member-account"><span><b>{member.name}</b><small>승인 수강생</small></span><button onClick={() => void logout()} disabled={busy}>로그아웃</button></div>
         </header>
         <section className="portal-member-main">
+          <PushNotifications key={member.id} audience="MEMBER" userId={member.id} onOpen={topic=>{if(topic==="reservations")setMemberTab("reservations");}} />
           {memberTab === "education" ? <ScaEducation /> : !memberData ? <Empty>{memberDataError ? <><p role="alert">{memberDataError}</p><button type="button" onClick={() => void loadMemberData()}>다시 불러오기</button></> : "수강생 예약 정보를 불러오는 중입니다."}</Empty> : <>
             {memberTab === "schedule" && <MemberSchedule data={memberData} month={month} setMonth={setMonth} reload={loadMemberData} notify={setMessage} />}
             {memberTab === "reservations" && <MemberReservations data={memberData} reload={loadMemberData} notify={setMessage} />}
