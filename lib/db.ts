@@ -267,7 +267,9 @@ const schemaStatements = [
    END`,
 ];
 
-let initialization: Promise<void> | null = null;
+// Cache only completed state. An in-flight D1 promise belongs to the request
+// that created it; sharing it can poison later logins if that request ends.
+let databaseInitialized = false;
 
 export function getD1(): D1Database {
   const database = (env as unknown as { DB?: D1Database }).DB;
@@ -276,13 +278,20 @@ export function getD1(): D1Database {
 }
 
 export async function ensureDatabase(): Promise<void> {
-  if (!initialization) {
-    initialization = initializeDatabase().catch((error) => {
-      initialization = null;
-      throw error;
-    });
+  if (databaseInitialized) return;
+  await initializeDatabase();
+  databaseInitialized = true;
+}
+
+// Cold requests (or different isolates) may inspect the same old schema at
+// once. Ignore an ALTER failure only after re-reading the actual column.
+async function addDatabaseColumn(db: D1Database, table: string, column: string, statement: string): Promise<void> {
+  try {
+    await db.prepare(statement).run();
+  } catch (error) {
+    const columns = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+    if (!columns.results.some(row => row.name === column)) throw error;
   }
-  await initialization;
 }
 
 async function initializeDatabase(): Promise<void> {
@@ -355,10 +364,10 @@ async function ensureBookingMemberColumns(db: D1Database): Promise<void> {
     .prepare("PRAGMA table_info(booking_members)")
     .all<{ name: string }>();
   if (!columns.results.some((column) => column.name === "login_id")) {
-    await db.prepare("ALTER TABLE booking_members ADD COLUMN login_id TEXT").run();
+    await addDatabaseColumn(db, "booking_members", "login_id", "ALTER TABLE booking_members ADD COLUMN login_id TEXT");
   }
   if (!columns.results.some((column) => column.name === "deleted_at")) {
-    await db.prepare("ALTER TABLE booking_members ADD COLUMN deleted_at TEXT").run();
+    await addDatabaseColumn(db, "booking_members", "deleted_at", "ALTER TABLE booking_members ADD COLUMN deleted_at TEXT");
   }
   await db
     .prepare(
@@ -387,8 +396,8 @@ async function ensureStaffPermissionColumns(db: D1Database): Promise<void> {
   ].filter(([name]) => !names.has(name));
   const addedPermissionColumn = missing.some(([name]) => name.startsWith("can_"));
 
-  for (const [, statement] of missing) {
-    await db.prepare(statement).run();
+  for (const [name, statement] of missing) {
+    await addDatabaseColumn(db, "staff", name, statement);
   }
 
   if (addedPermissionColumn) {
@@ -409,9 +418,7 @@ async function ensureInventoryMovementColumns(db: D1Database): Promise<void> {
   const names = new Set(columns.results.map((column) => column.name));
 
   if (!names.has("receipt_deleted_at")) {
-    await db
-      .prepare("ALTER TABLE inventory_movements ADD COLUMN receipt_deleted_at TEXT")
-      .run();
+    await addDatabaseColumn(db, "inventory_movements", "receipt_deleted_at", "ALTER TABLE inventory_movements ADD COLUMN receipt_deleted_at TEXT");
   }
 }
 
@@ -422,15 +429,11 @@ async function ensureRoastingProfileColumns(db: D1Database): Promise<void> {
   const names = new Set(columns.results.map((column) => column.name));
 
   if (!names.has("turning_point_seconds")) {
-    await db
-      .prepare("ALTER TABLE roasting_profiles ADD COLUMN turning_point_seconds INTEGER")
-      .run();
+    await addDatabaseColumn(db, "roasting_profiles", "turning_point_seconds", "ALTER TABLE roasting_profiles ADD COLUMN turning_point_seconds INTEGER");
   }
 
   if (!names.has("sort_order")) {
-    await db
-      .prepare("ALTER TABLE roasting_profiles ADD COLUMN sort_order INTEGER")
-      .run();
+    await addDatabaseColumn(db, "roasting_profiles", "sort_order", "ALTER TABLE roasting_profiles ADD COLUMN sort_order INTEGER");
   }
 
   await db
@@ -477,8 +480,8 @@ async function ensureInventoryItemColumns(db: D1Database): Promise<void> {
     ["legacy_key", "ALTER TABLE inventory_items ADD COLUMN legacy_key TEXT"],
   ].filter(([name]) => !names.has(name));
 
-  for (const [, statement] of missing) {
-    await db.prepare(statement).run();
+  for (const [name, statement] of missing) {
+    await addDatabaseColumn(db, "inventory_items", name, statement);
   }
 
   await db
@@ -544,13 +547,13 @@ async function ensureLegacyInventory(db: D1Database): Promise<void> {
     db.prepare(
       `UPDATE inventory_items
        SET active = 0, updated_at = CURRENT_TIMESTAMP
-       WHERE name = '로스팅용 생두' AND quantity = 0
+       WHERE name = '로스팅용 생두' AND quantity = 0 AND active != 0
          AND EXISTS (SELECT 1 FROM inventory_items WHERE legacy_key IS NOT NULL AND category = 'green')`,
     ),
     db.prepare(
       `UPDATE inventory_items
        SET active = 0, updated_at = CURRENT_TIMESTAMP
-       WHERE name = '구스토 원두' AND quantity = 0
+       WHERE name = '구스토 원두' AND quantity = 0 AND active != 0
          AND EXISTS (SELECT 1 FROM inventory_items WHERE legacy_key IS NOT NULL AND category = 'gusto')`,
     ),
   ]);
