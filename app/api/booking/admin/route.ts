@@ -78,11 +78,14 @@ export async function GET(request: Request) {
                 r.user_memo AS userMemo, r.admin_memo AS adminMemo,
                 r.rejection_reason AS rejectionReason, r.created_at AS createdAt,
                 r.confirmed_at AS confirmedAt, sl.start_at AS startAt, sl.end_at AS endAt,
-                st.type AS stationType, st.name AS stationName
+                st.type AS stationType, st.name AS stationName,
+                e.course_name AS courseName, teacher.name AS instructorName
          FROM reservations r
          JOIN booking_members m ON m.id = r.member_id
          JOIN booking_slots sl ON sl.id = r.slot_id
          JOIN stations st ON st.id = sl.station_id
+         LEFT JOIN course_enrollments e ON e.id = r.enrollment_id
+         LEFT JOIN staff teacher ON teacher.id = e.instructor_id
          WHERE sl.start_at >= ? AND sl.start_at < ?
          ORDER BY CASE r.status WHEN 'REQUESTED' THEN 0 WHEN 'CONFIRMED' THEN 1 ELSE 2 END,
                   r.created_at DESC`,

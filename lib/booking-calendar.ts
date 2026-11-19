@@ -84,7 +84,7 @@ export async function calendarBusySlots(month:string){
   const result=await getD1().prepare(`SELECT DISTINCT sl.start_at AS startAt,sl.end_at AS endAt FROM booking_slots sl JOIN stations st ON st.id=sl.station_id AND st.active=1
     WHERE sl.start_at>=? AND sl.start_at<? AND ${flowBlockedSQL()} ORDER BY sl.start_at,sl.end_at`)
     .bind(range.start,range.end).all<{startAt:string;endAt:string}>();
-  return result.results.map(slot=>({...slot,label:"예약 있음" as const}));
+  return result.results.map(slot=>({...slot,label:"마감" as const}));
 }
 export async function syncFlowCalendar({ force = false, required = false } = {}) {
   const secret = settings().FLOW_CALENDAR_SECRET;

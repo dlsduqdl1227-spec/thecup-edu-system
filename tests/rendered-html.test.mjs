@@ -46,8 +46,8 @@ test("ships the branded reservation portal and preserves the monochrome admin ap
   assert.match(app, /운영 · 개강 관리/);
   assert.match(app, /BookingAdmin/);
   assert.match(app, /OperationsHub/);
-  assert.match(app, /하나의 월을 기준으로 스테이션 일정, 예약과 과정 모집을 한 화면에서 관리/);
-  assert.match(app, /시간표와 개강 모집의 조회 월을 함께 사용/);
+  assert.match(app, /시간표와 개강 모집, 상담부터 수업 확정까지 한곳에서 관리/);
+  assert.match(app, /renderOpenings=\{\(id, onBusyChange\)/);
   assert.match(app, /id="operations-schedule"/);
   assert.match(app, /id="operations-openings"/);
   assert.match(app, /initialTab=\{initialSection\}/);

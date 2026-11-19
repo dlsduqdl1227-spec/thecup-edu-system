@@ -20,7 +20,6 @@ import { compareInventoryItems, type InventorySort } from "../../lib/inventory-s
 import { inventoryChange, readStockQuantity } from "../../lib/inventory-movement";
 import { BookingAdmin } from "./BookingAdmin";
 import { LearningWorkspace } from "./LearningWorkspace";
-import { CalendarSyncPanel } from "./CalendarSyncPanel";
 import { PushNotifications } from "./PushNotifications";
 import { ConsultationAlerts } from "./ConsultationAlerts";
 import { ReceiptAttachment, type ReceiptAttachmentValue } from "./ReceiptAttachment";
@@ -270,7 +269,7 @@ export function EduSystemApp() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [dataError, setDataError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
-  const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members" | "requests">("schedule");
+  const [operationsEntry, setOperationsEntry] = useState<"schedule" | "members" | "requests" | "learning">("schedule");
   const [consultationEntry, setConsultationEntry] = useState(0);
   const [consultationSummary, setConsultationSummary] = useState<{ userId: number; count: number } | null>(null);
   const updateConsultationCount = useCallback((count: number) => {
@@ -406,9 +405,9 @@ export function EduSystemApp() {
   const allowedNav = allowedNavigation(user);
   const homeTab = allowedNav.find((item) => item.key === "dashboard")?.key ?? allowedNav[0]?.key ?? "record";
 
-  function navigateTo(nextTab: TabKey, bookingSection: "schedule" | "members" | "requests" = "schedule") {
-    if (nextTab === activeTab) return;
+  function navigateTo(nextTab: TabKey, bookingSection: "schedule" | "members" | "requests" | "learning" = "schedule") {
     if (nextTab === "booking") setOperationsEntry(bookingSection);
+    if (nextTab === activeTab) return;
     setNavigationHistory((current) => [...current, activeTab]);
     setActiveTab(nextTab);
   }
@@ -477,8 +476,8 @@ export function EduSystemApp() {
           </nav>
         </header>
 
-        <PushNotifications key={`push-${user.id}`} audience="STAFF" userId={user.id} onOpen={topic=>{if(!["admin","instructor"].includes(user.role))return;setConsultationEntry(value=>value+1);navigateTo("booking",topic==="reservations"?"requests":"schedule");}} />
-        {["admin", "instructor"].includes(user.role) && <ConsultationAlerts key={user.id} onCountChange={updateConsultationCount} onOpen={() => { setOperationsEntry("schedule"); setConsultationEntry(value => value + 1); navigateTo("booking"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
+        <PushNotifications key={`push-${user.id}`} audience="STAFF" userId={user.id} onOpen={topic=>{if(!["admin","instructor"].includes(user.role))return;setConsultationEntry(value=>value+1);navigateTo("booking",topic==="reservations"?"requests":"learning");}} />
+        {["admin", "instructor"].includes(user.role) && <ConsultationAlerts key={user.id} onCountChange={updateConsultationCount} onOpen={() => { setOperationsEntry("learning"); setConsultationEntry(value => value + 1); navigateTo("booking", "learning"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
         {!data ? (
           <section className="page-section loading-panel" aria-live="polite">
             {dataError ? <><p role="alert">{dataError}</p><button type="button" className="primary-button" onClick={() => void refreshData()}>다시 불러오기</button></> : <><div className="loading-line" /><p>대시보드를 준비하고 있습니다.</p></>}
@@ -542,68 +541,17 @@ function EducationView({ onApproveStudents }: { onApproveStudents: () => void })
   );
 }
 
-function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void; initialSection?: "schedule" | "members" | "requests" }) {
-  const [view, setView] = useState(initialSection === "members" || initialSection === "requests" ? "existing" : "learning");
-  const [month, setMonth] = useState("");
-  const [scheduleMonths, setScheduleMonths] = useState<string[]>([]);
-  const selectedMonthLabel = month ? `${Number(month.slice(5))}월` : "일정 확인 중";
-
-  function moveToSection(sectionId: string) {
-    if (sectionId === "operations-openings") { setView("openings"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  return (
-    <div className="operations-hub operations-hub-unified">
-      <CalendarSyncPanel month={month} onMonthChange={setMonth} />
-      <section className="page-section"><nav className="learning-toolbar learning-workspace" aria-label="통합 교육 운영"><button className={view === "learning" ? "active" : ""} onClick={() => setView("learning")}>상담·수강·수업 승인</button><button className={view === "existing" ? "active" : ""} onClick={() => setView("existing")}>시간표·기존 예약·회원</button><button className={view === "openings" ? "active" : ""} onClick={() => setView("openings")}>개강 모집</button></nav>{view === "learning" && <LearningWorkspace />}</section>
-      {view === "existing" && <div>
-      <section className="page-section operations-unified-header">
-        <PageHeader
-          eyebrow="통합 운영"
-          title="운영 · 개강 관리"
-          description="하나의 월을 기준으로 스테이션 일정, 예약과 과정 모집을 한 화면에서 관리합니다."
-        />
-        <div className="operations-unified-toolbar panel">
-          <label>
-            <span>기준 월</span>
-            <input type="month" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} />
-          </label>
-          <nav className="operations-unified-months" aria-label="등록된 운영 월">
-            {scheduleMonths.length ? scheduleMonths.map((value) => (
-              <button type="button" key={value} className={month === value ? "active" : ""} onClick={() => setMonth(value)}>
-                <b>{Number(value.slice(5))}월</b>
-                <small>일정 등록</small>
-              </button>
-            )) : <span>{month ? "등록된 일정이 없습니다." : "등록된 일정을 확인하고 있습니다."}</span>}
-          </nav>
-          <div className="operations-jump-actions" aria-label="통합 관리 바로가기">
-            <button type="button" onClick={() => moveToSection("operations-schedule")}>스테이션 일정</button>
-            <button type="button" onClick={() => moveToSection("operations-openings")}>개강 모집</button>
-          </div>
-        </div>
-        <div className="operations-unified-status">
-          <span>현재 기준</span>
-          <strong>{month || selectedMonthLabel}</strong>
-          <p>선택한 {selectedMonthLabel}을 기준으로 시간표와 개강 모집의 조회 월을 함께 사용합니다.</p>
-        </div>
-      </section>
-      <div id="operations-schedule" className="operations-unified-section">
-        <BookingAdmin
-          notify={notify}
-          month={month}
-          onMonthChange={setMonth}
-          onScheduleMonthsChange={setScheduleMonths}
-          embedded
-          initialTab={initialSection}
-        />
-      </div>
-      </div>}
-      {view === "openings" && <div id="operations-openings" className="operations-unified-section">
-        <CourseOpeningsAdminView notify={notify} month={month} onMonthChange={setMonth} embedded />
-      </div>}
+function OperationsHub({ notify, initialSection = "schedule" }: { notify: (toast: { kind: "ok" | "error"; message: string }) => void; initialSection?: "schedule" | "members" | "requests" | "learning" }) {
+  const [month, setMonth] = useState(today.slice(0, 7));
+  return <div className="operations-hub operations-hub-unified">
+    <section className="page-section operations-workspace-heading">
+      <PageHeader eyebrow="통합 운영" title="운영 · 개강 관리" description="시간표와 개강 모집, 상담부터 수업 확정까지 한곳에서 관리합니다." />
+    </section>
+    <div id="operations-schedule" className="operations-unified-section">
+      <BookingAdmin notify={notify} month={month} onMonthChange={setMonth} embedded initialTab={initialSection} renderLearning={() => <LearningWorkspace />}
+        renderOpenings={(id, onBusyChange) => <div id="operations-openings"><CourseOpeningsAdminView notify={notify} month={month} onMonthChange={setMonth} embedded compact initialCourse={id} onBusyChange={onBusyChange} /></div>} />
     </div>
-  );
+  </div>;
 }
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
@@ -1832,25 +1780,34 @@ function CourseOpeningsAdminView({
   month: controlledMonth,
   onMonthChange,
   embedded = false,
+  compact = false,
+  initialCourse,
+  onBusyChange,
 }: {
   notify: (toast: { kind: "ok" | "error"; message: string }) => void;
   month?: string;
   onMonthChange?: (month: string) => void;
   embedded?: boolean;
+  compact?: boolean;
+  initialCourse?: number | "create";
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [internalMonth, setInternalMonth] = useState(today.slice(0, 7));
   const month = controlledMonth ?? internalMonth;
   const [courses, setCourses] = useState<CourseOpening[]>([]);
   const [scheduleMonths, setScheduleMonths] = useState<ScheduleMonthSummary[]>([]);
   const [scheduleDays, setScheduleDays] = useState<ScheduleDaySummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [editor, setEditor] = useState<"create" | CourseOpening | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(typeof initialCourse === "number" ? initialCourse : null);
+  const [editor, setEditor] = useState<"create" | CourseOpening | null>(initialCourse === "create" ? "create" : null);
+  const initialEditorHandled = useRef(false);
   const [publicPageVisible, setPublicPageVisible] = useState(false);
   const [loadedMonth, setLoadedMonth] = useState("");
   const [loadError, setLoadError] = useState("");
   const [beginLoad, cancelLoad] = useRequestGuard();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
 
   function changeMonth(nextMonth: string) {
     setInternalMonth(nextMonth);
@@ -1877,6 +1834,10 @@ function CourseOpeningsAdminView({
       setLoadedMonth(targetMonth);
       setLoadError("");
       setCourses(result.courses);
+      if (!initialEditorHandled.current) {
+        initialEditorHandled.current = true;
+        if (typeof initialCourse === "number") setEditor(result.courses.find(course => course.id === initialCourse) ?? null);
+      }
       setScheduleMonths(result.scheduleMonths);
       setScheduleDays(result.scheduleDays);
       setPublicPageVisible(result.publicPageVisible);
@@ -1892,7 +1853,7 @@ function CourseOpeningsAdminView({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [month, notify, beginLoad]);
+  }, [month, notify, beginLoad, initialCourse]);
 
   useEffect(() => {
     // Load the selected month's private administration data after the tab opens.
@@ -1923,6 +1884,7 @@ function CourseOpeningsAdminView({
       changeMonth(savedMonth);
       setEditor(null);
       await load(savedMonth, course?.id ?? result.id);
+      window.dispatchEvent(new Event("thecup:booking-updated"));
       notify({ kind: "ok", message: course ? "과정 정보를 수정했습니다." : "새 개강 과정을 등록했습니다." });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
@@ -1940,6 +1902,7 @@ function CourseOpeningsAdminView({
         body: JSON.stringify({ publicPageVisible: nextVisible }),
       });
       setPublicPageVisible(result.publicPageVisible);
+      window.dispatchEvent(new Event("thecup:booking-updated"));
       notify({
         kind: "ok",
         message: result.publicPageVisible
@@ -1960,6 +1923,7 @@ function CourseOpeningsAdminView({
       await requestJson(`/api/course-openings/${course.id}`, { method: "DELETE" });
       setSelectedId(null);
       await load(month);
+      window.dispatchEvent(new Event("thecup:booking-updated"));
       notify({ kind: "ok", message: "과정을 삭제했습니다." });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
@@ -1979,6 +1943,7 @@ function CourseOpeningsAdminView({
       });
       form.reset();
       await load(month, course.id);
+      window.dispatchEvent(new Event("thecup:booking-updated"));
       notify({
         kind: "ok",
         message: result.bookingMember
@@ -2001,6 +1966,7 @@ function CourseOpeningsAdminView({
         body: JSON.stringify({ status, notes: applicant.notes }),
       });
       await load(month, course.id);
+      window.dispatchEvent(new Event("thecup:booking-updated"));
       notify({
         kind: "ok",
         message: result.bookingMember
@@ -2020,6 +1986,7 @@ function CourseOpeningsAdminView({
     try {
       await requestJson(`/api/course-openings/${course.id}/applicants/${applicant.id}`, { method: "DELETE" });
       await load(month, course.id);
+      window.dispatchEvent(new Event("thecup:booking-updated"));
       notify({ kind: "ok", message: "신청 기록을 삭제했습니다." });
     } catch (error) {
       notify({ kind: "error", message: errorMessage(error) });
@@ -2065,7 +2032,7 @@ function CourseOpeningsAdminView({
         action={<button type="button" className="primary-button small" onClick={() => setEditor("create")}>새 과정</button>}
       />}
 
-      <div className="opening-admin-toolbar panel">
+      {!compact && <div className="opening-admin-toolbar panel">
         {!embedded && <Field label="진행 월">
           <input
             type="month"
@@ -2077,7 +2044,7 @@ function CourseOpeningsAdminView({
         <a className="public-preview-link" href={`/embed/course-openings?month=${month}`} target="_blank" rel="noreferrer">
           {publicPageVisible ? "게스트 공개 화면 열기 ↗" : "숨김 화면 확인 ↗"}
         </a>
-      </div>
+      </div>}
 
       {!embedded && scheduleMonths.length > 0 && (
         <nav className="opening-schedule-months" aria-label="등록된 스테이션 운영 월">
@@ -2086,7 +2053,7 @@ function CourseOpeningsAdminView({
         </nav>
       )}
 
-      <div className={publicPageVisible ? "opening-visibility-control panel is-visible" : "opening-visibility-control panel is-hidden"}>
+      <details className="opening-public-settings"><summary>외부 모집 페이지 공개 설정</summary><div className={publicPageVisible ? "opening-visibility-control panel is-visible" : "opening-visibility-control panel is-hidden"}>
         <div>
           <span className="eyebrow">외부 공개 페이지 전체 노출</span>
           <strong>{publicPageVisible ? "현재 공개 중" : "현재 숨김"}</strong>
@@ -2105,9 +2072,9 @@ function CourseOpeningsAdminView({
         >
           {busy ? "변경 중…" : publicPageVisible ? "페이지 숨기기" : "페이지 공개하기"}
         </button>
-      </div>
+      </div></details>
 
-      <section className="opening-schedule-sync panel">
+      {!compact && <section className="opening-schedule-sync panel">
         <div className="opening-schedule-sync-heading">
           <div><span className="eyebrow">예약 운영과 자동 동기화</span><h3>{month} 스테이션 운영 일정</h3><p>예약 운영에서 만든 날짜와 시간대를 이 화면에서도 함께 확인합니다.</p></div>
           <button type="button" className="ghost-button" onClick={() => setEditor("create")}>{month} 모집 과정 추가</button>
@@ -2125,7 +2092,7 @@ function CourseOpeningsAdminView({
             </div>
           </>
         ) : <div className="opening-schedule-empty">이 달에는 등록된 스테이션 운영 일정이 없습니다.</div>}
-      </section>
+      </section>}
 
       {loadError && <div role="alert" className="panel empty-state">{loadError} <button type="button" onClick={() => void load()}>다시 불러오기</button></div>}
       {loading || loadedMonth !== month ? <div className="panel empty-state">{loadError ? "선택한 월의 개강 정보를 확인하지 못했습니다." : "개강 정보를 불러오는 중입니다."}</div> : courses.length ? (
@@ -2272,7 +2239,7 @@ function CourseOpeningForm({
       <div className="course-form-grid">
         <Field label="과정명"><input name="name" required maxLength={80} defaultValue={course?.name ?? "Q Grader"} /></Field>
         <Field label="과정 유형">
-          <select name="category" defaultValue={course?.category ?? "Q_GRADER"}>
+          <select name="category" aria-label="과정 유형" defaultValue={course?.category ?? "Q_GRADER"}>
             <option value="Q_GRADER">Q Grader</option>
             <option value="BARISTA">바리스타</option>
             <option value="SCA">SCA</option>
@@ -2284,7 +2251,7 @@ function CourseOpeningForm({
         <Field label="개강 기준 인원"><input name="openingMinimum" type="number" min="1" required defaultValue={course?.openingMinimum ?? 6} /></Field>
         <Field label="전체 정원 (선택)"><input name="capacity" type="number" min="1" defaultValue={course?.capacity ?? ""} /></Field>
         <Field label="모집 상태">
-          <select name="statusOverride" defaultValue={course?.statusOverride ?? "AUTO"}>
+          <select name="statusOverride" aria-label="모집 상태" defaultValue={course?.statusOverride ?? "AUTO"}>
             <option value="AUTO">인원에 따라 자동 계산</option>
             <option value="CLOSED">접수 종료</option>
           </select>

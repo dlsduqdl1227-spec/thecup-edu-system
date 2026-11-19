@@ -1,6 +1,6 @@
 import type {FlowWindow} from "./flow-window";
-export type BusyDay={date:string;label:"예약 있음"};
-export type BusySlot={startAt:string;endAt:string;label:"예약 있음"};
+export type BusyDay={date:string;label:"마감"};
+export type BusySlot={startAt:string;endAt:string;label:"마감"};
 export type FlowCalendarEvent={id:string;title:string;startAt:string;endAt:string|null;location:string}&FlowWindow;
 export function monthDates(month:string){
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error("조회 월을 확인해 주세요.");
@@ -9,7 +9,7 @@ export function monthDates(month:string){
 }
 // No event IDs, counts, titles, locations or times in the public/student shape.
 export function maskFlowDays(month:string,blocks:ReadonlyArray<{startDate:string;endDate:string;timingPending?:boolean}>):BusyDay[]{
-  return monthDates(month).filter(date=>blocks.some(row=>!row.timingPending&&row.startDate<=date&&row.endDate>=date)).map(date=>({date,label:"예약 있음"}));
+  return monthDates(month).filter(date=>blocks.some(row=>!row.timingPending&&row.startDate<=date&&row.endDate>=date)).map(date=>({date,label:"마감"}));
 }
 export function flowTimeLabel(event:FlowCalendarEvent){
   if(event.timingPending)return "종료 시간 입력 필요 · 자동 차단 보류";

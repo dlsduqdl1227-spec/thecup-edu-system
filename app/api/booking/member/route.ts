@@ -132,7 +132,7 @@ export async function GET(request: Request) {
       stationName: slot.stationName,
       startAt: slot.startAt,
       endAt: slot.endAt,
-      blockReason: slot.flowBlocked ? "예약 있음" : slot.slotStatus === "BLOCKED" ? slot.blockReason : "",
+      blockReason: slot.flowBlocked ? "마감" : slot.slotStatus === "BLOCKED" ? slot.blockReason : "",
       displayStatus: Number(slot.ownConfirmed) ? "CONFIRMED" : slot.slotStatus === "BLOCKED" || !isFutureSlot(slot.startAt)
         ? "BLOCKED"
         : Number(slot.ownRequested)
