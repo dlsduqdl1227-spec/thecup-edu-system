@@ -2,7 +2,7 @@ import { bookingMonthRange, validateBookingMonth } from "../../../../../lib/book
 import { currentKoreanMonth } from "../../../../../lib/course-openings";
 import { ensureDatabase, getD1 } from "../../../../../lib/db";
 import { jsonError } from "../../../../../lib/http";
-import { calendarBusyDays,prepareBookingCalendar } from "../../../../../lib/booking-calendar";
+import { calendarBusyDays,calendarBusySlots,prepareBookingCalendar } from "../../../../../lib/booking-calendar";
 import { calendarClosedSQL } from "../../../../../lib/booking-calendar-schema";
 
 type PublicSlotRow = {
@@ -46,6 +46,7 @@ export async function GET(request: Request) {
         updatedAt: new Date().toISOString(),
         slots: slots.results,
         busyDays: await calendarBusyDays(month),
+        busySlots:await calendarBusySlots(month),
         consultationUrl: kakaoSetting?.value ?? "",
       },
       { headers: { "Cache-Control": "public, max-age=30" } },

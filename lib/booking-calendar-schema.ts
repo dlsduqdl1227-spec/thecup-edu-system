@@ -2,8 +2,12 @@
 // successful FLOW snapshot never reopens a manually blocked slot.
 export const flowBlockedSQL = (slot = "sl") => `EXISTS (
   SELECT 1 FROM booking_calendar_sync c, json_each(c.events_json) e
-  WHERE c.source = 'FLOW' AND json_extract(e.value, '$.startDate') <= substr(${slot}.start_at,1,10)
-    AND json_extract(e.value, '$.endDate') >= substr(${slot}.start_at,1,10))`;
+  WHERE c.source = 'FLOW' AND COALESCE(json_extract(e.value,'$.timingPending'),0)=0 AND (
+    (json_type(e.value,'$.blockStartAt')='text' AND json_type(e.value,'$.blockEndAt')='text'
+      AND julianday(json_extract(e.value,'$.blockStartAt')) < julianday(${slot}.end_at)
+      AND julianday(json_extract(e.value,'$.blockEndAt')) > julianday(${slot}.start_at))
+    OR (json_type(e.value,'$.blockStartAt') IS NULL AND json_extract(e.value,'$.startDate') <= substr(${slot}.start_at,1,10)
+      AND json_extract(e.value,'$.endDate') >= substr(${slot}.start_at,1,10))))`;
 export const operatingValidSQL = (slot = "sl") => `(
   substr(${slot}.start_at,1,4) IN ('2026','2027')
   AND strftime('%w',substr(${slot}.start_at,1,10)) NOT IN ('0','6')
@@ -20,12 +24,14 @@ export const calendarSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS booking_calendar_holidays (date TEXT PRIMARY KEY, name TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS booking_calendar_automation (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL DEFAULT 0, generated_at TEXT)`,
   `INSERT OR IGNORE INTO booking_calendar_automation(id,enabled) VALUES (1,0)`,
-  `CREATE TRIGGER IF NOT EXISTS booking_calendar_insert_guard BEFORE INSERT ON reservations
+  `CREATE TRIGGER IF NOT EXISTS booking_calendar_insert_time_guard BEFORE INSERT ON reservations
    WHEN NEW.status IN ('REQUESTED','CONFIRMED') AND EXISTS (
      SELECT 1 FROM booking_slots sl WHERE sl.id=NEW.slot_id AND ${calendarClosedSQL()})
    BEGIN SELECT RAISE(ABORT, 'booking_calendar_closed'); END`,
-  `CREATE TRIGGER IF NOT EXISTS booking_calendar_update_guard BEFORE UPDATE OF status,slot_id ON reservations
+  `CREATE TRIGGER IF NOT EXISTS booking_calendar_update_time_guard BEFORE UPDATE OF status,slot_id ON reservations
    WHEN NEW.status IN ('REQUESTED','CONFIRMED') AND (NEW.status<>OLD.status OR NEW.slot_id<>OLD.slot_id) AND EXISTS (
      SELECT 1 FROM booking_slots sl WHERE sl.id=NEW.slot_id AND ${calendarClosedSQL()})
    BEGIN SELECT RAISE(ABORT, 'booking_calendar_closed'); END`,
+  `DROP TRIGGER IF EXISTS booking_calendar_insert_guard`,
+  `DROP TRIGGER IF EXISTS booking_calendar_update_guard`,
 ];

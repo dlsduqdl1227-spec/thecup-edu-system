@@ -3,12 +3,14 @@ import { AuthError } from "./auth";
 import { getD1 } from "./db";
 import { calendarClosedSQL, operatingValidSQL } from "./booking-calendar-schema";
 import { automaticTimes, koreanToday, operatingDayReason, operatingHolidays, operatingTimeReason, rollingMonths } from "./operating-calendar";
-import {validateBookingMonth} from "./booking";
+import {bookingMonthRange,validateBookingMonth} from "./booking";
 import {maskFlowDays,monthDates,type FlowCalendarEvent} from "./flow-calendar-view";
+import {flowTimestamp,koreanWindowDate,normalizeFlowWindow,type FlowWindow} from "./flow-window";
+import {flowBlockedSQL} from "./booking-calendar-schema";
 
 type CalendarEnv = { FLOW_CALENDAR_SECRET?: string; BOOKING_AUTOMATION_ENABLED?: string; FLOW_CALENDAR?: { fetch: typeof fetch } };
 const settings = () => env as unknown as CalendarEnv;
-export type FlowBlock = { id: string; startDate: string; endDate: string };
+export type FlowBlock = { id: string }&FlowWindow;
 type SyncRow = { events_json: string; source_revision: number; synced_at: string | null; attempted_at: string | null; last_error: string };
 const sourceURL = "https://monthlycoffee-flow.pages.dev/api/integrations/thecup-edu/calendar";
 const privateFailure = "FLOW 연결을 확인하지 못했습니다. 기존 차단은 유지됩니다.";
@@ -33,13 +35,20 @@ function validDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
 }
 export function validateFlowSnapshot(value: unknown, now = Date.now()): { revision: number; events: FlowBlock[] } {
-  const data = value as { source?: string; generatedAt?: number; events?: FlowBlock[] };
-  if (!data || data.source !== "FLOW" || !Number.isSafeInteger(data.generatedAt) || Math.abs(now - data.generatedAt!) > 120000 || !Array.isArray(data.events) || data.events.length > 5000) throw new Error("Invalid calendar snapshot");
+  const data = value as { source?: string;version?:number; generatedAt?: number; events?: FlowBlock[] };
+  if (!data || data.source !== "FLOW" ||data.version!==2|| !Number.isSafeInteger(data.generatedAt) || Math.abs(now - data.generatedAt!) > 120000 || !Array.isArray(data.events) || data.events.length > 5000) throw new Error("Invalid calendar snapshot");
   const ids = new Set<string>();
   const events = data.events.map(row => {
     if (!row || typeof row.id !== "string" || !row.id || row.id.length > 200 || ids.has(row.id) || !validDate(row.startDate) || !validDate(row.endDate) || row.endDate < row.startDate || Date.parse(row.endDate) - Date.parse(row.startDate) > 366 * 86400000) throw new Error("Invalid calendar dates");
     ids.add(row.id);
-    return { id: row.id, startDate: row.startDate, endDate: row.endDate };
+    if(typeof row.allDay!=="boolean"||typeof row.endUnknown!=="boolean"||typeof row.timingPending!=="boolean")throw new Error("Invalid calendar window flags");
+    if(row.timingPending){if(row.blockStartAt!==null||row.blockEndAt!==null||row.allDay||!row.endUnknown)throw new Error("Invalid pending window");}
+    else{
+      const start=flowTimestamp(row.blockStartAt),end=flowTimestamp(row.blockEndAt);
+      if(end<=start||end-start>367*86400000||koreanWindowDate(start)!==row.startDate||koreanWindowDate(end-1)!==row.endDate)throw new Error("Invalid calendar time window");
+      if(row.allDay&&(!row.blockStartAt!.endsWith("T00:00:00.000+09:00")||!row.blockEndAt!.endsWith("T00:00:00.000+09:00")))throw new Error("Invalid all-day window");
+    }
+    return {id:row.id,startDate:row.startDate,endDate:row.endDate,blockStartAt:row.blockStartAt,blockEndAt:row.blockEndAt,allDay:row.allDay,endUnknown:row.endUnknown,timingPending:row.timingPending};
   });
   return { revision: data.generatedAt!, events };
 }
@@ -47,16 +56,11 @@ export function validateFlowDetails(value:unknown,month:string,now=Date.now()):F
   const data=value as {view?:string;month?:string;events?:Array<Record<string,unknown>>};
   const snapshot=validateFlowSnapshot(value,now),dates=monthDates(month);
   if(data.view!=="ADMIN"||data.month!==month||snapshot.events.length>1000)throw new Error("Invalid private calendar snapshot");
-  const localDate=(value:unknown)=>{
-    if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?(Z|[+-]\d{2}:\d{2})?)?$/.test(value))throw new Error("Invalid private event time");
-    const time=Date.parse(value.length===10?value+"T12:00:00Z":/[Zz]|[+-]\d{2}:\d{2}$/.test(value)?value:value+"+09:00");
-    if(!Number.isFinite(time)||!validDate(value.slice(0,10)))throw new Error("Invalid private event time");
-    return new Date(time+9*3600000).toISOString().slice(0,10);
-  };
   return snapshot.events.map((block,index)=>{
     const row=data.events![index];
+    const expected=normalizeFlowWindow({start:row.startAt,end:row.endAt,allDay:row.allDay,endUnknown:row.endUnknown});
     if(typeof row.title!=="string"||!row.title.trim()||Array.from(row.title).length>160||typeof row.location!=="string"||Array.from(row.location).length>120||typeof row.allDay!=="boolean"
-      ||block.endDate<dates[0]||block.startDate>dates[dates.length-1]||localDate(row.startAt)!==block.startDate||(row.endAt===null?block.startDate:localDate(row.endAt))!==block.endDate)throw new Error("Invalid private event fields");
+      ||block.endDate<dates[0]||block.startDate>dates[dates.length-1]||JSON.stringify(expected)!==JSON.stringify(Object.fromEntries(Object.keys(expected).map(key=>[key,block[key as keyof FlowWindow]]))))throw new Error("Invalid private event fields");
     return {...block,title:row.title,startAt:row.startAt as string,endAt:row.endAt as string|null,allDay:row.allDay,location:row.location};
   });
 }
@@ -74,6 +78,13 @@ export async function calendarBusyDays(month:string){
   validateBookingMonth(month);
   const row=await getD1().prepare("SELECT events_json FROM booking_calendar_sync WHERE source='FLOW'").first<{events_json:string}>();
   return maskFlowDays(month,row?JSON.parse(row.events_json) as FlowBlock[]:[]);
+}
+export async function calendarBusySlots(month:string){
+  const range=bookingMonthRange(validateBookingMonth(month));
+  const result=await getD1().prepare(`SELECT DISTINCT sl.start_at AS startAt,sl.end_at AS endAt FROM booking_slots sl JOIN stations st ON st.id=sl.station_id AND st.active=1
+    WHERE sl.start_at>=? AND sl.start_at<? AND ${flowBlockedSQL()} ORDER BY sl.start_at,sl.end_at`)
+    .bind(range.start,range.end).all<{startAt:string;endAt:string}>();
+  return result.results.map(slot=>({...slot,label:"예약 있음" as const}));
 }
 export async function syncFlowCalendar({ force = false, required = false } = {}) {
   const secret = settings().FLOW_CALENDAR_SECRET;
@@ -173,6 +184,6 @@ export async function calendarSummary() {
     conflicts: conflicts.results };
 }
 export function effectiveSlot<T extends { startAt: string; endAt: string; status?: string; slotStatus?: string; blockReason?: string; flowBlocked: number }>(row: T, automatic: boolean) {
-  const reason = row.flowBlocked ? "FLOW 일정 · 날짜 전체 예약 차단" : automatic ? operatingTimeReason(row.startAt,row.endAt) : "";
+  const reason = row.flowBlocked ? "FLOW 일정 · 겹치는 시간대 예약 차단" : automatic ? operatingTimeReason(row.startAt,row.endAt) : "";
   return reason ? { ...row, ...(row.status ? { status: "BLOCKED" } : {}), ...(row.slotStatus ? { slotStatus: "BLOCKED" } : {}), blockReason: reason, calendarBlocked: true } : { ...row, calendarBlocked: false };
 }

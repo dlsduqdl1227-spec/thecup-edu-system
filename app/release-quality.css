@@ -309,11 +309,13 @@ button:disabled { cursor: not-allowed; }
 }
 
 /* FLOW overlays: public calendars receive only dates; details stay admin-only. */
-.portal-calendar .days > button.has-busy:not(.active), .portal-mobile-dates button.has-busy:not(.active) { background: #ededf1; color: #34343b; box-shadow: inset 0 0 0 1px #c6c6ce; }
+.portal-calendar .days > button.has-busy:not(.active):not(.has-availability), .portal-mobile-dates button.has-busy:not(.active):not(.has-availability) { background: #ededf1; color: #34343b; box-shadow: inset 0 0 0 1px #c6c6ce; }
 .portal-calendar .days button.has-busy small { color: inherit; white-space: normal; word-break: keep-all; line-height: 1.25; }
 .portal-busy-notice { padding: 20px; border: 1px solid #cacad2; border-radius: 16px; background: #f5f5f7; color: #1d1d1f; }
 .portal-busy-notice > strong { font-size: 18px; }
 .portal-busy-notice p { margin: 10px 0 0; font-size: 15px; line-height: 1.65; }
+.portal-busy-slot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border: 1px solid #c7c7cf; border-radius: 14px; background: #f0f0f4; color: #34343b; font-size: 16px; line-height: 1.6; flex-wrap: wrap; }
+.portal-busy-slot strong { font-size: 16px; }
 .flow-admin-section { margin-top: 22px; padding-top: 20px; border-top: 1px solid #dedee4; container-type: inline-size; }
 .flow-admin-section > header { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-start; }
 .flow-admin-section h3 { margin: 10px 0 4px; font-size: 22px; letter-spacing: -.035em; }

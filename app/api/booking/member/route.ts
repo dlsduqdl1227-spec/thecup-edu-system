@@ -14,7 +14,7 @@ import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, jsonError } from "../../../../lib/http";
 import { requireMember } from "../../../../lib/member-auth";
 import { memberEnrollments } from "../../../../lib/learning";
-import { assertCalendarSlotOpen, calendarBusyDays, effectiveSlot, prepareBookingCalendar } from "../../../../lib/booking-calendar";
+import { assertCalendarSlotOpen, calendarBusyDays,calendarBusySlots, effectiveSlot, prepareBookingCalendar } from "../../../../lib/booking-calendar";
 import { flowBlockedSQL } from "../../../../lib/booking-calendar-schema";
 import { env } from "cloudflare:workers";
 
@@ -147,6 +147,7 @@ export async function GET(request: Request) {
       instructorConflicts: instructorConflicts.results,
       month,
       busyDays:await calendarBusyDays(month),
+      busySlots:await calendarBusySlots(month),
       slots,
       reservations: reservationsResult.results,
       payments: paymentsResult.results,
