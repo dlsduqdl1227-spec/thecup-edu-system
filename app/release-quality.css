@@ -307,3 +307,36 @@ button:disabled { cursor: not-allowed; }
   .booking-member-create input, .booking-member-create select, .booking-member-create textarea { font-size: 16px; }
   .booking-member-edit-actions button { flex: 1; min-height: 44px; }
 }
+
+/* FLOW overlays: public calendars receive only dates; details stay admin-only. */
+.portal-calendar .days > button.has-busy:not(.active), .portal-mobile-dates button.has-busy:not(.active) { background: #ededf1; color: #34343b; box-shadow: inset 0 0 0 1px #c6c6ce; }
+.portal-calendar .days button.has-busy small { color: inherit; white-space: normal; word-break: keep-all; line-height: 1.25; }
+.portal-busy-notice { padding: 20px; border: 1px solid #cacad2; border-radius: 16px; background: #f5f5f7; color: #1d1d1f; }
+.portal-busy-notice > strong { font-size: 18px; }
+.portal-busy-notice p { margin: 10px 0 0; font-size: 15px; line-height: 1.65; }
+.flow-admin-section { margin-top: 22px; padding-top: 20px; border-top: 1px solid #dedee4; container-type: inline-size; }
+.flow-admin-section > header { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-start; }
+.flow-admin-section h3 { margin: 10px 0 4px; font-size: 22px; letter-spacing: -.035em; }
+.flow-admin-badge { padding: 5px 8px; border-radius: 6px; background: #1d1d1f; color: #fff; font-size: 12px; font-weight: 650; }
+.flow-admin-section > header > label { display: grid; gap: 8px; font-size: 13px; max-width: 100%; }
+.flow-admin-section input[type=month] { box-sizing: border-box; width: 180px; min-height: 44px; min-width: 0; max-width: 100%; padding: 10px; border: 1px solid #c7c7d0; border-radius: 10px; background: #fff; font: inherit; font-size: 15px; }
+.flow-admin-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 18px; }
+.flow-admin-month { min-width: 0; }
+.flow-admin-weekdays, .flow-admin-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.flow-admin-weekdays span { padding: 10px 2px; text-align: center; font-size: 13px; color: #62626a; }
+.flow-admin-days > button, .flow-admin-days > span { box-sizing: border-box; min-width: 0; min-height: 58px; border-radius: 0; }
+.flow-admin-days > button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 6px 2px; border: 1px solid #dedee4; background: #fff; color: #1d1d1f; }
+.flow-admin-days > button.has-flow { background: #f0f0f4; }
+.flow-admin-days > button.active { border-color: #1d1d1f; background: #1d1d1f; color: #fff; }
+.flow-admin-days strong { font-size: 16px; }
+.flow-admin-days small { font-size: 12px; }
+.flow-admin-events { min-width: 0; padding: 18px; border: 1px solid #dedee4; border-radius: 14px; background: #fafafa; }
+.flow-admin-events > header { display: grid; gap: 7px; font-size: 16px; }
+.flow-admin-events > header span { font-size: 12px; color: #62626a; }
+.flow-admin-events ul { margin: 12px 0 0; padding: 0; list-style: none; max-height: 420px; overflow-y: auto; }
+.flow-admin-events li { display: grid; gap: 8px; padding: 16px 0; border-top: 1px solid #dddde4; overflow-wrap: anywhere; }
+.flow-admin-events li strong { font-size: 16px; line-height: 1.5; }
+.flow-admin-events li span { font-size: 14px; line-height: 1.55; }
+.flow-admin-events li small { font-size: 12px; color: #62626a; }
+@container (max-width: 640px) { .flow-admin-board { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .portal-calendar .days > button.has-busy { min-height: 72px; } .portal-calendar .days button.has-busy small { font-size: 12px; } }

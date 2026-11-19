@@ -71,4 +71,27 @@ test('automatic hours and FLOW closures are private, race-safe and independent o
   for(const events of [[{id:'x',startDate:'2027-02-30',endDate:'2027-03-02'}],[{id:'x',startDate:'2027-01-03',endDate:'2027-01-02'}],[{id:'x',startDate:'2027-01-03',endDate:'2027-01-03'},{id:'x',startDate:'2027-01-03',endDate:'2027-01-03'}]])assert.throws(()=>api.validateFlowSnapshot({source:'FLOW',generatedAt:Date.now(),events}));
   assert.throws(()=>api.validateFlowSnapshot({source:'FLOW',generatedAt:Date.now()-130000,events:[]}));
  });
+ await t.test('only admins receive private FLOW details; public and student responses contain busy dates only',async()=>{
+  const oldFetch=globalThis.fetch;let detailCalls=0;
+  const privateEvents=[{id:'private-flow-id',startDate:'2027-01-05',endDate:'2027-01-08',title:'PRIVATE EVENT TITLE',startAt:'2027-01-05T10:00',endAt:'2027-01-08T11:00',allDay:false,location:'PRIVATE VENUE',description:'PRIVATE MEMO',attendees:['PRIVATE PERSON']}];
+  globalThis.fetch=async(url,options)=>{assert.equal(options.redirect,'manual');const value=new URL(String(url));assert.equal(value.origin,'https://monthlycoffee-flow.pages.dev');if(value.searchParams.get('details')==='1'){detailCalls++;return Response.json({source:'FLOW',view:'ADMIN',month:value.searchParams.get('month'),generatedAt:Date.now(),events:privateEvents});}return Response.json({source:'FLOW',generatedAt:Date.now(),events:privateEvents});};
+  try{
+   await api.syncFlowCalendar({force:true});
+   assert.doesNotMatch(sqlite.prepare("SELECT events_json FROM booking_calendar_sync WHERE source='FLOW'").get().events_json,/PRIVATE EVENT|PRIVATE VENUE|PRIVATE MEMO|PRIVATE PERSON/);
+   const publicData=await(await api.publicGet(req('/api/booking/public/availability?month=2027-01&details=1','admin'))).json();
+   assert.deepEqual(publicData.busyDays,['05','06','07','08'].map(day=>({date:'2027-01-'+day,label:'예약 있음'})));assert.doesNotMatch(JSON.stringify(publicData),/private-flow-id|PRIVATE EVENT|PRIVATE VENUE|PRIVATE MEMO|PRIVATE PERSON|flowEvents/);
+   const member=await(await api.memberGet(req('/api/booking/member?month=2027-01&details=1','student'))).json();assert.deepEqual(member.busyDays,publicData.busyDays);assert.doesNotMatch(JSON.stringify(member),/private-flow-id|PRIVATE EVENT|PRIVATE VENUE|PRIVATE MEMO|PRIVATE PERSON|flowEvents/);
+   assert.ok(member.slots.filter(s=>s.startAt.startsWith('2027-01-08')).every(s=>s.blockReason==='예약 있음'&&s.displayStatus==='BLOCKED'));
+   for(const [id,who,role] of [[2,'teacher','instructor'],[3,'employee','employee']]){sqlite.prepare("INSERT INTO staff(id,name,phone_hash,phone_last4,role) VALUES (?,?,?,'0000',?)").run(id,who,who,role);sqlite.prepare("INSERT INTO sessions(token_hash,staff_id,expires_at) VALUES (?,?,'2100-01-01')").run(digest(who),id);}
+   for(const [who,status] of [['',401],['student',401],['teacher',403],['employee',403]])assert.equal((await api.calendarGet(req('/api/booking/calendar?month=2027-01&details=1',who))).status,status);
+   assert.equal(detailCalls,0);assert.equal((await api.calendarGet(req('/api/booking/calendar?month=2027-13','admin'))).status,400);
+   const response=await api.calendarGet(req('/api/booking/calendar?month=2027-01','admin'));assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/private, no-store/);assert.equal(response.headers.get('vary'),'Cookie');const admin=await response.json();assert.equal(admin.flowEvents[0].title,'PRIVATE EVENT TITLE');assert.equal(admin.flowEvents[0].location,'PRIVATE VENUE');assert.doesNotMatch(JSON.stringify(admin),/PRIVATE MEMO|PRIVATE PERSON|attendees|description/);
+   globalThis.fetch=async()=>{throw Error('detail service offline');};const outage=await(await api.calendarGet(req('/api/booking/calendar?month=2027-01','admin'))).json();assert.match(outage.detailsWarning,/불러오지/);assert.deepEqual(outage.flowEvents,[]);assert.deepEqual(await api.calendarBusyDays('2027-01'),publicData.busyDays);
+  }finally{globalThis.fetch=oldFetch;}
+ });
+ await t.test('private source snapshots are whitelisted, fresh, month-bounded and reject invalid fields',async()=>{
+  const event={id:'safe',startDate:'2027-01-05',endDate:'2027-01-05',title:'회의',startAt:'2027-01-05T10:00',endAt:'2027-01-05T11:00',allDay:false,location:'센터',description:'DROP ME'};
+  const value={source:'FLOW',view:'ADMIN',month:'2027-01',generatedAt:Date.now(),events:[event]};assert.equal(api.validateFlowDetails(value,'2027-01')[0].title,'회의');assert.ok(!('description' in api.validateFlowDetails(value,'2027-01')[0]));
+  for(const changed of [{view:undefined},{month:'2027-02'},{generatedAt:Date.now()-130000},{events:[{...event,startAt:'2027-01-06T10:00'}]},{events:[{...event,title:'x'.repeat(161)}]},{events:[{...event,allDay:'yes'}]}])assert.throws(()=>api.validateFlowDetails({...value,...changed},'2027-01'));
+ });
 });

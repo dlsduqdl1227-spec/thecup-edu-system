@@ -8,6 +8,7 @@ import { ScaEducation } from "./ScaEducation";
 import { MobileNavigation } from "./MobileNavigation";
 import { CourseLanding } from "./CourseLanding";
 import { PushNotifications } from "./PushNotifications";
+import type {BusyDay} from "../../lib/flow-calendar-view";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Member = { id: number; name: string; approvalStatus: "APPROVED" };
@@ -47,6 +48,7 @@ type BookingData = {
   enrollments: Array<{ id: number; courseName: string; stationType: string; instructorName: string; sessionMinutes: number; totalSessions: number; usedSessions: number; pendingSessions: number; confirmedSessions: number; completedSessions: number; status: string }>;
   member: Member;
   month: string;
+  busyDays?:BusyDay[];
   slots: Slot[];
   reservations: Reservation[];
   payments: Array<{ id: number; amount: number; status: string }>;
@@ -54,7 +56,7 @@ type BookingData = {
   practiceLogs: PracticeLog[];
   settings: { cancelHours: number };
 };
-type PublicAvailability = { month: string; updatedAt: string; slots: PublicSlot[]; consultationUrl: string };
+type PublicAvailability = { month: string; updatedAt: string; slots: PublicSlot[]; consultationUrl: string;busyDays?:BusyDay[] };
 type Entry = "student" | "visitor" | "consultation" | null;
 type MemberTab = "schedule" | "reservations" | "practice" | "education";
 
@@ -251,13 +253,13 @@ export function BookingPortal({ initialEntry = null, initialShowHome = false }: 
 
 function VisitorSchedule({ month, setMonth, availability }: { month: string; setMonth: (value: string) => void; availability: PublicAvailability | null }) {
   const slots = useMemo(
-    () => availability?.month === month ? availability.slots : [],
+    () => availability?.month === month ? availability.slots.filter(slot=>!availability.busyDays?.some(day=>slot.startAt.startsWith(day.date))) : [],
     [availability, month],
   );
   const dates = useMemo(() => [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))], [slots]);
   const [picked, setPicked] = useState("");
-  const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
-  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 남은 스테이션" text="예약이 가능한 날짜와 시간만 표시됩니다."><input type="month" aria-label="조회 월" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} /></SectionHeading>{availability?.month !== month && <p role="status">선택한 월의 일정을 불러오는 중입니다.</p>}<CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 승인을 받으면 본인 이름과 연락처로 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
+  const selected = picked.startsWith(month+"-") ? picked : dates[0] ?? availability?.busyDays?.find(day=>day.date.startsWith(month))?.date ?? `${month}-01`;
+  return <section id="portal-entry-content" className="portal-schedule-section"><SectionHeading eyebrow="AVAILABLE STATIONS" title="월별 예약 현황" text="예약 가능한 시간과 ‘예약 있음’ 날짜를 확인하세요. 일정의 상세 내용은 공개하지 않습니다."><input type="month" aria-label="조회 월" value={month} onChange={(event) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value); }} /></SectionHeading>{availability?.month !== month && <p role="status">선택한 월의 일정을 불러오는 중입니다.</p>}<CalendarBoard month={month} slots={slots} busyDays={availability?.month===month?availability.busyDays:[]} selected={selected} setSelected={setPicked} renderSlot={(slot) => <article className="portal-slot available" key={`${slot.stationName}-${slot.startAt}`}><div><span>{stationLabels[slot.stationType] ?? slot.stationType}</span><h3>{slot.stationName}</h3><p>{timeRange(slot)}</p></div><b>예약 가능</b></article>} /><div className="portal-guest-action"><div><strong>예약을 원하시나요?</strong><p>{availability?.consultationUrl ? "더컵에듀 카카오톡에서 바로 상담해 주세요." : "상담 후 승인을 받으면 본인 이름과 연락처로 직접 예약할 수 있습니다."}</p></div>{availability?.consultationUrl ? <a href={availability.consultationUrl}>카카오톡 상담</a> : <Link href="/?view=consultation#portal-entry-content">이용 상담 신청</Link>}</div></section>;
 }
 
 function MemberSchedule({ data, month, setMonth, reload, notify }: { data: BookingData; month: string; setMonth: (value: string) => void; reload: () => Promise<void>; notify: Notify }) {
@@ -279,7 +281,9 @@ function MemberSchedule({ data, month, setMonth, reload, notify }: { data: Booki
   // Equipment stays behind the scenes: one time choice per course, even with multiple identical stations.
   const slots = course ? [...new Map(compatibleSlots.slice().sort((a, b) => Number(a.displayStatus === "AVAILABLE") - Number(b.displayStatus === "AVAILABLE")).map(slot => [slot.startAt + slot.endAt, slot] as const)).values()].sort((a, b) => a.startAt.localeCompare(b.startAt)) : compatibleSlots;
   const dates = [...new Set(slots.map(slot => slot.startAt.slice(0, 10)))];
-  const selected = dates.includes(picked) ? picked : dates[0] ?? `${month}-01`;
+  const busyDays=data.month===month?data.busyDays??[]:[],busyDates=new Set(busyDays.map(day=>day.date));
+  const visibleSlots=slots.filter(slot=>!busyDates.has(slot.startAt.slice(0,10))||["CONFIRMED","REQUESTED"].includes(slot.displayStatus));
+  const selected = picked.startsWith(month+"-") ? picked : dates[0] ?? busyDays[0]?.date ?? `${month}-01`;
   async function reserve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requestSlot || !canRequest || submitting.current) return;
@@ -310,7 +314,7 @@ function MemberSchedule({ data, month, setMonth, reload, notify }: { data: Booki
     {data.courseBookingRequired && !courses.length ? <Empty><h2>상담과 결제 확인 후 수업을 등록해 드립니다.</h2><p>회원 승인은 완료되었습니다. 담당자가 과정·회차를 등록하면 여기에서 시간을 선택할 수 있습니다.</p><a href="http://pf.kakao.com/_XRQdn/chat" target="_blank" rel="noreferrer">카카오톡 문의 →</a></Empty> : <>
       {course ? <div className="portal-schedule-toolbar"><strong>{course.courseName}</strong><span>{course.status === "PAUSED" ? "중지된 과정입니다. 담당자에게 문의해 주세요." : remaining ? `${remaining}회 더 신청할 수 있습니다. 장비는 과목에 맞게 배정됩니다.` : "등록된 회차를 모두 신청했습니다. 내 예약에서 일정을 확인하세요."}</span></div> : <div className="portal-schedule-toolbar"><div>{["ALL","ESPRESSO","BREWING","ROASTING"].map(type => <button key={type} className={filter === type ? "active" : ""} onClick={() => setFilter(type)}>{type === "ALL" ? "전체" : stationLabels[type]}</button>)}</div><span>기존 예약 · 이용 당일 현장결제</span></div>}
       {data.month !== month && <p role="status">선택한 월의 일정을 불러오는 중입니다.</p>}
-      <CalendarBoard month={month} slots={slots} selected={selected} setSelected={setPicked} available={slot => canRequest && slot.displayStatus === "AVAILABLE"} renderSlot={slot => <article className={`portal-slot ${slot.displayStatus.toLowerCase()}`} key={slot.id}><div><span>{course ? "수업 시간" : stationLabels[slot.stationType]}</span><h3>{timeRange(slot)}</h3><p>{course ? course.courseName : slot.stationName}</p></div><b>{slotLabels[slot.displayStatus]}</b>{canRequest && slot.displayStatus === "AVAILABLE" && <button onClick={() => { setSaveError(""); setRequestSlot(slot); }}>이 시간 신청</button>}</article>} />
+      <CalendarBoard month={month} slots={visibleSlots} busyDays={busyDays} selected={selected} setSelected={setPicked} available={slot => canRequest && slot.displayStatus === "AVAILABLE"} renderSlot={slot => <article className={`portal-slot ${slot.displayStatus.toLowerCase()}`} key={slot.id}><div><span>{course ? "수업 시간" : stationLabels[slot.stationType]}</span><h3>{timeRange(slot)}</h3><p>{course ? course.courseName : slot.stationName}</p></div><b>{slotLabels[slot.displayStatus]}</b>{canRequest && slot.displayStatus === "AVAILABLE" && <button onClick={() => { setSaveError(""); setRequestSlot(slot); }}>이 시간 신청</button>}</article>} />
       {course && <p className="learning-footnote">승인 대기 중인 신청도 회차에 포함합니다. 취소·거절 시 회차가 복구되며, 완료·노쇼는 소진 처리됩니다. 수업 시간·취소 규정은 상담 시 안내를 확인해 주세요.</p>}
     </>}
     {requestSlot && <AccessibleDialog label="수업 예약 신청" busy={saving} onClose={() => setRequestSlot(null)}><form className="portal-modal" onSubmit={reserve}>
@@ -328,12 +332,13 @@ function MemberSchedule({ data, month, setMonth, reload, notify }: { data: Booki
   </>;
 }
 
-function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelected, renderSlot, available = () => true }: { month: string; slots: T[]; selected: string; setSelected: (date: string) => void; renderSlot: (slot: T) => ReactNode; available?: (slot: T) => boolean }) {
+function CalendarBoard<T extends PublicSlot>({ month, slots, busyDays=[], selected, setSelected, renderSlot, available = () => true }: { month: string; slots: T[]; busyDays?:BusyDay[]; selected: string; setSelected: (date: string) => void; renderSlot: (slot: T) => ReactNode; available?: (slot: T) => boolean }) {
   const days = calendarCells(month);
-  const dates = [...new Set(slots.map((slot) => slot.startAt.slice(0, 10)))];
+  const busy=new Set(busyDays.filter(day=>day.date.startsWith(month+"-")).map(day=>day.date));
+  const dates = [...new Set([...slots.map((slot) => slot.startAt.slice(0, 10)),...busy])].sort();
   const daySlots = slots.filter((slot) => slot.startAt.startsWith(selected));
-  const countForDate = (date: string) => slots.filter((slot) => slot.startAt.startsWith(date) && available(slot)).length;
-  const availableCount = slots.filter(available).length;
+  const countForDate = (date: string) => busy.has(date)?0:slots.filter((slot) => slot.startAt.startsWith(date) && available(slot)).length;
+  const availableCount = slots.filter(slot=>!busy.has(slot.startAt.slice(0,10))&&available(slot)).length;
   return (
     <>
       <div className={availableCount ? "portal-availability-summary has-availability" : "portal-availability-summary"} aria-live="polite">
@@ -344,7 +349,7 @@ function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelect
       <div className="portal-mobile-dates">
         {dates.map((date) => {
           const count = countForDate(date);
-          return <button key={date} className={[selected === date ? "active" : "", count ? "has-availability" : ""].filter(Boolean).join(" ")} aria-pressed={selected === date} aria-label={`${longDate(date)}, 예약 가능 ${count}개`} onClick={() => setSelected(date)}><b>{date.slice(8)}</b><span>{weekday(date)}</span><small>{count ? `${count}개` : "마감"}</small></button>;
+          return <button key={date} className={[selected === date ? "active" : "", count ? "has-availability" : "",busy.has(date)?"has-busy":""].filter(Boolean).join(" ")} aria-pressed={selected === date} aria-label={`${longDate(date)}, ${busy.has(date)?"예약 있음":`예약 가능 ${count}개`}`} onClick={() => setSelected(date)}><b>{date.slice(8)}</b><span>{weekday(date)}</span><small>{busy.has(date)?"예약 있음":count ? `${count}개` : "마감"}</small></button>;
         })}
       </div>
       <div className="portal-calendar-layout">
@@ -354,11 +359,11 @@ function CalendarBoard<T extends PublicSlot>({ month, slots, selected, setSelect
             {days.map((day, index) => day === null ? <span key={`blank-${index}`} /> : (() => {
               const date = `${month}-${String(day).padStart(2, "0")}`;
               const count = countForDate(date);
-              return <button key={day} className={[selected === date ? "active" : "", count ? "has-availability" : ""].filter(Boolean).join(" ")} aria-pressed={selected === date} aria-label={`${longDate(date)}, 예약 가능 ${count}개`} onClick={() => setSelected(date)}><b>{day}</b>{count > 0 && <small>{count}개</small>}</button>;
+              return <button key={day} className={[selected === date ? "active" : "", count ? "has-availability" : "",busy.has(date)?"has-busy":""].filter(Boolean).join(" ")} aria-pressed={selected === date} aria-label={`${longDate(date)}, ${busy.has(date)?"예약 있음":`예약 가능 ${count}개`}`} onClick={() => setSelected(date)}><b>{day}</b>{busy.has(date)?<small>예약 있음</small>:count > 0 && <small>{count}개</small>}</button>;
             })())}
           </div>
         </div>
-        <aside className="portal-day-panel"><header><span>선택일</span><h2>{longDate(selected)}</h2></header><div>{daySlots.length ? daySlots.map(renderSlot) : <Empty>이 날짜에는 남아 있는 스테이션이 없습니다.</Empty>}</div></aside>
+        <aside className="portal-day-panel"><header><span>선택일</span><h2>{longDate(selected)}</h2></header><div>{busy.has(selected)&&<article className="portal-busy-notice"><strong>예약 있음</strong><p>이 날짜는 예약할 수 없습니다. 일정의 상세 내용은 공개하지 않습니다.</p></article>}{daySlots.length ? daySlots.map(renderSlot) : !busy.has(selected)&&<Empty>이 날짜에는 남아 있는 스테이션이 없습니다.</Empty>}</div></aside>
       </div>
     </>
   );

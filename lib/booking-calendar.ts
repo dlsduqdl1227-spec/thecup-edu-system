@@ -3,6 +3,8 @@ import { AuthError } from "./auth";
 import { getD1 } from "./db";
 import { calendarClosedSQL, operatingValidSQL } from "./booking-calendar-schema";
 import { automaticTimes, koreanToday, operatingDayReason, operatingHolidays, operatingTimeReason, rollingMonths } from "./operating-calendar";
+import {validateBookingMonth} from "./booking";
+import {maskFlowDays,monthDates,type FlowCalendarEvent} from "./flow-calendar-view";
 
 type CalendarEnv = { FLOW_CALENDAR_SECRET?: string; BOOKING_AUTOMATION_ENABLED?: string; FLOW_CALENDAR?: { fetch: typeof fetch } };
 const settings = () => env as unknown as CalendarEnv;
@@ -10,6 +12,13 @@ export type FlowBlock = { id: string; startDate: string; endDate: string };
 type SyncRow = { events_json: string; source_revision: number; synced_at: string | null; attempted_at: string | null; last_error: string };
 const sourceURL = "https://monthlycoffee-flow.pages.dev/api/integrations/thecup-edu/calendar";
 const privateFailure = "FLOW 연결을 확인하지 못했습니다. 기존 차단은 유지됩니다.";
+async function flowJSON(response:Response,maxBytes=1500000){
+  if(!response.ok)throw new Error("Calendar source unavailable");
+  const reader=response.body?.getReader();if(!reader)throw new Error("Empty calendar source");
+  const decoder=new TextDecoder();let text="",bytes=0;
+  for(;;){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>maxBytes){await reader.cancel();throw new Error("Calendar source too large");}text+=decoder.decode(value,{stream:true});}
+  return JSON.parse(text+decoder.decode()) as unknown;
+}
 
 export async function hasCalendarSecret(request: Request) {
   const expected = settings().FLOW_CALENDAR_SECRET;
@@ -34,6 +43,38 @@ export function validateFlowSnapshot(value: unknown, now = Date.now()): { revisi
   });
   return { revision: data.generatedAt!, events };
 }
+export function validateFlowDetails(value:unknown,month:string,now=Date.now()):FlowCalendarEvent[]{
+  const data=value as {view?:string;month?:string;events?:Array<Record<string,unknown>>};
+  const snapshot=validateFlowSnapshot(value,now),dates=monthDates(month);
+  if(data.view!=="ADMIN"||data.month!==month||snapshot.events.length>1000)throw new Error("Invalid private calendar snapshot");
+  const localDate=(value:unknown)=>{
+    if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?(Z|[+-]\d{2}:\d{2})?)?$/.test(value))throw new Error("Invalid private event time");
+    const time=Date.parse(value.length===10?value+"T12:00:00Z":/[Zz]|[+-]\d{2}:\d{2}$/.test(value)?value:value+"+09:00");
+    if(!Number.isFinite(time)||!validDate(value.slice(0,10)))throw new Error("Invalid private event time");
+    return new Date(time+9*3600000).toISOString().slice(0,10);
+  };
+  return snapshot.events.map((block,index)=>{
+    const row=data.events![index];
+    if(typeof row.title!=="string"||!row.title.trim()||Array.from(row.title).length>160||typeof row.location!=="string"||Array.from(row.location).length>120||typeof row.allDay!=="boolean"
+      ||block.endDate<dates[0]||block.startDate>dates[dates.length-1]||localDate(row.startAt)!==block.startDate||(row.endAt===null?block.startDate:localDate(row.endAt))!==block.endDate)throw new Error("Invalid private event fields");
+    return {...block,title:row.title,startAt:row.startAt as string,endAt:row.endAt as string|null,allDay:row.allDay,location:row.location};
+  });
+}
+export async function flowCalendarDetails(month:string){
+  validateBookingMonth(month);
+  const secret=settings().FLOW_CALENDAR_SECRET;
+  if(!secret)return {flowEvents:[] as FlowCalendarEvent[],detailsWarning:""};
+  try{
+    const sourceFetch=settings().FLOW_CALENDAR?.fetch.bind(settings().FLOW_CALENDAR)??fetch;
+    const response=await sourceFetch(sourceURL+`?details=1&month=${month}`,{headers:{Authorization:`Bearer ${secret}`},cache:"no-store",redirect:"manual",signal:AbortSignal.timeout(7000)});
+    return {flowEvents:validateFlowDetails(await flowJSON(response,2000000),month),detailsWarning:""};
+  }catch{return {flowEvents:[] as FlowCalendarEvent[],detailsWarning:"FLOW 일정 내용을 불러오지 못했습니다. 기존 예약 차단은 유지됩니다."};}
+}
+export async function calendarBusyDays(month:string){
+  validateBookingMonth(month);
+  const row=await getD1().prepare("SELECT events_json FROM booking_calendar_sync WHERE source='FLOW'").first<{events_json:string}>();
+  return maskFlowDays(month,row?JSON.parse(row.events_json) as FlowBlock[]:[]);
+}
 export async function syncFlowCalendar({ force = false, required = false } = {}) {
   const secret = settings().FLOW_CALENDAR_SECRET;
   if (!secret) return { configured: false, ok: true };
@@ -49,14 +90,7 @@ export async function syncFlowCalendar({ force = false, required = false } = {})
     const response = await sourceFetch(sourceURL, { headers: { Authorization: `Bearer ${secret}` }, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(7000) });
     if (!response.ok) { failureCode = `HTTP ${response.status}`; throw new Error("Calendar source unavailable"); }
     failureCode = "SNAPSHOT";
-    // Bound the body before JSON parsing, including chunked responses.
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("Empty calendar source");
-    let text = "", bytes = 0;
-    const decoder = new TextDecoder();
-    for (;;) { const { done, value } = await reader.read(); if (done) break; bytes += value.length; if (bytes > 1500000) { await reader.cancel(); throw new Error("Calendar source too large"); } text += decoder.decode(value, { stream: true }); }
-    text += decoder.decode();
-    const snapshot = validateFlowSnapshot(JSON.parse(text));
+    const snapshot = validateFlowSnapshot(await flowJSON(response));
     failureCode = "SAVE";
     await db.prepare(`INSERT INTO booking_calendar_sync(source,events_json,source_revision,synced_at,attempted_at,last_error)
       VALUES ('FLOW',?,?,?,?, '') ON CONFLICT(source) DO UPDATE SET events_json=excluded.events_json,

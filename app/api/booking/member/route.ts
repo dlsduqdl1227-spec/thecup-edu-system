@@ -14,7 +14,7 @@ import { audit, ensureDatabase, getD1 } from "../../../../lib/db";
 import { assertSameOrigin, jsonError } from "../../../../lib/http";
 import { requireMember } from "../../../../lib/member-auth";
 import { memberEnrollments } from "../../../../lib/learning";
-import { assertCalendarSlotOpen, effectiveSlot, prepareBookingCalendar } from "../../../../lib/booking-calendar";
+import { assertCalendarSlotOpen, calendarBusyDays, effectiveSlot, prepareBookingCalendar } from "../../../../lib/booking-calendar";
 import { flowBlockedSQL } from "../../../../lib/booking-calendar-schema";
 import { env } from "cloudflare:workers";
 
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
       stationName: slot.stationName,
       startAt: slot.startAt,
       endAt: slot.endAt,
-      blockReason: slot.slotStatus === "BLOCKED" ? slot.blockReason : "",
+      blockReason: slot.flowBlocked ? "예약 있음" : slot.slotStatus === "BLOCKED" ? slot.blockReason : "",
       displayStatus: Number(slot.ownConfirmed) ? "CONFIRMED" : slot.slotStatus === "BLOCKED" || !isFutureSlot(slot.startAt)
         ? "BLOCKED"
         : Number(slot.ownRequested)
@@ -146,6 +146,7 @@ export async function GET(request: Request) {
       ...await memberEnrollments(member.id),
       instructorConflicts: instructorConflicts.results,
       month,
+      busyDays:await calendarBusyDays(month),
       slots,
       reservations: reservationsResult.results,
       payments: paymentsResult.results,
