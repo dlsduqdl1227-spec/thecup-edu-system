@@ -33,7 +33,8 @@ const worker = {
     if(pathname==="/sw.js"){headers.set("Cache-Control","no-cache, no-store, must-revalidate");headers.set("Service-Worker-Allowed","/");}
     const publicGet = request.method === "GET" && (pathname.startsWith("/api/public/") || pathname.startsWith("/api/booking/public/"));
     if (pathname.startsWith("/api/") && !publicGet) headers.set("Cache-Control", "private, no-store");
-    if (pathname === "/admin") headers.set("X-Robots-Tag", "noindex, nofollow");
+    if (pathname === "/admin" || pathname === "/education/print") headers.set("X-Robots-Tag", "noindex, nofollow");
+    if (pathname === "/education/print") headers.set("Cache-Control", "private, no-store");
     if (pathname === "/embed/course-openings") {
       headers.delete("X-Frame-Options");
       headers.delete("Cross-Origin-Opener-Policy");
